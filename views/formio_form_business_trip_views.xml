@@ -1,0 +1,361 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+      <record id="view_formio_form_tree_business_trip" model="ir.ui.view">
+        <field name="name">formio.form.tree.business.trip</field>
+        <field name="model">formio.form</field>
+        <field name="arch" type="xml">
+          <tree string="Forms"
+                decoration-info="state in ('DRAFT')"
+                decoration-success="state in ('COMPLETE')"
+                decoration-muted="state in ('CANCEL')"
+                decoration-danger="trip_status in ('manager_rejected', 'finance_rejected', 'rejected')"
+                decoration-warning="trip_status in ('manager_review', 'finance_review')"
+                decoration-primary="trip_status in ('manager_approved', 'finance_approved', 'approved')">
+            <field name="id"/>
+            <field name="uuid" optional="hide"/>
+            <field name="sequence" optional="hide"/>
+            <field name="title"/>
+            <field name="builder_id"/>
+            <field name="user_id"/>
+            <field name="manager_id"/>
+            <field name="submission_partner_id"/>
+            <field name="submission_date"/>
+            <field name="travel_start_date"/>
+            <field name="travel_end_date"/>
+            <field name="state"/>
+            <field name="trip_status"/>
+            <field name="final_total_cost"/>
+            <field name="currency_id"/>
+            <button string="Form" class="btn-sm btn-secondary" name="action_view_formio" type="object"/>
+            <field name="portal_share" optional="show"/>
+            <field name="public_share" optional="show"/>
+            <field name="public_access" optional="show"/>
+            <field name="public_create" optional="hide"/>
+            <field name="res_model_name" string="Resource Type" optional="show"/>
+            <field name="initial_res_model_name" string="Resource Type #1" optional="hide"/>
+            <field name="res_name" optional="show"/>
+            <field name="res_partner_id" optional="show"/>
+            <field name="write_date" optional="hide"/>
+            <field name="create_date" optional="hide"/>
+          </tree>
+        </field>
+      </record>
+      
+      <!-- My Business Trip Forms -->
+      <record id="view_formio_form_tree_my_business_trip" model="ir.ui.view">
+        <field name="name">formio.form.tree.my.business.trip</field>
+        <field name="model">formio.form</field>
+        <field name="arch" type="xml">
+          <tree string="My Business Trip Forms"
+                js_class="my_business_trip_forms_view"
+                decoration-info="state in ('DRAFT')"
+                decoration-success="state in ('COMPLETE')"
+                decoration-muted="state in ('CANCEL')"
+                decoration-danger="trip_status in ('manager_rejected', 'finance_rejected', 'rejected')"
+                decoration-warning="trip_status in ('manager_review', 'finance_review')"
+                decoration-primary="trip_status in ('manager_approved', 'finance_approved', 'approved')">
+            <field name="title"/>
+            <field name="sale_order_id"/>
+            <field name="res_name" optional="show"/>
+            <field name="travel_start_date"/>
+            <field name="travel_end_date"/>
+            <field name="state"/>
+            <field name="trip_status"/>
+            <field name="final_total_cost"/>
+            <field name="submission_date"/>
+            <field name="create_date"/>
+            <button string="Open Form" class="btn-sm btn-primary" name="action_view_formio" type="object"/>
+          </tree>
+        </field>
+      </record>
+    
+      <!-- Full Form View for Business Trip Forms -->
+      <record id="view_formio_form_form_business_trip" model="ir.ui.view">
+        <field name="name">formio.form.form.business.trip</field>
+        <field name="model">formio.form</field>
+        <field name="arch" type="xml">
+          <form string="Form">
+            <header>
+              <!-- FormIO standard buttons -->
+              <button name="action_send_invitation_mail" type="object" string="Send Invitation Mail"
+                      groups="formio.group_formio_user_all_forms"
+                      attrs="{'invisible': ['|', '|', ('user_id', '=', False), ('id', '=', False), ('state', 'not in', ['PENDING', 'DRAFT'])]}"
+                      class="btn-primary"/>
+              <button name="action_draft" type="object" string="Draft"
+                      attrs="{'invisible': ['|', ('state', 'in', ['PENDING', 'DRAFT']), ('allow_force_update_state', '=', False)]}"/>
+              <button name="action_reset_trip_to_draft" type="object" string="Reset Trip to Draft"
+                      attrs="{'invisible': ['|', ('trip_status', 'in', ['draft', 'in_progress', 'returned', 'completed']), ('allow_force_update_state', '=', False)]}"
+                      groups="formio.group_formio_admin,base.group_system"
+                      class="btn-warning"/>
+              <button name="action_complete" type="object" string="Complete"
+                      attrs="{'invisible': ['|', ('state', '!=', 'DRAFT'), ('allow_force_update_state', '=', False)]}"/>
+              <button name="action_cancel" type="object" string="Cancel"
+                      attrs="{'invisible': ['|', ('state', 'in', ['CANCEL']), ('allow_force_update_state', '=', False)]}"/>
+              <button name="action_copy_to_current" type="object" string="Copy To Current"
+                      attrs="{'invisible': ['|', ('allow_copy', '=', False), ('copy_to_current', '=', False)]}"/>
+              
+              <!-- Form state status bar -->
+              <field name="state" widget="statusbar" statusbar_visible="PENDING,DRAFT,COMPLETE,CANCEL"/>
+            </header>
+            
+            <!-- Trip state status bar in a separate header - shown only when state is COMPLETE -->
+            <header attrs="{'invisible': [('state', '!=', 'COMPLETE')]}">
+              <!-- Debug Buttons - در یک گروه برای مدیریت بهتر -->
+              <div groups="base.group_system">
+                <button string="Reset Trip to Draft" type="object" name="action_reset_trip_to_draft" 
+                        class="btn-warning"
+                        attrs="{'invisible': [('trip_status', 'in', ['draft', 'in_progress', 'returned', 'completed'])]}"/>
+                <button string="Show Status Values" type="object" name="debug_show_status" 
+                        class="btn-info"
+                        attrs="{'invisible': [('state', '=', False)]}"/>
+                <button string="Show Required Fields" type="object" name="debug_show_required_fields" 
+                        class="btn-info"
+                        attrs="{'invisible': [('state', '=', False)]}"/>
+                <button string="Set Status: Manager Review" type="object" name="debug_set_to_manager_review" 
+                        class="btn-secondary oe_highlight"
+                        attrs="{'invisible': [('state', '!=', 'COMPLETE')]}"/>
+                <button string="Set Status: Finance Review" type="object" name="debug_set_to_finance_review" 
+                        class="btn-secondary oe_highlight"
+                        attrs="{'invisible': [('state', '!=', 'COMPLETE')]}"/>
+                <button string="Set Status: Approved" type="object" name="debug_set_to_approved" 
+                        class="btn-secondary oe_highlight"
+                        attrs="{'invisible': [('state', '!=', 'COMPLETE')]}"/>
+                <button string="Reset to Previous Step" type="object" name="action_reset_status"
+                        class="btn-warning oe_highlight"
+                        attrs="{'invisible': [('state', '!=', 'COMPLETE')]}"/>
+                <button string="Force Change Status" type="object" name="debug_force_trip_status"
+                        class="btn-danger oe_highlight"
+                        attrs="{'invisible': [('state', '!=', 'COMPLETE')]}"/>
+              </div>
+                      
+              <!-- Business Trip specific buttons -->
+              <!-- Submit for approval -->
+              <button name="action_submit" type="object" string="Submit for Approval" 
+                      class="oe_highlight" 
+                      attrs="{'invisible': [('trip_status', '!=', 'draft')]}"
+                      help="Submit this business trip request for manager approval"/>
+              
+              <!-- Edit required fields -->
+              <button name="action_edit_required_fields" type="object" string="Edit Required Fields" 
+                      class="btn-secondary" 
+                      attrs="{'invisible': [('trip_status', '!=', 'draft')]}"
+                      help="Edit required fields for business trip request"/>
+              
+              <!-- دکمه‌های مدیر و بخش مالی -->
+              <button name="action_approve_manager" type="object" string="Approve (Manager)" 
+                      class="oe_highlight" 
+                      attrs="{'invisible': ['|', ('trip_status', '!=', 'submitted'), 
+                                          '|', ('manager_id', '=', False), 
+                                          ('state', '!=', 'COMPLETE')]}"
+                      groups="hr.group_hr_manager,base.group_erp_manager,base.group_system"/>
+
+              <button name="action_reject_manager" type="object" string="Reject (Manager)" 
+                      class="btn-danger" 
+                      attrs="{'invisible': ['|', ('trip_status', '!=', 'submitted'), 
+                                          '|', ('manager_id', '=', False), 
+                                          ('state', '!=', 'COMPLETE')]}"
+                      groups="hr.group_hr_manager,base.group_erp_manager,base.group_system"/>
+
+              <button name="action_approve_finance" type="object" string="Approve (Finance)" 
+                      class="oe_highlight" 
+                      attrs="{'invisible': ['|', ('trip_status', '!=', 'manager_approved'), 
+                                          '|', ('finance_approver_id', '=', False), 
+                                          ('state', '!=', 'COMPLETE')]}"
+                      groups="account.group_account_manager,base.group_system"/>
+
+              <button name="action_reject_finance" type="object" string="Reject (Finance)" 
+                      class="btn-danger" 
+                      attrs="{'invisible': ['|', ('trip_status', '!=', 'manager_approved'), 
+                                          '|', ('finance_approver_id', '=', False), 
+                                          ('state', '!=', 'COMPLETE')]}"
+                      groups="account.group_account_manager,base.group_system"/>
+              
+              <!-- Travel tracking buttons -->
+              <button name="action_start_trip" type="object" string="Start Trip"
+                      class="btn-primary oe_highlight"
+                      attrs="{'invisible': ['|', ('trip_status', '!=', 'approved'), '|', ('user_id', '=', False), ('state', '!=', 'COMPLETE')]}"/>
+              
+              <button name="action_return_from_trip" type="object" string="Return from Trip"
+                      class="btn-info oe_highlight"
+                      attrs="{'invisible': ['|', ('trip_status', '!=', 'in_progress'), '|', ('user_id', '=', False), ('state', '!=', 'COMPLETE')]}"/>
+              
+              <!-- Expense submission buttons -->
+              <button name="action_submit_expenses" type="object" string="Submit Expenses"
+                      class="btn-primary oe_highlight"
+                      attrs="{'invisible': ['|', ('trip_status', 'not in', ['returned', 'expense_waiting']), '|', ('user_id', '=', False), ('state', '!=', 'COMPLETE')]}"/>
+              
+              <!-- Expense approval button - ادغام شده با مجوزهای مناسب -->
+              <button name="action_approve_expenses" type="object" string="Approve Expenses" 
+                      class="oe_highlight" 
+                      attrs="{'invisible': ['|', ('trip_status', '!=', 'expense_waiting'), 
+                                          '|', ('finance_approver_id', '=', False), 
+                                          ('state', '!=', 'COMPLETE')]}"
+                      groups="account.group_account_manager,base.group_system"/>
+              
+              <!-- Cancel trip -->
+              <button name="action_cancel_trip" type="object" string="Cancel Trip"
+                      class="btn-danger"
+                      attrs="{'invisible': ['|', ('trip_status', 'in', ['in_progress', 'returned', 'completed', 'cancelled']), ('state', '!=', 'COMPLETE')]}"
+                      groups="base.group_user"/>
+                      
+              <field name="trip_status" invisible="1"/>
+              <field name="trip_status" widget="statusbar" 
+                     statusbar_visible="draft,submitted,manager_review,manager_approved,finance_review,approved,in_progress,returned,completed"/>
+            </header>
+            <sheet>
+              <div class="oe_button_box" name="button_box">
+                <button name="action_view_formio" type="object" string="Form"
+                        class="oe_stat_button" icon="fa-rocket" aria-label="Form"/>
+                <button name="action_open_res_act_window" type="object"
+                        attrs="{'invisible': ['|', ('res_id', '=', False), ('res_id', '=', 0)]}"
+                        class="oe_stat_button" icon="fa-link" aria-label="Resource">
+                  <field name="res_name"/>
+                </button>
+              </div>
+              <h1><field name="title" attrs="{'invisible': [('builder_id', '=', False)]}"/></h1>
+              <group name="general">
+                <group>
+                  <field name="res_name" string="Resource" attrs="{'invisible': [('res_name', '=', False)]}"/>
+                  <field name="builder_id" attrs="{'readonly': [('id', '!=', False)]}"/>
+                </group>
+                <group>
+                  <field name="id" attrs="{'invisible': [('id', '=', False)]}"/>
+                  <field name="uuid" attrs="{'invisible': [('id', '=', False)]}"/>
+                  <field name="res_id" invisible="1"/>
+                  <field name="allow_force_update_state" invisible="1"/>
+                </group>
+              </group>
+              <group name="assignment_and_submission">
+                <group attrs="{'invisible': [('builder_id', '=', False)]}">
+                  <field name="invitation_mail_template_id" invisible="1"/>
+                  <field name="user_id" groups="formio.group_formio_user_all_forms" attrs="{'readonly': [('state', 'in', ['COMPLETE', 'CANCEL'])]}"/>
+                  <field name="submission_partner_id" string="Submission Partner"/>
+                  <field name="submission_user_id" groups="base.group_erp_manager" string="Submission User"/>
+                  <field name="submission_date" string="Submission Date"/>
+                </group>
+              </group>
+              <group name="business_trip">
+                <group string="Trip Details">
+                  <field name="travel_start_date" readonly="1"/>
+                  <field name="travel_end_date" readonly="1"/>
+                  <field name="final_total_cost" attrs="{'readonly': [('trip_status', 'not in', ['expense_waiting', 'completed']), ('expense_approved_by', '!=', False)]}" groups="account.group_account_manager,base.group_system"/>
+                  <field name="currency_id" attrs="{'readonly': [('trip_status', 'not in', ['draft', 'submitted'])]}" options="{'no_create': True, 'no_open': True}"/>
+                  <field name="trip_status" groups="base.group_system" readonly="1"/>
+                </group>
+                <group string="Approval Information">
+                  <field name="manager_id" options="{'no_create': True, 'no_open': True}" 
+                         attrs="{'readonly': [('trip_status', 'not in', ['draft', 'submitted'])]}"
+                         groups="base.group_system,base.group_erp_manager"/>
+                  <field name="manager_approval_date" readonly="1"/>
+                  <field name="manager_comments" 
+                         attrs="{'readonly': [('trip_status', 'not in', ['draft', 'submitted', 'manager_review'])]}"
+                         groups="base.group_erp_manager,base.group_system"/>
+                  <field name="finance_approver_id" options="{'no_create': True, 'no_open': True}" 
+                         attrs="{'readonly': [('trip_status', 'not in', ['manager_approved'])]}"
+                         groups="account.group_account_manager,base.group_system"/>
+                  <field name="finance_approval_date" readonly="1"/>
+                  <field name="finance_comments" 
+                         attrs="{'readonly': [('trip_status', 'not in', ['manager_approved', 'finance_review'])]}"
+                         groups="account.group_account_manager,base.group_system"/>
+                </group>
+              </group>
+              <notebook>
+                <page string="Expenses" name="expenses" attrs="{'invisible': [('trip_status', 'not in', ['in_progress', 'returned', 'expense_waiting', 'completed'])]}">
+                  <group>
+                    <group>
+                      <field name="expense_total" attrs="{'readonly': ['|', ('trip_status', 'not in', ['returned', 'expense_waiting']), ('expense_approved_by', '!=', False)]}"/>
+                      <field name="expense_approval_date" readonly="1"/>
+                      <field name="expense_approved_by" readonly="1"/>
+                    </group>
+                    <group>
+                      <field name="expense_comments" 
+                             attrs="{'readonly': ['|', ('trip_status', 'not in', ['returned', 'expense_waiting']), ('expense_approved_by', '!=', False)]}"/>
+                    </group>
+                  </group>
+                  <field name="expense_attachment_ids" widget="many2many_binary" string="Expense Receipts" 
+                         attrs="{'readonly': ['|', ('trip_status', 'not in', ['returned', 'expense_waiting']), ('expense_approved_by', '!=', False)]}"/>
+                </page>
+                <page string="Settings" name="settings">
+                  <group>
+                    <group name="access_settings" string="Access">
+                      <field name="public_share" groups="formio.group_formio_admin"/>
+                      <field name="public_access_date_from" groups="formio.group_formio_admin" attrs="{'required': [('public_share', '=', True)]}"/>
+                      <label for="public_access_interval_number" string="Public Access Expire"/>
+                      <div>
+                        <field name="public_access_interval_number" class="oe_inline" groups="formio.group_formio_admin" attrs="{'required': [('public_share', '=', True)]}"/>
+                        <field name="public_access_interval_type" class="oe_inline ml-2" groups="formio.group_formio_admin" attrs="{'required': [('public_share', '=', True)]}"/>
+                      </div>
+                      <field name="public_access" groups="formio.group_formio_admin"/>
+                    </group>
+                    <group name="actions_settings" string="Actions">
+                      <field name="allow_copy" groups="formio.group_formio_admin"/>
+                      <field name="copy_to_current" groups="formio.group_formio_admin" attrs="{'invisible': [('allow_copy', '=', False)]}"/>
+                    </group>
+                    <group string="Display" name="display_settings" col="4">
+                      <field name="show_title" groups="formio.group_formio_admin" attrs="{'invisible': [('builder_id', '=', False)]}"/>
+                      <field name="show_id" string="Show ID" groups="formio.group_formio_admin" attrs="{'invisible': [('builder_id', '=', False)]}"/>
+                      <field name="show_state" groups="formio.group_formio_admin" attrs="{'invisible': [('builder_id', '=', False)]}"/>
+                      <field name="show_uuid" string="Show UUID" groups="formio.group_formio_admin" attrs="{'invisible': [('builder_id', '=', False)]}"/>
+                      <field name="show_user_metadata" groups="formio.group_formio_admin" attrs="{'invisible': [('builder_id', '=', False)]}"/>
+                    </group>
+                  </group>
+                </page>
+                <page string="Data" name="data" groups="formio.group_formio_admin">
+                  <field name="submission_data" attrs="{'readonly': ['|', ('id', '!=', False), ('readonly_submission_data', '=', True)]}"/>
+                  <field name="readonly_submission_data" invisible="1"/>
+                  <field name="id" invisible="1"/>
+                </page>
+              </notebook>
+            </sheet>
+            <div class="oe_chatter">
+              <field name="message_follower_ids" widget="mail_followers"/>
+              <field name="activity_ids" widget="mail_activity"/>
+              <field name="message_ids" widget="mail_thread"/>
+            </div>
+          </form>
+        </field>
+      </record>
+    
+      <!-- Action for Business Trip Forms -->
+      <record id="action_view_business_trip_forms" model="ir.actions.act_window">
+        <field name="name">Business Trip Forms</field>
+        <field name="res_model">formio.form</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+          (0, 0, {'view_mode': 'tree', 'view_id': ref('custom_business_trip_management.view_formio_form_tree_business_trip')}),
+          (0, 0, {'view_mode': 'form', 'view_id': ref('custom_business_trip_management.view_formio_form_form_business_trip')})]"/>
+      </record>
+      
+      <!-- Action for My Business Trip Forms -->
+      <record id="action_view_my_business_trip_forms" model="ir.actions.act_window">
+        <field name="name">My Business Trip Forms</field>
+        <field name="res_model">formio.form</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('user_id', '=', uid)]</field>
+        <field name="context">{'create': False}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+          (0, 0, {'view_mode': 'tree', 'view_id': ref('custom_business_trip_management.view_formio_form_tree_my_business_trip')}),
+          (0, 0, {'view_mode': 'form', 'view_id': ref('custom_business_trip_management.view_formio_form_form_business_trip')})]"/>
+        <field name="help" type="html">
+          <p class="o_view_nocontent_smiling_face">
+            No business trip forms found
+          </p>
+          <p>
+            Create a new business trip form by clicking on the "Create New Request" button.
+          </p>
+        </field>
+      </record>
+    
+      <menuitem id="menu_view_business_trip_forms"
+        name="Business Trip Forms"
+        parent="menu_business_trip_root"
+        action="custom_business_trip_management.action_view_business_trip_forms"
+        sequence="1"
+        groups="base.group_system"/>
+        
+      <menuitem id="menu_view_my_business_trip_forms"
+        name="My Business Trip Forms"
+        parent="menu_business_trip_root"
+        action="custom_business_trip_management.action_view_my_business_trip_forms"
+        sequence="2"/>
+</odoo>
