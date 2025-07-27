@@ -1,8 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_business_trip_all,business.trip.all,model_custom_business_trip_management_business_trip,base.group_user,1,1,1,0
-access_business_trip_manager,business.trip.manager,model_custom_business_trip_management_business_trip,base.group_system,1,1,1,1
-access_ir_model_portal_read,access_ir_model_portal_read,base.model_ir_model,base.group_portal,1,0,0,0
-access_business_trip_form_user,business.trip.form.user,model_business_trip_form,base.group_user,1,1,1,0
-access_business_trip_form_manager,business.trip.form.manager,model_business_trip_form,base.group_system,1,1,1,1
-access_formio_form_trip_status_wizard,access_formio_form_trip_status_wizard,model_formio_form_trip_status_wizard,base.group_system,1,1,1,1
-access_formio_form_required_fields_wizard,access_formio_form_required_fields_wizard,model_formio_form_required_fields_wizard,base.group_user,1,1,1,1
