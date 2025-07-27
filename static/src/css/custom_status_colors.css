@@ -1,0 +1,444 @@
+/* Custom Status Bar Colors for Business Trip Management */
+
+/* 
+ * IMPORTANT: Only the currently active status should have color.
+ * Odoo uses the 'aria-checked="true"' attribute for the active button.
+ * All other buttons should remain default gray color.
+ */
+
+/* Change color for form state CANCEL to dark red - ONLY when active */
+.o_statusbar_status button.o_arrow_button[data-value="CANCEL"][aria-checked="true"] {
+    background-color: #dc3545 !important; /* Bootstrap red */
+    color: #fff !important;
+    border-color: #dc3545 !important;
+}
+
+/* Change color for "Expenses Returned for Revision" to orange - ONLY when active */
+.o_statusbar_status button.o_arrow_button[data-value="expense_returned"][aria-checked="true"] {
+    background-color: #fd7e14 !important; /* Bootstrap orange */
+    color: #fff !important;
+    border-color: #fd7e14 !important;
+}
+
+/* Change color for "Returned to Employee" to orange - ONLY when active */
+.o_statusbar_status button.o_arrow_button[data-value="returned"][aria-checked="true"] {
+    background-color: #fd7e14 !important; /* Bootstrap orange */
+    color: #fff !important;
+    border-color: #fd7e14 !important;
+}
+
+/* Change color for cancelled to dark red - ONLY when active */
+.o_statusbar_status button.o_arrow_button[data-value="cancelled"][aria-checked="true"] {
+    background-color: #dc3545 !important; /* Bootstrap red */
+    color: #fff !important;
+    border-color: #dc3545 !important;
+}
+
+/* Change color for rejected to dark red - ONLY when active */
+.o_statusbar_status button.o_arrow_button[data-value="rejected"][aria-checked="true"] {
+    background-color: #dc3545 !important; /* Bootstrap red */
+    color: #fff !important;
+    border-color: #dc3545 !important;
+}
+
+/* Change color for completed stages to green - ONLY when active */
+.o_statusbar_status button.o_arrow_button[data-value="COMPLETE"][aria-checked="true"],
+.o_statusbar_status button.o_arrow_button[data-value="organization_done"][aria-checked="true"],
+.o_statusbar_status button.o_arrow_button[data-value="completed"][aria-checked="true"] {
+    background-color: #28a745 !important; /* Bootstrap green */
+    color: #fff !important;
+    border-color: #28a745 !important;
+}
+
+/* Make "TRAVEL PROCESS COMPLETED" status bold */
+.o_statusbar_status button.o_arrow_button[data-value="completed"] {
+    font-weight: bold !important;
+}
+
+/* Change color for submitted/under review stages to blue - ONLY when active */
+.o_statusbar_status button.o_arrow_button[data-value="submitted"][aria-checked="true"],
+.o_statusbar_status button.o_arrow_button[data-value="expense_submitted"][aria-checked="true"] {
+    background-color: #007bff !important; /* Bootstrap blue */
+    color: #fff !important;
+    border-color: #007bff !important;
+}
+
+/* Change color for in progress stages to purple - ONLY when active */
+.o_statusbar_status button.o_arrow_button[data-value="in_progress"][aria-checked="true"],
+.o_statusbar_status button.o_arrow_button[data-value="pending_organization"][aria-checked="true"] {
+    background-color: #6f42c1 !important; /* Bootstrap purple */
+    color: #fff !important;
+    border-color: #6f42c1 !important;
+}
+
+/* Ensure non-active status buttons remain gray */
+.o_statusbar_status button.o_arrow_button:not([aria-checked="true"]) {
+    background-color: #e9ecef !important; /* Bootstrap gray-200 */
+    color: #495057 !important;
+    border-color: #ced4da !important;
+}
+
+/* Badge colors for status display */
+.o_status[data-value="expense_returned"],
+.badge[data-value="expense_returned"],
+.o_status[data-value="returned"],
+.badge[data-value="returned"] {
+    background-color: #fd7e14 !important;
+    color: #fff !important;
+}
+
+/* Badge colors for cancelled status */
+.o_status[data-value="cancelled"],
+.badge[data-value="cancelled"],
+.o_status[data-value="CANCEL"],
+.badge[data-value="CANCEL"] {
+    background-color: #dc3545 !important; /* Bootstrap red */
+    color: #fff !important;
+}
+
+/* Badge colors for rejected status */
+.o_status[data-value="rejected"],
+.badge[data-value="rejected"] {
+    background-color: #dc3545 !important; /* Bootstrap red */
+    color: #fff !important;
+}
+
+/* Hover states for status buttons */
+.o_statusbar_status button.o_arrow_button[data-value="expense_returned"]:hover,
+.o_statusbar_status button.o_arrow_button[data-value="returned"]:hover {
+    background-color: #e56c0a !important; /* Darker orange */
+    color: #fff !important;
+    border-color: #e56c0a !important;
+}
+
+/* Hover state for cancelled status */
+.o_statusbar_status button.o_arrow_button[data-value="cancelled"]:hover,
+.o_statusbar_status button.o_arrow_button[data-value="CANCEL"]:hover {
+    background-color: #c82333 !important; /* Darker red */
+    color: #fff !important;
+    border-color: #bd2130 !important;
+}
+
+/* Hover state for rejected status */
+.o_statusbar_status button.o_arrow_button[data-value="rejected"]:hover {
+    background-color: #c82333 !important; /* Darker red */
+    color: #fff !important;
+    border-color: #bd2130 !important;
+}
+
+.o_statusbar_status button.o_arrow_button[data-value="COMPLETE"]:hover,
+.o_statusbar_status button.o_arrow_button[data-value="organization_done"]:hover,
+.o_statusbar_status button.o_arrow_button[data-value="completed"]:hover {
+    background-color: #218838 !important; /* Darker green */
+    color: #fff !important;
+    border-color: #1e7e34 !important;
+}
+
+.o_statusbar_status button.o_arrow_button[data-value="submitted"]:hover,
+.o_statusbar_status button.o_arrow_button[data-value="expense_submitted"]:hover {
+    background-color: #0069d9 !important; /* Darker blue */
+    color: #fff !important;
+    border-color: #0062cc !important;
+}
+
+.o_statusbar_status button.o_arrow_button[data-value="in_progress"]:hover,
+.o_statusbar_status button.o_arrow_button[data-value="pending_organization"]:hover {
+    background-color: #6610f2 !important; /* Darker purple */
+    color: #fff !important;
+    border-color: #6610f2 !important;
+}
+
+/* Existing status colors */
+.field_state_new .badge {
+    background-color: #e3f2fd !important;
+    color: #1976d2 !important;
+}
+
+.field_state_submitted .badge {
+    background-color: #fff3e0 !important;
+    color: #f57c00 !important;
+}
+
+.field_state_approved .badge {
+    background-color: #e8f5e8 !important;
+    color: #388e3c !important;
+}
+
+.field_state_rejected .badge {
+    background-color: #ffebee !important;
+    color: #d32f2f !important;
+}
+
+/* Custom Modal Button Text Styles */
+
+/* Option 1: Hide original text and show custom text */
+.custom-modal-text .btn:contains("Click to set value") {
+    font-size: 0;
+}
+
+.custom-modal-text .btn:contains("Click to set value"):after {
+    content: "برای تنظیم مقدار کلیک کنید";
+    font-size: 14px;
+    color: inherit;
+}
+
+/* Option 2: Using attribute selector for more specificity */
+.custom-modal-persian button[title*="Click to set value"]:after {
+    content: "برای تنظیم مقدار کلیک کنید";
+    font-size: 0;
+}
+
+.custom-modal-persian button[title*="Click to set value"] {
+    font-size: 0;
+}
+
+/* Option 3: Target specific modal edit buttons */
+.custom-modal-edit .modal-edit-btn {
+    font-size: 0 !important;
+}
+
+.custom-modal-edit .modal-edit-btn:before {
+    content: "ویرایش اطلاعات";
+    font-size: 14px;
+    color: #fff;
+    background-color: #007bff;
+    padding: 6px 12px;
+    border-radius: 4px;
+}
+
+/* Option 4: General modal button override */
+.formio-component-columns .custom-modal-fa button {
+    visibility: hidden;
+    position: relative;
+}
+
+.formio-component-columns .custom-modal-fa button:after {
+    visibility: visible;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    content: "برای تنظیم مقدار کلیک کنید";
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #6c757d;
+    color: white;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+/* Option 5: More specific targeting */
+.business-trip-modal .btn-secondary {
+    text-indent: -9999px;
+    line-height: 0;
+}
+
+.business-trip-modal .btn-secondary:after {
+    content: "open";
+    text-indent: 0;
+    display: block;
+    line-height: initial;
+}
+
+/* RTL Support for Persian text */
+.custom-modal-fa,
+.custom-modal-persian {
+    direction: rtl;
+    text-align: right;
+}
+
+.custom-modal-fa button,
+.custom-modal-persian button {
+    direction: rtl;
+    text-align: center;
+} 
+
+/* ===== BUSINESS TRIP STATUS COLORS ===== */
+
+/* Base styling for all trip status badges */
+.o_data_row .o_field_badge .badge {
+    border-radius: 12px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    padding: 4px 8px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    border: 1px solid transparent !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* ===== BLUE FAMILY (Info) - Draft & In Progress ===== */
+.o_data_row.decoration-info .badge,
+.o_data_row .o_field_badge .badge.decoration-info {
+    background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%) !important;
+    color: #ffffff !important;
+    border-color: #357ABD !important;
+}
+
+/* Sub-groups within Blue family */
+.o_data_row.decoration-info .badge[data-value="draft"],
+.o_data_row.decoration-info .o_field_badge .badge:contains("Draft") {
+    background: linear-gradient(135deg, #64B5F6 0%, #42A5F5 100%) !important; /* Light Blue */
+    border-color: #42A5F5 !important;
+}
+
+.o_data_row.decoration-info .badge[data-value="in_progress"],
+.o_data_row.decoration-info .o_field_badge .badge:contains("In Progress") {
+    background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%) !important; /* Dark Blue */
+    border-color: #1565C0 !important;
+}
+
+/* ===== GREEN FAMILY (Success) - Only Completed ===== */
+.o_data_row.decoration-success .badge,
+.o_data_row .o_field_badge .badge.decoration-success {
+    background: linear-gradient(135deg, #27AE60 0%, #229954 100%) !important;
+    color: #ffffff !important;
+    border-color: #229954 !important;
+}
+
+/* ===== PURPLE FAMILY (Primary) - Organization Done & Completed Waiting Expense ===== */
+.o_data_row.decoration-primary .badge,
+.o_data_row .o_field_badge .badge.decoration-primary {
+    background: linear-gradient(135deg, #8E44AD 0%, #7D3C98 100%) !important;
+    color: #ffffff !important;
+    border-color: #7D3C98 !important;
+}
+
+/* Sub-groups within Purple family */
+.o_data_row.decoration-primary .badge[data-value="organization_done"],
+.o_data_row.decoration-primary .o_field_badge .badge:contains("Organization Done") {
+    background: linear-gradient(135deg, #AB47BC 0%, #9C27B0 100%) !important; /* Light Purple */
+    border-color: #9C27B0 !important;
+}
+
+.o_data_row.decoration-primary .badge[data-value="completed_waiting_expense"],
+.o_data_row.decoration-primary .o_field_badge .badge:contains("Completed Waiting Expense") {
+    background: linear-gradient(135deg, #6A1B9A 0%, #4A148C 100%) !important; /* Dark Purple */
+    border-color: #4A148C !important;
+}
+
+/* ===== ORANGE/YELLOW FAMILY (Warning) - Multiple Sub-groups ===== */
+.o_data_row.decoration-warning .badge,
+.o_data_row .o_field_badge .badge.decoration-warning {
+    background: linear-gradient(135deg, #F39C12 0%, #E67E22 100%) !important;
+    color: #ffffff !important;
+    border-color: #E67E22 !important;
+}
+
+/* Sub-groups within Orange/Yellow family */
+.o_data_row.decoration-warning .badge[data-value="submitted"],
+.o_data_row.decoration-warning .o_field_badge .badge:contains("Submitted") {
+    background: linear-gradient(135deg, #FFC107 0%, #FFB300 100%) !important; /* Bright Yellow */
+    border-color: #FFB300 !important;
+    color: #000000 !important;
+}
+
+.o_data_row.decoration-warning .badge[data-value="pending_organization"],
+.o_data_row.decoration-warning .o_field_badge .badge:contains("Pending Organization") {
+    background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%) !important; /* Orange */
+    border-color: #F57C00 !important;
+}
+
+.o_data_row.decoration-warning .badge[data-value="awaiting_trip_start"],
+.o_data_row.decoration-warning .o_field_badge .badge:contains("Awaiting Trip Start") {
+    background: linear-gradient(135deg, #FF8F00 0%, #FF6F00 100%) !important; /* Dark Yellow */
+    border-color: #FF6F00 !important;
+}
+
+.o_data_row.decoration-warning .badge[data-value="expense_submitted"],
+.o_data_row.decoration-warning .o_field_badge .badge:contains("Expense Submitted") {
+    background: linear-gradient(135deg, #F57C00 0%, #EF6C00 100%) !important; /* Dark Orange */
+    border-color: #EF6C00 !important;
+}
+
+.o_data_row.decoration-warning .badge[data-value="returned"],
+.o_data_row.decoration-warning .o_field_badge .badge:contains("Returned") {
+    background: linear-gradient(135deg, #FF6B35 0%, #FF5722 100%) !important; /* Orange Red */
+    border-color: #FF5722 !important;
+}
+
+.o_data_row.decoration-warning .badge[data-value="expense_returned"],
+.o_data_row.decoration-warning .o_field_badge .badge:contains("Expense Returned") {
+    background: linear-gradient(135deg, #E64A19 0%, #D84315 100%) !important; /* Dark Orange Red */
+    border-color: #D84315 !important;
+}
+
+/* ===== RED FAMILY (Danger) - Rejected ===== */
+.o_data_row.decoration-danger .badge,
+.o_data_row .o_field_badge .badge.decoration-danger {
+    background: linear-gradient(135deg, #E74C3C 0%, #C0392B 100%) !important;
+    color: #ffffff !important;
+    border-color: #C0392B !important;
+}
+
+/* ===== GRAY FAMILY (Muted) - Cancelled ===== */
+.o_data_row.decoration-muted .badge,
+.o_data_row .o_field_badge .badge.decoration-muted {
+    background: linear-gradient(135deg, #95A5A6 0%, #7F8C8D 100%) !important;
+    color: #ffffff !important;
+    border-color: #7F8C8D !important;
+}
+
+/* ===== HOVER EFFECTS ===== */
+.o_data_row .o_field_badge .badge:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* ===== RESPONSIVE ADJUSTMENTS ===== */
+@media (max-width: 768px) {
+    .o_data_row .o_field_badge .badge {
+        font-size: 10px !important;
+        padding: 3px 6px !important;
+    }
+}
+
+/* ===== ACCESSIBILITY IMPROVEMENTS ===== */
+.o_data_row .o_field_badge .badge {
+    min-width: 60px !important;
+    text-align: center !important;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .o_data_row .o_field_badge .badge {
+        border-width: 2px !important;
+    }
+}
+
+/* ===== ADDITIONAL VISUAL ENHANCEMENTS ===== */
+
+/* Add subtle animation */
+.o_data_row .o_field_badge .badge {
+    animation: fadeIn 0.3s ease-in-out !important;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(2px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Status-specific icons (if supported) */
+.o_data_row .o_field_badge .badge:before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 4px;
+    background: rgba(255, 255, 255, 0.8);
+}
+
+/* Remove icon for muted status */
+.o_data_row.decoration-muted .badge:before {
+    display: none;
+} 

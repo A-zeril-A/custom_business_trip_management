@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1"> <!-- noupdate="1" means these records won't be updated on module update unless the ID changes -->
+
+        <!-- Example Airport 1 -->
+        <record id="airport_lhr" model="business.trip.airport">
+            <field name="name">London Heathrow Airport</field>
+            <field name="code">LHR</field>
+            <field name="city">London</field>
+            <field name="country_id" ref="base.uk"/> <!-- Example: Link to UK country record -->
+        </record>
+
+        <!-- Example Airport 2 -->
+        <record id="airport_jfk" model="business.trip.airport">
+            <field name="name">John F. Kennedy International Airport</field>
+            <field name="code">JFK</field>
+            <field name="city">New York</field>
+            <field name="country_id" ref="base.us"/> <!-- Example: Link to US country record -->
+        </record>
+
+    </data>
+</odoo> 

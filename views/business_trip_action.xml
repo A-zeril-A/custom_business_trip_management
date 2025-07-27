@@ -15,4 +15,69 @@
         <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
         <field name="active" eval="False"/>
     </record>
+    
+    <!-- Action for all assigned business trip forms (for any role) -->
+    <record id="action_all_assigned_business_trip_forms" model="ir.actions.act_window">
+        <field name="name">Assigned to Me</field>
+        <field name="res_model">formio.form</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">['|', 
+                              ('user_id', '=', uid), 
+                              '|',
+                              '&amp;', ('manager_id', '=', uid), ('trip_status', '!=', 'draft'),
+                              ('organizer_id', '=', uid)
+                             ]</field>
+        <field name="view_id" ref="custom_business_trip_management.view_formio_form_tree_all_assigned_business_trip"/>
+        <field name="search_view_id" ref="custom_business_trip_management.view_formio_form_search_assigned_business_trip"/>
+        <field name="context">{'default_res_model': 'formio.form'}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+          (0, 0, {'view_mode': 'tree', 'view_id': ref('custom_business_trip_management.view_formio_form_tree_all_assigned_business_trip')}),
+          (0, 0, {'view_mode': 'form', 'view_id': ref('custom_business_trip_management.view_formio_form_form_business_trip')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No business trips assigned to you
+            </p>
+            <p>
+                Business trips assigned to you in any role (employee, manager, or organizer) will appear here.
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu for all assigned business trip forms -->
+    <record id="menu_all_assigned_business_trip_forms" model="ir.ui.menu">
+        <field name="name">Assigned to Me</field>
+        <field name="parent_id" ref="menu_business_trip_root"/>
+        <field name="action" ref="action_all_assigned_business_trip_forms"/>
+        <field name="sequence">1</field>
+        <field name="groups_id" eval="[(4, ref('base.group_system')), (4, ref('custom_business_trip_management.group_business_trip_manager')), (4, ref('custom_business_trip_management.group_business_trip_organizer'))]"/>
+    </record>
+    
+    <!-- Action for organizer assigned business trip forms -->
+    <record id="action_organizer_assigned_business_trip_forms" model="ir.actions.act_window">
+        <field name="name">Assigned Business Trips</field>
+        <field name="res_model">formio.form</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">[('organizer_id', '=', uid)]</field>
+        <field name="context">{'default_res_model': 'formio.form', 'default_organizer_id': uid}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+          (0, 0, {'view_mode': 'tree', 'view_id': ref('custom_business_trip_management.view_formio_form_tree_organizer_business_trip')}),
+          (0, 0, {'view_mode': 'form', 'view_id': ref('custom_business_trip_management.view_formio_form_form_business_trip')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No assigned business trips found
+            </p>
+            <p>
+                Business trips assigned to you for organization will appear here.
+            </p>
+        </field>
+    </record>
+
+    <!-- Custom action to open formio form in our module -->
+    <record id="action_business_trip_formio_form" model="ir.actions.act_window">
+        <field name="name">Business Trip Request</field>
+        <field name="res_model">formio.form</field>
+        <field name="view_mode">formio_form</field>
+        <field name="target">current</field>
+        <field name="context">{'custom_business_trip': True}</field>
+    </record>
 </odoo>

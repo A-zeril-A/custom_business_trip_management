@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Default Project for Business Trip Organization -->
+        <record id="default_trip_organization_project" model="project.project">
+            <field name="name">Business Trip Organization</field>
+            <field name="allow_timesheets">True</field>
+            <!-- You can set a default user/manager if needed -->
+            <!-- <field name="user_id" ref="base.user_admin"/> -->
+            <field name="privacy_visibility">followers</field>
+        </record>
+    </data>
+</odoo> 

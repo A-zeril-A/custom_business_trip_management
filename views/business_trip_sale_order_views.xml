@@ -23,7 +23,10 @@
         <field name="view_mode">tree</field>
         <field name="view_id" ref="view_sale_order_tree_trip_redirect_custom"/>
         <field name="domain">[('state', 'in', ['draft', 'sent', 'sale'])]</field>
-        <field name="context">{'custom_trip_context': True}</field>
+        <field name="context">{
+            'search_default_my_quotation': 0,
+            'custom_trip_context': True
+        }</field>
     </record>
 
     <record id="menu_select_quotation_for_trip" model="ir.ui.menu">
@@ -31,5 +34,6 @@
         <field name="parent_id" ref="custom_business_trip_management.menu_business_trip_root"/>
         <field name="action" ref="action_sale_order_trip_custom"/>
         <field name="sequence">3</field>
+        <field name="active" eval="False"/>
     </record>
 </odoo>

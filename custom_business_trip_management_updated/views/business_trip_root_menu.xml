@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="action_business_trip_entry" model="ir.actions.act_url">
+        <field name="name">Business Trip Entry</field>
+        <field name="url">/business_trip/entry</field>
+        <field name="target">self</field>
+    </record>
+
+    <record id="menu_business_trip_root" model="ir.ui.menu">
+        <field name="name">Business Trip Management</field>
+        <field name="action" ref="action_business_trip_entry"/>
+        <field name="web_icon">custom_business_trip_management,static/description/icon.png</field>
+        <field name="sequence">90</field>
+        <field name="groups_id" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+</odoo>

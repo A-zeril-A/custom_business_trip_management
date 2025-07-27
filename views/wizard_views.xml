@@ -1,0 +1,517 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Trip Details Wizard Form View -->
+    <record id="view_business_trip_details_wizard_form" model="ir.ui.view">
+        <field name="name">business.trip.details.wizard.form</field>
+        <field name="model">business.trip.details.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Edit Trip Details">
+                <sheet>
+                    <group>
+                        <field name="form_id" invisible="1"/>
+                        <field name="destination" required="1"/>
+                        <field name="purpose" required="1"/>
+                        <field name="is_hourly_trip" />
+                    </group>
+                    
+                    <group>
+                        <group string="Trip Dates" attrs="{'invisible': [('is_hourly_trip', '=', True)]}">
+                            <field name="travel_start_date" required="1"/>
+                            <field name="travel_end_date" required="1" attrs="{'readonly': [('is_hourly_trip', '=', True)]}"/>
+                        </group>
+                        <group string="Same Day Trip" attrs="{'invisible': [('is_hourly_trip', '=', False)]}">
+                            <field name="travel_start_date" required="1" string="Date"/>
+                            <field name="travel_start_time" widget="float_time"/>
+                            <field name="travel_end_time" widget="float_time"/>
+                        </group>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_save" string="Save" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+    
+    <!-- Cost Estimation Wizard Form View -->
+    <record id="view_business_trip_cost_wizard_form" model="ir.ui.view">
+        <field name="name">business.trip.cost.wizard.form</field>
+        <field name="model">business.trip.cost.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Cost Estimation">
+                <sheet>
+                    <group>
+                        <field name="form_id" invisible="1"/>
+                        <field name="expected_cost" required="1"/>
+                        <field name="currency_id" options="{'no_create': True, 'no_open': True}" required="1"/>
+                        <field name="estimation_comments" placeholder="Enter any notes about this cost estimation..."/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_save" string="Save" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Expense Submission Wizard Form View -->
+    <record id="view_business_trip_expense_submission_wizard_form" model="ir.ui.view">
+        <field name="name">business.trip.expense.submission.wizard.form</field>
+        <field name="model">business.trip.expense.submission.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Submit Travel Expenses">
+                <sheet>
+                    <div class="alert alert-info" role="alert">
+                        <i class="fa fa-info-circle mr-2" title="Information"></i>
+                        <span>If you had no additional expenses during your trip, please check the "No Expenses to Submit" box.</span>
+                    </div>
+                    <group>
+                        <field name="form_id" invisible="1"/>
+                        <field name="has_no_expenses" />
+                        <field name="expense_total" required="1" attrs="{'readonly': [('has_no_expenses', '=', True)]}"/>
+                        <field name="currency_id" readonly="1" force_save="1"/>
+                        <field name="expense_comments" placeholder="Enter any comments regarding the travel expenses..."/>
+                        <field name="expense_attachment_ids" widget="many2many_binary" string="Attach Receipts" attrs="{'required': [('expense_total', '>', 0)]}"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_apply" string="Submit" type="object" class="btn-primary" data-hotkey="q"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel" data-hotkey="z"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Return Comment Wizard Form View -->
+    <record id="view_business_trip_return_comment_wizard_form" model="ir.ui.view">
+        <field name="name">business.trip.return.comment.wizard.form</field>
+        <field name="model">business.trip.return.comment.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Return with Comments">
+                <sheet>
+                    <group>
+                        <field name="form_id" invisible="1"/>
+                        <field name="return_comments" required="1" placeholder="Enter comments for returning the request..."/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_apply" string="Return Request" type="object" class="btn-primary" data-hotkey="q"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel" data-hotkey="z"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Rejection Wizard Form View -->
+    <record id="view_business_trip_rejection_wizard_form" model="ir.ui.view">
+        <field name="name">business.trip.rejection.wizard.form</field>
+        <field name="model">business.trip.rejection.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Reject Business Trip Request">
+                <sheet>
+                    <group>
+                        <field name="form_id" invisible="1"/>
+                        <field name="rejection_reason" required="1"/>
+                        <field name="rejection_comment" placeholder="Enter details for the rejection (optional)..."/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_apply" string="Reject Request" type="object" class="btn-danger" data-hotkey="q"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel" data-hotkey="z"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Expense Return Comment Wizard Form View -->
+    <record id="view_business_trip_expense_return_comment_wizard_form" model="ir.ui.view">
+        <field name="name">business.trip.expense.return.comment.wizard.form</field>
+        <field name="model">business.trip.expense.return.comment.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Return Travel Expenses">
+                <sheet>
+                    <div class="alert alert-warning" role="alert">
+                        <i class="fa fa-exclamation-triangle mr-2" title="Warning"></i>
+                        <span>The travel expenses will be returned to the employee for revision. Please provide clear feedback on what needs to be corrected.</span>
+                    </div>
+                    <group>
+                        <field name="form_id" invisible="1"/>
+                        <field name="expense_return_comments" required="1" placeholder="Explain what changes are needed in the expense report..."/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_apply" string="Return Travel Expenses" type="object" class="btn-warning" data-hotkey="q"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel" data-hotkey="z"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Wizard for Assigning Organizer and Budget -->
+    <record id="view_business_trip_assign_organizer_wizard_form" model="ir.ui.view">
+        <field name="name">business.trip.assign.organizer.wizard.form</field>
+        <field name="model">business.trip.assign.organizer.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Assign Organizer and Budget">
+                <group>
+                    <field name="form_id" invisible="1"/>
+                    <field name="manager_id" readonly="1" options="{'no_open': True}"/>
+                    <field name="manager_max_budget" placeholder="Leave empty to assign organizer without setting budget"/>
+                    <field name="organizer_id" options="{'no_create': True, 'no_open': True}" context="{'active_test': False}"/>
+                    <field name="assignment_comments" placeholder="Enter any initial comments or instructions for the organizer..."/>
+                </group>
+                <footer>
+                    <button name="action_save_organizer_only" string="Save (Preliminary)" type="object" class="btn-primary"
+                            help="Assign organizer without finalizing budget. Budget will be determined later after discussion."/>
+                    <button name="action_assign_organizer_and_budget" string="Save &amp; Confirm" type="object" class="btn-success"
+                            help="Save with budget and organizer, finalizing the assignment."/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action for Trip Plan Item Attachments -->
+    <record id="attachment_action" model="ir.actions.act_window">
+        <field name="name">Attachments</field>
+        <field name="res_model">ir.attachment</field>
+        <field name="view_mode">kanban,tree,form</field>
+        <field name="domain">[('res_model', '=', 'business.trip.plan.line.item'), ('res_id', '=', active_id)]</field>
+        <field name="context">{'default_res_model': 'business.trip.plan.line.item', 'default_res_id': active_id}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Add attachments for this plan item
+            </p>
+        </field>
+    </record>
+
+    <!-- Business Trip Organizer Plan Wizard -->
+    <record id="view_business_trip_organizer_plan_wizard_form" model="ir.ui.view">
+        <field name="name">business.trip.organizer.plan.wizard.form</field>
+        <field name="model">business.trip.organizer.plan.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Edit Trip Plan">
+                <sheet>
+                    <div class="alert alert-info" role="alert" style="margin-bottom: 10px;">
+                        <i class="fa fa-info-circle mr-2" title="Planning Guide"></i>
+                        <span>To create a travel plan:</span>
+                        <ul>
+                            <li><strong>Either add travel items OR provide overall plan details in the Additional Notes tab</strong></li>
+                            <li>You can add items without cost or enter the total cost manually</li>
+                            <li>Use the wide variety of predefined item types or create your own custom items</li>
+                            <li>Add detailed information like booking references, carrier details, and travel times</li>
+                            <li>Specify payment methods and cost status for each item</li>
+                            <li>Upload documents related to each item by clicking on the attachment icon on the right side of the row</li>
+                            <li>Upload tickets and documents needed by the employee in the "Employee Documents" tab</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Budget information -->
+                    <div class="row mt-2 mb-4">
+                        <div class="col-md-4">
+                            <div class="h5 d-flex align-items-center">
+                                <span class="mr-2">Max Budget:</span>
+                                <span class="badge badge-info">
+                                    <field name="manager_max_budget" widget="monetary" options="{'currency_field': 'currency_id'}" class="h5"/>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="h5 d-flex align-items-center">
+                                <span class="mr-2">Total Planned:</span>
+                                <span t-attf-class="badge {{over_budget ? 'badge-danger' : 'badge-success'}}">
+                                    <field name="organizer_planned_cost" widget="monetary" options="{'currency_field': 'currency_id'}" class="h5" readonly="1"/>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="h5 d-flex align-items-center">
+                                <span class="mr-2">Difference:</span>
+                                <span t-attf-class="badge {{budget_difference >= 0 ? 'badge-success' : 'badge-danger'}}">
+                                    <field name="budget_difference" widget="monetary" options="{'currency_field': 'currency_id'}" class="h5"/>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Manual cost option -->
+                    <div class="row mb-4 mt-2">
+                        <div class="col-12">
+                            <div class="custom-control custom-switch">
+                                <field name="manual_cost_entry" widget="boolean_toggle" class="mr-2"/>
+                                <label for="manual_cost_entry">Enter Total Cost Manually</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4" attrs="{'invisible': [('manual_cost_entry', '=', False)]}">
+                            <div class="mt-2">
+                                <label for="manual_planned_cost" class="mr-2">Manual Total Cost:</label>
+                                <field name="manual_planned_cost" widget="monetary" options="{'currency_field': 'currency_id'}" class="oe_inline"/>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Hidden fields -->
+                    <field name="form_id" invisible="1"/>
+                    <field name="currency_id" invisible="1"/>
+                    <field name="over_budget" invisible="1"/>
+                    
+                    <!-- Travel Items -->
+                    <notebook>
+                        <page string="Travel Plan Items">
+                            <div class="alert alert-info" role="alert" style="margin-bottom: 10px;">
+                                <i class="fa fa-info-circle mr-2" title="Information"></i>
+                                <span><strong>How to use this tab:</strong> Add your travel items here by clicking "Add a new item". Enter all required information for each item type.</span>
+                                <ul class="mt-1 mb-0">
+                                    <li>For <strong>Air Travel</strong>, <strong>Train</strong> and <strong>Bus</strong>: "From", "To" and date are required fields</li>
+                                    <li>For <strong>Accommodation</strong>: Type and number of nights are required</li>
+                                    <li>Use the detailed form view for additional item options by clicking on a row after saving it</li>
+                                </ul>
+                            </div>
+                            
+                            <!-- Item summary -->
+                            <div class="row mt-2 mb-3">
+                                <div class="col-md-4">
+                                    <div class="d-flex align-items-center">
+                                        <span class="mr-2">Transport:</span>
+                                        <span class="badge badge-info">
+                                            <field name="transport_count"/> items
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="d-flex align-items-center">
+                                        <span class="mr-2">Accommodation:</span>
+                                        <span class="badge badge-info">
+                                            <field name="accommodation_count"/> items
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="d-flex align-items-center">
+                                        <span class="mr-2">Other:</span>
+                                        <span class="badge badge-info">
+                                            <field name="other_count"/> items
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <field name="plan_item_ids" context="{'default_item_date': context.get('default_item_date')}" editable="bottom">
+                                <tree editable="bottom" create="1" delete="1" decoration-info="cost_status=='estimated'" decoration-success="cost_status=='confirmed'" decoration-muted="cost_status=='to_reimburse'">
+                                    <control>
+                                        <create string="Add a new item"/>
+                                        <field name="item_type" invisible="1"/>
+                                    </control>
+                                    <field name="item_type" widget="selection" required="1"/>
+                                    <field name="custom_type" attrs="{'invisible': [('item_type', '!=', 'custom')], 'required': [('item_type', '=', 'custom')]}"/>
+                                    <field name="description" required="1"/>
+                                    <field name="item_date" required="1"/>
+                                    <field name="direction" widget="selection" 
+                                           attrs="{'column_invisible': [('parent.plan_item_ids', '=', [])], 'invisible': [('item_type', 'not in', ['transport_air', 'transport_train', 'transport_bus', 'transport_car', 'transport_taxi', 'transport_other'])]}"/>
+                                    <field name="from_location" 
+                                           attrs="{'column_invisible': [('parent.plan_item_ids', '=', [])], 'invisible': [('item_type', 'not in', ['transport_air', 'transport_train', 'transport_bus', 'transport_taxi', 'transport_other'])],
+                                                  'required': [('item_type', 'in', ['transport_air', 'transport_train', 'transport_bus'])]}"/>
+                                    <field name="to_location" 
+                                           attrs="{'column_invisible': [('parent.plan_item_ids', '=', [])], 'invisible': [('item_type', 'not in', ['transport_air', 'transport_train', 'transport_bus', 'transport_taxi', 'transport_other'])],
+                                                  'required': [('item_type', 'in', ['transport_air', 'transport_train', 'transport_bus'])]}"/>
+                                    <field name="accommodation_type" 
+                                           attrs="{'column_invisible': [('parent.plan_item_ids', '=', [])], 'invisible': [('item_type', 'not in', ['accommodation', 'accommodation_airbnb'])],
+                                                  'required': [('item_type', 'in', ['accommodation', 'accommodation_airbnb'])]}"/>
+                                    <field name="nights" 
+                                           attrs="{'column_invisible': [('parent.plan_item_ids', '=', [])], 'invisible': [('item_type', 'not in', ['accommodation', 'accommodation_airbnb'])],
+                                                  'required': [('item_type', 'in', ['accommodation', 'accommodation_airbnb'])]}"/>
+                                    <field name="carrier" 
+                                           attrs="{'column_invisible': [('parent.plan_item_ids', '=', [])], 'invisible': [('item_type', 'not in', ['transport_air', 'transport_train', 'transport_bus'])]}"/>
+                                    <field name="reference_number" 
+                                           attrs="{'column_invisible': [('parent.plan_item_ids', '=', [])], 'invisible': [('item_type', 'not in', ['transport_air', 'transport_train', 'transport_bus', 'accommodation', 'accommodation_airbnb'])]}"/>
+                                    <field name="cost" sum="Total"/>
+                                    <field name="payment_method" attrs="{'column_invisible': [('parent.plan_item_ids', '=', [])]}"/>
+                                    <field name="cost_status" attrs="{'column_invisible': [('parent.plan_item_ids', '=', [])]}"/>
+                                    <field name="currency_id" invisible="1"/>
+                                    <button name="%(attachment_action)d" type="action" 
+                                            icon="fa-paperclip" 
+                                            context="{'default_res_model': 'business.trip.plan.line.item', 'default_res_id': id}"
+                                            attrs="{'invisible': [('id', '=', False)]}"/>
+                                    <button name="edit_item" string="Edit Details" type="object" class="btn btn-sm btn-link" 
+                                            attrs="{'invisible': [('id', '=', False)]}" 
+                                            icon="fa-edit"/>
+                                </tree>
+                                <form>
+                                    <sheet>
+                                        <div class="oe_title">
+                                            <h1>
+                                                <field name="description" placeholder="Description..."/>
+                                            </h1>
+                                        </div>
+                                        
+                                        <!-- Item type selection with better visibility -->
+                                        <div class="alert alert-info" role="alert">
+                                            <strong>Item Type:</strong> 
+                                            <field name="item_type" widget="radio" options="{'horizontal': true}" style="margin-left: 10px;"/>
+                                            <field name="custom_type" attrs="{'invisible': [('item_type', '!=', 'custom')], 'required': [('item_type', '=', 'custom')]}" placeholder="Specify custom type..." style="margin-left: 10px;"/>
+                                        </div>
+                                        
+                                        <group>
+                                            <group>
+                                                <field name="item_date" required="1"/>
+                                                <!-- Show direction prominently for transport types -->
+                                                <field name="direction" widget="selection" attrs="{'invisible': [('item_type', 'not in', ['transport_air', 'transport_train', 'transport_bus', 'transport_taxi', 'transport_other'])], 'required': [('item_type', 'in', ['transport_air', 'transport_train', 'transport_bus', 'transport_taxi'])]}"/>
+                                            </group>
+                                            <group>
+                                                <field name="cost"/>
+                                                <field name="cost_status" widget="selection"/>
+                                                <field name="payment_method" widget="selection"/>
+                                                <field name="currency_id" invisible="1"/>
+                                            </group>
+                                        </group>
+                                        
+                                        <!-- Type-specific detail sections with better organization -->
+                                        
+                                        <!-- Transport common fields (only visible for transport types) -->
+                                        <group string="Transport Details" attrs="{'invisible': [('item_type', 'not in', ['transport_air', 'transport_train', 'transport_bus', 'transport_car', 'transport_taxi', 'transport_other'])]}">
+                                            <group>
+                                                <field name="from_location" placeholder="Origin location" attrs="{'required': [('item_type', 'in', ['transport_air', 'transport_train', 'transport_bus'])]}"/>
+                                                <field name="to_location" placeholder="Destination location" attrs="{'required': [('item_type', 'in', ['transport_air', 'transport_train', 'transport_bus'])]}"/>
+                                            </group>
+                                            <group>
+                                                <field name="carrier" placeholder="e.g. Airline, Train Company" attrs="{'invisible': [('item_type', 'not in', ['transport_air', 'transport_train', 'transport_bus', 'transport_car'])]}"/>
+                                                <field name="reference_number" placeholder="Booking reference, ticket number" attrs="{'invisible': [('item_type', 'not in', ['transport_air', 'transport_train', 'transport_bus', 'transport_car', 'accommodation', 'accommodation_airbnb'])]}"/>
+                                            </group>
+                                        </group>
+                                        
+                                        <!-- Flight specific fields -->
+                                        <group string="Flight Specific Details" attrs="{'invisible': [('item_type', '!=', 'transport_air')]}">
+                                            <group>
+                                                <label for="departure_time" string="Flight Times"/>
+                                                <div class="o_row">
+                                                    <field name="departure_time" widget="float_time" placeholder="Dep. Time" class="oe_inline"/>
+                                                    <span class="mx-2">→</span>
+                                                    <field name="arrival_time" widget="float_time" placeholder="Arr. Time" class="oe_inline"/>
+                                                </div>
+                                                <field name="travel_class"/>
+                                            </group>
+                                            <group>
+                                                <field name="flight_number_widget" string="Flight Number" placeholder="e.g. EK789"/>
+                                                <field name="terminal_info_widget" string="Terminal/Gate" placeholder="e.g. Terminal 2, Gate B12"/>
+                                                <field name="layovers_widget" string="Layovers" placeholder="e.g. Istanbul (2h)"/>
+                                            </group>
+                                        </group>
+                                        
+                                        <!-- Train/Bus specific fields -->
+                                        <group string="Train/Bus Specific Details" attrs="{'invisible': [('item_type', 'not in', ['transport_train', 'transport_bus'])]}">
+                                            <group>
+                                                <label for="departure_time" string="Departure/Arrival Times"/>
+                                                <div class="o_row">
+                                                    <field name="departure_time" widget="float_time" placeholder="Dep. Time" class="oe_inline"/>
+                                                    <span class="mx-2">→</span>
+                                                    <field name="arrival_time" widget="float_time" placeholder="Arr. Time" class="oe_inline"/>
+                                                </div>
+                                                <field name="travel_class"/>
+                                            </group>
+                                            <group>
+                                                <!-- Placeholder for future train/bus specific fields -->
+                                            </group>
+                                        </group>
+                                        
+                                        <!-- Accommodation fields -->
+                                        <group string="Accommodation Details" attrs="{'invisible': [('item_type', 'not in', ['accommodation', 'accommodation_airbnb'])]}">
+                                            <group>
+                                                <field name="accommodation_type" widget="selection" required="1"/>
+                                                <field name="nights" required="1"/>
+                                            </group>
+                                            <group>
+                                                <field name="check_in_time_widget" string="Check-in Time" placeholder="e.g. 15:00"/>
+                                                <field name="check_out_time_widget" string="Check-out Time" placeholder="e.g. 11:00"/>
+                                                <field name="room_type_widget" string="Room Type" placeholder="e.g. Standard Double, Suite"/>
+                                                <field name="address_widget" string="Address" placeholder="Full accommodation address"/>
+                                            </group>
+                                        </group>
+                                        
+                                        <!-- Meals fields -->
+                                        <group string="Meals Details" attrs="{'invisible': [('item_type', 'not in', ['meals', 'meals_per_diem'])]}">
+                                            <group>
+                                                <field name="meal_type_widget" string="Meal Type" placeholder="e.g. Breakfast, Lunch, Dinner"/>
+                                                <field name="allowance_rate_widget" string="Per Diem Rate" attrs="{'invisible': [('item_type', '!=', 'meals_per_diem')]}" placeholder="Daily rate amount"/>
+                                            </group>
+                                            <group>
+                                                <field name="is_reimbursable"/>
+                                            </group>
+                                        </group>
+                                        
+                                        <!-- Conference fields -->
+                                        <group string="Conference/Event Details" attrs="{'invisible': [('item_type', '!=', 'conference')]}">
+                                            <group>
+                                                <field name="event_name_widget" string="Event Name" placeholder="Conference/Event name"/>
+                                                <field name="location_widget" string="Location" placeholder="Conference venue and location"/>
+                                                <field name="event_times_widget" string="Event Times" placeholder="e.g. 9:00-17:00"/>
+                                            </group>
+                                            <group>
+                                                <field name="is_reimbursable"/>
+                                            </group>
+                                        </group>
+                                        
+                                        <!-- Other expenses fields -->
+                                        <group string="Other Expense Details" attrs="{'invisible': [('item_type', 'not in', ['visa_fee', 'parking', 'insurance', 'internet', 'translation', 'entertainment', 'shopping', 'currency_exchange', 'other', 'custom'])]}">
+                                            <group>
+                                                <field name="is_reimbursable"/>
+                                            </group>
+                                            <group>
+                                                <!-- Placeholder for future expense-specific fields -->
+                                            </group>
+                                        </group>
+                                        
+                                        <!-- Notes and attachments for all types -->
+                                        <group string="Notes">
+                                            <field name="notes" nolabel="1" placeholder="Add any additional details for this item..."/>
+                                        </group>
+                                        <group string="Attachments">
+                                            <field name="attachment_ids" widget="many2many_binary" string="Attach Documents"/>
+                                        </group>
+                                        
+                                        <field name="item_data_json" invisible="1"/>
+                                    </sheet>
+                                </form>
+                            </field>
+                            
+                            <group class="oe_subtotal_footer oe_right" colspan="2" name="cost_summary">
+                                <field name="organizer_planned_cost" widget="monetary" options="{'currency_field': 'currency_id'}" 
+                                       class="oe_subtotal_footer_separator" attrs="{'readonly': [('manual_cost_entry', '=', True)]}"/>
+                            </group>
+                        </page>
+                        <page string="Additional Notes">
+                            <div class="alert alert-warning" role="alert">
+                                <i class="fa fa-exclamation-triangle mr-2" title="Warning"></i>
+                                <span><strong>Important:</strong> If you don't add any travel items in the "Travel Plan Items" tab, you MUST provide detailed trip plan information here. This field was previously required for all plans.</span>
+                            </div>
+                            <field name="organizer_trip_plan_details" placeholder="Enter detailed travel plan information here if you are not using the itemized entry in the Travel Plan Items tab. Include transportation details, accommodation arrangements, and any other relevant information..."/>
+                            <field name="organizer_attachments_ids" widget="many2many_binary" string="Additional Attachments" groups="custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+                        </page>
+                        <page string="Employee Documents">
+                            <div class="alert alert-warning" role="alert">
+                                <i class="fa fa-ticket mr-2"></i>
+                                <span>In this section, upload tickets, receipts, and other documents related to the trip.</span>
+                            </div>
+                            <field name="employee_documents_ids" widget="many2many_binary" string="Tickets and Trip Documents" />
+                        </page>
+                    </notebook>
+                </sheet>
+                <footer>
+                    <button name="action_save_plan" string="Save" type="object" class="btn-primary"/>
+                    <button name="action_save_and_confirm" string="Save &amp; Confirm" type="object" class="btn-success"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action for Assign Organizer and Budget Wizard -->
+    <!-- This action is usually called from the formio.form model method -->
+    <!-- <record id="action_business_trip_assign_organizer_wizard" model="ir.actions.act_window">
+        <field name="name">Assign Organizer and Budget</field>
+        <field name="res_model">business.trip.assign.organizer.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record> -->
+</odoo> 

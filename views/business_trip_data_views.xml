@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Form View -->
+    <record id="view_business_trip_data_form" model="ir.ui.view">
+        <field name="name">business.trip.data.form</field>
+        <field name="model">business.trip.data</field>
+        <field name="arch" type="xml">
+            <form string="Business Trip Data">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="full_name" placeholder="Full Name"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Personal Information">
+                            <field name="form_id"/>
+                            <field name="first_name"/>
+                            <field name="last_name"/>
+                            <field name="approving_colleague_name"/>
+                        </group>
+                        <group string="Trip Information">
+                            <field name="trip_type"/>
+                            <field name="destination"/>
+                            <field name="purpose"/>
+                            <field name="travel_start_date"/>
+                            <field name="travel_end_date"/>
+                            <field name="expected_cost"/>
+                            <field name="currency_id" options="{'no_create': True}"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Accommodation" attrs="{'invisible': [('accommodation_needed', '!=', 'yes')]}">
+                            <group>
+                                <field name="accommodation_needed" invisible="0"/>
+                                <field name="accommodation_number_of_people"/>
+                                <field name="accommodation_residence_city"/>
+                                <field name="accommodation_check_in_date"/>
+                                <field name="accommodation_check_out_date"/>
+                                <field name="accommodation_points_of_interest"/>
+                                <field name="accommodation_need_24h_reception"/>
+                            </group>
+                            <group string="Accompanying Persons">
+                                <field name="accompanying_person_ids" nolabel="1">
+                                    <tree editable="bottom">
+                                        <field name="full_name"/>
+                                        <field name="identity_document_filename"/>
+                                    </tree>
+                                    <form>
+                                        <group>
+                                            <field name="full_name"/>
+                                            <field name="identity_document" filename="identity_document_filename"/>
+                                            <field name="identity_document_filename" invisible="1"/>
+                                        </group>
+                                    </form>
+                                </field>
+                            </group>
+                        </page>
+                        <page string="Transportation">
+                            <group string="Outbound Transport">
+                                <group>
+                                    <field name="transport_means_json" invisible="1"/>
+                                    <field name="use_rental_car"/>
+                                    <field name="use_company_car"/>
+                                    <field name="use_personal_car"/>
+                                    <field name="use_train"/>
+                                    <field name="use_airplane"/>
+                                    <field name="use_bus"/>
+                                </group>
+                            </group>
+                            <group string="Return Transport" attrs="{'invisible': [('trip_type', '!=', 'two_way')]}">
+                                <group>
+                                    <field name="return_transport_means_json" invisible="1"/>
+                                    <field name="use_return_rental_car"/>
+                                    <field name="use_return_company_car"/>
+                                    <field name="use_return_personal_car"/>
+                                    <field name="use_return_train"/>
+                                    <field name="use_return_airplane"/>
+                                    <field name="use_return_bus"/>
+                                </group>
+                            </group>
+                            <notebook>
+                                <page string="Rental Car Details" attrs="{'invisible': [('use_rental_car', '=', False)]}">
+                                    <group>
+                                        <field name="rental_car_pickup_date"/>
+                                        <field name="rental_car_pickup_flexible"/>
+                                        <field name="rental_car_pickup_point"/>
+                                        <field name="rental_car_dropoff_point"/>
+                                        <field name="rental_car_dropoff_date"/>
+                                        <field name="rental_car_dropoff_flexible"/>
+                                        <field name="rental_car_credit_card"/>
+                                        <field name="rental_car_type"/>
+                                        <field name="rental_car_kilometer_limit"/>
+                                        <field name="rental_car_unlimited_km"/>
+                                        <field name="rental_car_preferences"/>
+                                    </group>
+                                </page>
+                                <page string="Train Details" attrs="{'invisible': [('use_train', '=', False)]}">
+                                    <group>
+                                        <field name="train_departure_city"/>
+                                        <field name="train_departure_station"/>
+                                        <field name="train_arrival_station"/>
+                                        <field name="train_departure_date"/>
+                                        <field name="train_departure_flexible"/>
+                                        <field name="train_arrival_date"/>
+                                        <field name="train_arrival_flexible"/>
+                                    </group>
+                                </page>
+                                <page string="Airplane Details" attrs="{'invisible': [('use_airplane', '=', False)]}">
+                                    <group>
+                                        <field name="airplane_departure_airport"/>
+                                        <field name="airplane_departure_date"/>
+                                        <field name="airplane_departure_flexible"/>
+                                        <field name="airplane_arrival_airport"/>
+                                        <field name="airplane_arrival_flexible"/>
+                                        <field name="airplane_baggage_type"/>
+                                        <field name="airplane_preferences"/>
+                                    </group>
+                                </page>
+                                <page string="Bus Details" attrs="{'invisible': [('use_bus', '=', False)]}">
+                                    <group>
+                                        <field name="bus_departure_city"/>
+                                        <field name="bus_departure_terminal"/>
+                                        <field name="bus_arrival_terminal"/>
+                                        <field name="bus_departure_date"/>
+                                        <field name="bus_departure_flexible"/>
+                                        <field name="bus_arrival_date"/>
+                                        <field name="bus_arrival_flexible"/>
+                                    </group>
+                                </page>
+                                <page string="Return Train Details" attrs="{'invisible': [('use_return_train', '=', False)]}">
+                                    <group>
+                                        <field name="return_train_departure_city"/>
+                                        <field name="return_train_departure_station"/>
+                                        <field name="return_train_arrival_station"/>
+                                        <field name="return_train_departure_date"/>
+                                        <field name="return_train_departure_flexible"/>
+                                        <field name="return_train_arrival_date"/>
+                                        <field name="return_train_arrival_flexible"/>
+                                    </group>
+                                </page>
+                                <page string="Return Airplane Details" attrs="{'invisible': [('use_return_airplane', '=', False)]}">
+                                    <group>
+                                        <field name="return_airplane_departure_airport"/>
+                                        <field name="return_airplane_departure_date"/>
+                                        <field name="return_airplane_departure_flexible"/>
+                                        <field name="return_airplane_destination_airport"/>
+                                        <field name="return_airplane_destination_flexible"/>
+                                        <field name="return_airplane_baggage_type"/>
+                                        <field name="return_airplane_preferences"/>
+                                    </group>
+                                </page>
+                                <page string="Return Bus Details" attrs="{'invisible': [('use_return_bus', '=', False)]}">
+                                    <group>
+                                        <field name="return_bus_departure_city"/>
+                                        <field name="return_bus_departure_station"/>
+                                        <field name="return_bus_arrival_station"/>
+                                        <field name="return_bus_departure_date"/>
+                                        <field name="return_bus_departure_flexible"/>
+                                        <field name="return_bus_arrival_date"/>
+                                        <field name="return_bus_arrival_flexible"/>
+                                    </group>
+                                </page>
+                            </notebook>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Tree View -->
+    <record id="view_business_trip_data_tree" model="ir.ui.view">
+        <field name="name">business.trip.data.tree</field>
+        <field name="model">business.trip.data</field>
+        <field name="arch" type="xml">
+            <tree string="Business Trip Data">
+                <field name="form_id"/>
+                <field name="form_title" string="Form Title"/>
+                <field name="full_name"/>
+                <field name="destination"/>
+                <field name="travel_start_date"/>
+                <field name="travel_end_date"/>
+                <field name="trip_type"/>
+                <field name="expected_cost"/>
+                <field name="currency_id"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <record id="view_business_trip_data_search" model="ir.ui.view">
+        <field name="name">business.trip.data.search</field>
+        <field name="model">business.trip.data</field>
+        <field name="arch" type="xml">
+            <search string="Search Business Trip Data">
+                <field name="form_id"/>
+                <field name="first_name"/>
+                <field name="last_name"/>
+                <field name="full_name"/>
+                <field name="destination"/>
+                <filter string="Daily Trips" name="daily_trips" domain="[('trip_type', '=', 'days')]"/>
+                <filter string="Two-way Trips" name="two_way_trips" domain="[('trip_type', '=', 'two_way')]"/>
+                <filter string="With Accommodation" name="with_accommodation" domain="[('accommodation_needed', '=', 'yes')]"/>
+                <filter string="Using Airplane" name="using_airplane" domain="[('use_airplane', '=', True)]"/>
+                <filter string="Using Train" name="using_train" domain="[('use_train', '=', True)]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Trip Type" name="group_by_trip_type" domain="[]" context="{'group_by':'trip_type'}"/>
+                    <filter string="Travel Start Date" name="group_by_start_date" domain="[]" context="{'group_by':'travel_start_date'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_business_trip_data" model="ir.actions.act_window">
+        <field name="name">Business Trip Data</field>
+        <field name="res_model">business.trip.data</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="view_business_trip_data_tree"/>
+        <field name="search_view_id" ref="view_business_trip_data_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No business trip data found.
+            </p>
+            <p>
+                This is where business trip form data is stored independently from the formio forms.
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu Item -->
+    <menuitem id="menu_business_trip_data"
+              name="Trip Form Data"
+              parent="custom_business_trip_management.menu_business_trip_root"
+              action="action_business_trip_data"
+              sequence="15"/>
+</odoo> 

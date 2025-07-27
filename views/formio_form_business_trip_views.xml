@@ -1,42 +1,69 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
       <record id="view_formio_form_tree_business_trip" model="ir.ui.view">
-        <field name="name">formio.form.tree.business.trip</field>
+        <field name="name">formio.form.tree.business.trip.admin</field>
         <field name="model">formio.form</field>
         <field name="arch" type="xml">
-          <tree string="Forms"
-                decoration-info="state in ('DRAFT')"
-                decoration-success="state in ('COMPLETE')"
-                decoration-muted="state in ('CANCEL')"
-                decoration-danger="trip_status in ('manager_rejected', 'finance_rejected', 'rejected')"
-                decoration-warning="trip_status in ('manager_review', 'finance_review')"
-                decoration-primary="trip_status in ('manager_approved', 'finance_approved', 'approved')">
+          <tree string="Business Trip Forms"
+                create="false"
+                decoration-info="business_trip_id.trip_status in ('draft', 'in_progress')" 
+                decoration-success="business_trip_id.trip_status == 'completed'"
+                decoration-primary="business_trip_id.trip_status in ('organization_done', 'completed_waiting_expense')"
+                decoration-danger="business_trip_id.trip_status == 'rejected'"
+                decoration-muted="business_trip_id.trip_status == 'cancelled'"
+                decoration-warning="business_trip_id.trip_status in ('submitted', 'pending_organization', 'awaiting_trip_start', 'expense_submitted', 'returned', 'expense_returned')">
+            
+            <!-- Essential Fields (Always Visible) -->
             <field name="id"/>
+            <field name="title"/>
+            <field name="business_trip_id" invisible="1"/>
+            <field name="display_quotation_ref" string="Linked Quotation"/>
+            <field name="user_id" string="Employee"/>
+            <field name="business_trip_id.trip_status" string="Trip Status" widget="badge"/>
+            <field name="business_trip_id.submission_date" string="Submission Date"/>
+            
+            <!-- Travel Information -->
+            <field name="destination" optional="show"/>
+            <field name="travel_dates_display" string="Travel Dates" optional="show"/>
+            <field name="trip_type" optional="show"/>
+            
+            <!-- Financial Information (Grouped Together) - Trip Cost Analysis -->
+            <field name="business_trip_id.manager_max_budget" string="Manager Budget"/>
+            <field name="business_trip_id.organizer_planned_cost" string="Planned Travel Costs"/>
+            <field name="business_trip_id.budget_difference" string="Budget Deviation" widget="monetary" options="{'currency_field': 'currency_id'}"
+                   decoration-success="business_trip_id.budget_difference &gt; 0"
+                   decoration-danger="business_trip_id.budget_difference &lt; 0"
+                   decoration-info="business_trip_id.budget_difference == 0"/>
+            <field name="business_trip_id.final_total_cost" string="Final Total Cost (Planned + Actual)" widget="monetary" options="{'currency_field': 'currency_id'}" groups="custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+            <field name="business_trip_id.budget_status" string="Budget Status" widget="badge"
+                   decoration-success="business_trip_id.budget_status == 'under_budget'"
+                   decoration-danger="business_trip_id.budget_status == 'over_budget'"
+                   decoration-info="business_trip_id.budget_status == 'on_budget'"/>
+            <field name="currency_id" optional="show"/>
+            
+            <!-- Additional Information -->
+            <field name="display_quotation_ref" string="Linked Quotation" optional="hide"/>
+            <field name="business_trip_id.manager_id" string="Manager" optional="hide"/>
+            <field name="business_trip_id.organizer_id" string="Organizer" optional="hide"/>
+            <field name="state" string="Form State" optional="hide"/>
+            <field name="create_date" string="Created On" optional="hide"/>
+            
+            <!-- Technical Fields (Hidden by Default) -->
+            <field name="builder_id" optional="hide"/>
+            <field name="submission_partner_id" optional="hide"/>
             <field name="uuid" optional="hide"/>
             <field name="sequence" optional="hide"/>
-            <field name="title"/>
-            <field name="builder_id"/>
-            <field name="user_id"/>
-            <field name="manager_id"/>
-            <field name="submission_partner_id"/>
-            <field name="submission_date"/>
-            <field name="travel_start_date"/>
-            <field name="travel_end_date"/>
-            <field name="state"/>
-            <field name="trip_status"/>
-            <field name="final_total_cost"/>
-            <field name="currency_id"/>
-            <button string="Form" class="btn-sm btn-secondary" name="action_view_formio" type="object"/>
-            <field name="portal_share" optional="show"/>
-            <field name="public_share" optional="show"/>
-            <field name="public_access" optional="show"/>
+            <field name="portal_share" optional="hide"/>
+            <field name="public_share" optional="hide"/>
+            <field name="public_access" optional="hide"/>
             <field name="public_create" optional="hide"/>
-            <field name="res_model_name" string="Resource Type" optional="show"/>
+            <field name="res_model_name" string="Resource Type" optional="hide"/>
             <field name="initial_res_model_name" string="Resource Type #1" optional="hide"/>
-            <field name="res_name" optional="show"/>
-            <field name="res_partner_id" optional="show"/>
-            <field name="write_date" optional="hide"/>
-            <field name="create_date" optional="hide"/>
+            <field name="res_name" optional="hide"/>
+            <field name="res_partner_id" optional="hide"/>
+            
+            <button string="Open Form" groups="!custom_business_trip_management.group_business_trip_organizer,!base.group_system" name="action_view_formio" type="object" class="btn-primary"/>
+            <button string="Review Form" groups="custom_business_trip_management.group_business_trip_organizer,base.group_system" name="action_view_formio" type="object" class="btn-primary"/>
           </tree>
         </field>
       </record>
@@ -48,23 +75,53 @@
         <field name="arch" type="xml">
           <tree string="My Business Trip Forms"
                 js_class="my_business_trip_forms_view"
-                decoration-info="state in ('DRAFT')"
-                decoration-success="state in ('COMPLETE')"
-                decoration-muted="state in ('CANCEL')"
-                decoration-danger="trip_status in ('manager_rejected', 'finance_rejected', 'rejected')"
-                decoration-warning="trip_status in ('manager_review', 'finance_review')"
-                decoration-primary="trip_status in ('manager_approved', 'finance_approved', 'approved')">
+                decoration-info="business_trip_id.trip_status in ('draft', 'in_progress')" 
+                decoration-success="business_trip_id.trip_status == 'completed'"
+                decoration-primary="business_trip_id.trip_status in ('organization_done', 'completed_waiting_expense')"
+                decoration-danger="business_trip_id.trip_status == 'rejected'"
+                decoration-muted="business_trip_id.trip_status == 'cancelled'"
+                decoration-warning="business_trip_id.trip_status in ('submitted', 'pending_organization', 'awaiting_trip_start', 'expense_submitted', 'returned', 'expense_returned')">
+            
+            <!-- Essential Fields (Always Visible) -->
+            <field name="id"/>
+            <field name="business_trip_id" invisible="1"/>
             <field name="title"/>
-            <field name="sale_order_id"/>
-            <field name="res_name" optional="show"/>
-            <field name="travel_start_date"/>
-            <field name="travel_end_date"/>
-            <field name="state"/>
-            <field name="trip_status"/>
-            <field name="final_total_cost"/>
-            <field name="submission_date"/>
-            <field name="create_date"/>
-            <button string="Open Form" class="btn-sm btn-primary" name="action_view_formio" type="object"/>
+            <field name="display_quotation_ref" string="Linked Quotation"/>
+            <field name="business_trip_id.trip_status" string="Trip Status" widget="badge"/>
+            <field name="business_trip_id.submission_date" string="Submission Date"/>
+            
+            <!-- Travel Information -->
+            <field name="destination" optional="show"/>
+            <field name="travel_dates_display" string="Travel Dates" optional="show"/>
+            <field name="trip_type" optional="show"/>
+            
+            <!-- Financial Information (Grouped Together) - Trip Cost Analysis - Only for Managers/Organizers -->
+            <field name="business_trip_id.manager_max_budget" string="Manager Budget" groups="custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+            <field name="business_trip_id.organizer_planned_cost" string="Planned Travel Costs" groups="custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+            <field name="business_trip_id.budget_difference" string="Budget Deviation" widget="monetary" options="{'currency_field': 'currency_id'}"
+                   decoration-success="business_trip_id.budget_difference &gt; 0"
+                   decoration-danger="business_trip_id.budget_difference &lt; 0"
+                   decoration-info="business_trip_id.budget_difference == 0"
+                   groups="custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+            <field name="business_trip_id.final_total_cost" string="Final Total Cost (Planned + Actual)" widget="monetary" options="{'currency_field': 'currency_id'}" groups="custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+            <field name="business_trip_id.budget_status" string="Budget Status" widget="badge"
+                   decoration-success="business_trip_id.budget_status == 'under_budget'"
+                   decoration-danger="business_trip_id.budget_status == 'over_budget'"
+                   decoration-info="business_trip_id.budget_status == 'on_budget'"
+                   groups="custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+            <field name="currency_id" optional="show" groups="custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+            
+            <!-- Additional Information -->
+            <field name="display_quotation_ref" string="Linked Quotation" optional="hide"/>
+            <field name="business_trip_id.manager_id" string="Manager" optional="hide"/>
+            <field name="business_trip_id.organizer_id" string="Organizer" optional="hide"/>
+            <field name="state" string="Form State" optional="hide"/>
+            <field name="create_date" string="Created On" optional="hide"/>
+            
+            <!-- Technical Fields (Hidden by Default) -->
+            <field name="res_name" optional="hide"/>
+            <button string="Open Form" groups="!custom_business_trip_management.group_business_trip_organizer,!base.group_system" class="btn-primary" name="action_view_formio" type="object"/>
+            <button string="Review Form" groups="custom_business_trip_management.group_business_trip_organizer,base.group_system" class="btn-primary" name="action_view_formio" type="object"/>
           </tree>
         </field>
       </record>
@@ -74,238 +131,737 @@
         <field name="name">formio.form.form.business.trip</field>
         <field name="model">formio.form</field>
         <field name="arch" type="xml">
-          <form string="Form">
-            <header>
-              <!-- FormIO standard buttons -->
-              <button name="action_send_invitation_mail" type="object" string="Send Invitation Mail"
-                      groups="formio.group_formio_user_all_forms"
-                      attrs="{'invisible': ['|', '|', ('user_id', '=', False), ('id', '=', False), ('state', 'not in', ['PENDING', 'DRAFT'])]}"
-                      class="btn-primary"/>
-              <button name="action_draft" type="object" string="Draft"
-                      attrs="{'invisible': ['|', ('state', 'in', ['PENDING', 'DRAFT']), ('allow_force_update_state', '=', False)]}"/>
-              <button name="action_reset_trip_to_draft" type="object" string="Reset Trip to Draft"
-                      attrs="{'invisible': ['|', ('trip_status', 'in', ['draft', 'in_progress', 'returned', 'completed']), ('allow_force_update_state', '=', False)]}"
-                      groups="formio.group_formio_admin,base.group_system"
-                      class="btn-warning"/>
-              <button name="action_complete" type="object" string="Complete"
-                      attrs="{'invisible': ['|', ('state', '!=', 'DRAFT'), ('allow_force_update_state', '=', False)]}"/>
-              <button name="action_cancel" type="object" string="Cancel"
-                      attrs="{'invisible': ['|', ('state', 'in', ['CANCEL']), ('allow_force_update_state', '=', False)]}"/>
-              <button name="action_copy_to_current" type="object" string="Copy To Current"
-                      attrs="{'invisible': ['|', ('allow_copy', '=', False), ('copy_to_current', '=', False)]}"/>
-              
-              <!-- Form state status bar -->
-              <field name="state" widget="statusbar" statusbar_visible="PENDING,DRAFT,COMPLETE,CANCEL"/>
-            </header>
-            
-            <!-- Trip state status bar in a separate header - shown only when state is COMPLETE -->
-            <header attrs="{'invisible': [('state', '!=', 'COMPLETE')]}">
-              <!-- Debug Buttons - در یک گروه برای مدیریت بهتر -->
-              <div groups="base.group_system">
-                <button string="Reset Trip to Draft" type="object" name="action_reset_trip_to_draft" 
+          <form string="Form" edit="false" create="false" delete="false">
+            <header> <!-- Header 1: Overall Form State -->
+                <field name="state" widget="statusbar" statusbar_visible="DRAFT,COMPLETE" decoration-danger="state == 'CANCEL'"/>
+                
+                <!-- To Draft button with adjusted visibility conditions - hide when in Awaiting Completion -->
+                <button name="action_back_to_draft" type="object" string="Return to Draft"
+                        attrs="{'invisible': ['|', '|', ('business_trip_id.trip_status', 'not in', ['draft', 'returned', 'rejected', 'submitted']), ('state', '=', 'DRAFT'), '|', ('is_current_user_owner', '=', False), '|', ('business_trip_id.manager_approval_date', '!=', False), ('business_trip_id.organizer_id', '!=', False)]}"
                         class="btn-warning"
-                        attrs="{'invisible': [('trip_status', 'in', ['draft', 'in_progress', 'returned', 'completed'])]}"/>
-                <button string="Show Status Values" type="object" name="debug_show_status" 
+                        help="Return this form to draft status for further editing by owner."/>
+                
+                <!-- New Open Form button when in Awaiting Completion state - Only for regular employees -->
+                <button name="action_view_formio" type="object" string="Open Form"
+                        attrs="{'invisible': ['|', ('state', '!=', 'DRAFT'), '|', ('is_manager', '=', True), ('is_organizer', '=', True)]}"
+                        class="btn-primary"
+                        help="Open form to complete data entry"/>
+                        
+                <!-- Edit Form button when in Returned status - Only for the owner -->
+                <button name="action_edit_returned_form" type="object" string="Edit Form" 
+                        attrs="{'invisible': ['|', ('business_trip_id.trip_status', '!=', 'returned'), ('is_current_user_owner', '=', False)]}"
+                        class="btn-warning"
+                        help="Edit form to make requested changes"/>
+                        
+                <!-- Review Form button for managers and organizers - visible in all states -->
+                <button name="action_view_formio" type="object" string="Review Form"
+                        attrs="{'invisible': ['&amp;', ('is_manager', '=', False), ('is_organizer', '=', False)]}"
                         class="btn-info"
-                        attrs="{'invisible': [('state', '=', False)]}"/>
-                <button string="Show Required Fields" type="object" name="debug_show_required_fields" 
-                        class="btn-info"
-                        attrs="{'invisible': [('state', '=', False)]}"/>
-                <button string="Set Status: Manager Review" type="object" name="debug_set_to_manager_review" 
-                        class="btn-secondary oe_highlight"
-                        attrs="{'invisible': [('state', '!=', 'COMPLETE')]}"/>
-                <button string="Set Status: Finance Review" type="object" name="debug_set_to_finance_review" 
-                        class="btn-secondary oe_highlight"
-                        attrs="{'invisible': [('state', '!=', 'COMPLETE')]}"/>
-                <button string="Set Status: Approved" type="object" name="debug_set_to_approved" 
-                        class="btn-secondary oe_highlight"
-                        attrs="{'invisible': [('state', '!=', 'COMPLETE')]}"/>
-                <button string="Reset to Previous Step" type="object" name="action_reset_status"
-                        class="btn-warning oe_highlight"
-                        attrs="{'invisible': [('state', '!=', 'COMPLETE')]}"/>
-                <button string="Force Change Status" type="object" name="debug_force_trip_status"
-                        class="btn-danger oe_highlight"
-                        attrs="{'invisible': [('state', '!=', 'COMPLETE')]}"/>
-              </div>
-                      
-              <!-- Business Trip specific buttons -->
-              <!-- Submit for approval -->
-              <button name="action_submit" type="object" string="Submit for Approval" 
-                      class="oe_highlight" 
-                      attrs="{'invisible': [('trip_status', '!=', 'draft')]}"
-                      help="Submit this business trip request for manager approval"/>
-              
-              <!-- Edit required fields -->
-              <button name="action_edit_required_fields" type="object" string="Edit Required Fields" 
-                      class="btn-secondary" 
-                      attrs="{'invisible': [('trip_status', '!=', 'draft')]}"
-                      help="Edit required fields for business trip request"/>
-              
-              <!-- دکمه‌های مدیر و بخش مالی -->
-              <button name="action_approve_manager" type="object" string="Approve (Manager)" 
-                      class="oe_highlight" 
-                      attrs="{'invisible': ['|', ('trip_status', '!=', 'submitted'), 
-                                          '|', ('manager_id', '=', False), 
-                                          ('state', '!=', 'COMPLETE')]}"
-                      groups="hr.group_hr_manager,base.group_erp_manager,base.group_system"/>
-
-              <button name="action_reject_manager" type="object" string="Reject (Manager)" 
-                      class="btn-danger" 
-                      attrs="{'invisible': ['|', ('trip_status', '!=', 'submitted'), 
-                                          '|', ('manager_id', '=', False), 
-                                          ('state', '!=', 'COMPLETE')]}"
-                      groups="hr.group_hr_manager,base.group_erp_manager,base.group_system"/>
-
-              <button name="action_approve_finance" type="object" string="Approve (Finance)" 
-                      class="oe_highlight" 
-                      attrs="{'invisible': ['|', ('trip_status', '!=', 'manager_approved'), 
-                                          '|', ('finance_approver_id', '=', False), 
-                                          ('state', '!=', 'COMPLETE')]}"
-                      groups="account.group_account_manager,base.group_system"/>
-
-              <button name="action_reject_finance" type="object" string="Reject (Finance)" 
-                      class="btn-danger" 
-                      attrs="{'invisible': ['|', ('trip_status', '!=', 'manager_approved'), 
-                                          '|', ('finance_approver_id', '=', False), 
-                                          ('state', '!=', 'COMPLETE')]}"
-                      groups="account.group_account_manager,base.group_system"/>
-              
-              <!-- Travel tracking buttons -->
-              <button name="action_start_trip" type="object" string="Start Trip"
-                      class="btn-primary oe_highlight"
-                      attrs="{'invisible': ['|', ('trip_status', '!=', 'approved'), '|', ('user_id', '=', False), ('state', '!=', 'COMPLETE')]}"/>
-              
-              <button name="action_return_from_trip" type="object" string="Return from Trip"
-                      class="btn-info oe_highlight"
-                      attrs="{'invisible': ['|', ('trip_status', '!=', 'in_progress'), '|', ('user_id', '=', False), ('state', '!=', 'COMPLETE')]}"/>
-              
-              <!-- Expense submission buttons -->
-              <button name="action_submit_expenses" type="object" string="Submit Expenses"
-                      class="btn-primary oe_highlight"
-                      attrs="{'invisible': ['|', ('trip_status', 'not in', ['returned', 'expense_waiting']), '|', ('user_id', '=', False), ('state', '!=', 'COMPLETE')]}"/>
-              
-              <!-- Expense approval button - ادغام شده با مجوزهای مناسب -->
-              <button name="action_approve_expenses" type="object" string="Approve Expenses" 
-                      class="oe_highlight" 
-                      attrs="{'invisible': ['|', ('trip_status', '!=', 'expense_waiting'), 
-                                          '|', ('finance_approver_id', '=', False), 
-                                          ('state', '!=', 'COMPLETE')]}"
-                      groups="account.group_account_manager,base.group_system"/>
-              
-              <!-- Cancel trip -->
-              <button name="action_cancel_trip" type="object" string="Cancel Trip"
-                      class="btn-danger"
-                      attrs="{'invisible': ['|', ('trip_status', 'in', ['in_progress', 'returned', 'completed', 'cancelled']), ('state', '!=', 'COMPLETE')]}"
-                      groups="base.group_user"/>
-                      
-              <field name="trip_status" invisible="1"/>
-              <field name="trip_status" widget="statusbar" 
-                     statusbar_visible="draft,submitted,manager_review,manager_approved,finance_review,approved,in_progress,returned,completed"/>
+                        groups="custom_business_trip_management.group_business_trip_organizer,base.group_system"
+                        help="Review employee's business trip form submission"/>
+                        
+                <!-- Cancel button renamed to Cancel Request -->
+                <button name="action_cancel_trip" type="object" string="Cancel Request"
+                        attrs="{'invisible': ['|', ('business_trip_id.can_cancel_trip', '=', False), ('is_current_user_owner', '=', False)]}"
+                        class="btn-danger"
+                        confirm="Are you sure you want to cancel this trip request? This action cannot be undone."
+                        help="Cancel this business trip request permanently."/>
             </header>
+            <header attrs="{'invisible': [('state', '!=', 'COMPLETE')]}"> <!-- Header 2: Trip Request & Organization Phase - Always visible when in COMPLETE state -->
+                <field name="trip_status_phase1" widget="statusbar" 
+                       statusbar_visible="draft,submitted,pending_organization,organization_done"
+                       decoration-info="trip_status_phase1 == 'draft'" 
+                       decoration-warning="trip_status_phase1 in ('submitted', 'pending_organization')" 
+                       decoration-orange="trip_status_phase1 == 'returned'"
+                       decoration-danger="trip_status_phase1 == 'rejected'"
+                       decoration-success="trip_status_phase1 == 'organization_done'"
+                       decoration-muted="trip_status_phase1 == 'cancelled'"
+                      />
+
+                <!-- Badge indicator for Returned to Employee status -->
+                <div class="alert alert-warning d-flex align-items-center" role="alert" style="margin: 2px 0 8px 0; padding: 8px 15px; border-left: 5px solid #ffc107;" 
+                     attrs="{'invisible': [('business_trip_id.trip_status', '!=', 'returned')]}">
+                    <i class="fa fa-exclamation-triangle mr-2" style="font-size: 18px;" title="Warning"></i>
+                    <div>
+                        <strong>Action Required:</strong> Your trip request has been returned for revision. Please check the comments and resubmit.
+                    </div>
+                </div>
+
+                <!-- Badge indicator for Cancelled status -->
+                <div class="alert alert-secondary d-flex align-items-center" role="alert" style="margin: 2px 0 8px 0; padding: 8px 15px; border-left: 5px solid #6c757d;" 
+                     attrs="{'invisible': [('business_trip_id.trip_status', '!=', 'cancelled')]}">
+                    <i class="fa fa-ban mr-2" style="font-size: 18px; color: #6c757d;" title="Cancelled"></i>
+                    <div style="color: #6c757d;">
+                        <strong>Trip Cancelled:</strong> This business trip request has been cancelled and cannot be processed further.
+                    </div>
+                </div>
+
+                <!-- Add a new alert for rejected status -->
+                <div class="alert alert-danger d-flex align-items-center" role="alert" style="margin: 2px 0 8px 0; padding: 8px 15px; border-left: 5px solid #dc3545;" 
+                     attrs="{'invisible': [('business_trip_id.trip_status', '!=', 'rejected')]}">
+                    <i class="fa fa-times-circle mr-2" style="font-size: 18px; color: #dc3545;" title="Rejected"></i>
+                    <div>
+                        <strong>Trip Rejected:</strong> This business trip request has been rejected. Check the rejection reason for details.
+                    </div>
+                </div>
+
+                <!-- Employee: Draft or Returned (from manager before organizer assignment or after rejection for rework) -->
+                <!-- Submit button - available when details are complete and in draft status -->
+                <button name="action_submit_to_manager" type="object" string="Submit for Approval"
+                    class="oe_highlight"
+                    attrs="{'invisible': ['|', '|', ('business_trip_id.trip_status', '!=', 'draft'), ('is_current_user_owner', '=', False), ('has_trip_details', '=', False)]}"
+                    help="Submit this business trip request for manager approval."/>
+                    
+                <!-- Resubmit button - available when details are complete and in returned status -->
+                <button name="action_submit_to_manager" type="object" string="Resubmit to Manager"
+                    class="oe_highlight"
+                    attrs="{'invisible': ['|', '|', ('business_trip_id.trip_status', '!=', 'returned'), ('is_current_user_owner', '=', False), ('has_trip_details', '=', False)]}"
+                    help="Resubmit this business trip request after making requested changes."/>
+                
+                <!-- Disabled Submit button - shown when details are incomplete -->
+                <button name="action_show_missing_details_warning" string="Submit(Fill Details First)" 
+                    type="object" 
+                    attrs="{'invisible': ['|', '|', ('business_trip_id.trip_status', 'not in', ['draft', 'returned']), ('is_current_user_owner', '=', False), ('has_trip_details', '=', True)]}"
+                    class="btn-secondary"
+                    help="You must complete all trip details before submitting. Use the 'Edit Trip Details' button."/>
+                    
+                <!-- Add Edit Trip Details button next to Submit button -->
+                <!-- This button will be removed -->
+                <!-- <button name="action_edit_trip_details" string="Edit Trip Details" type="object"
+                    class="btn-info"
+                    attrs="{'invisible': ['|', ('trip_status', 'not in', ['draft', 'submitted', 'returned']), ('is_current_user_owner', '=', False)]}"
+                    help="Edit business trip details"/> -->
+
+                <!-- Manager/Admin: When 'submitted' -->
+                <button name="action_manager_assign_organizer_and_budget" type="object" string="Assign Org. &amp; Budget"
+                        class="oe_highlight"
+                        attrs="{'invisible': ['|', ('business_trip_id.trip_status', '!=', 'submitted'), ('is_manager', '=', False)]}"
+                        groups="base.group_system"
+                        help="Open wizard to assign an organizer and set the maximum budget for this trip."/>
+                <button name="action_open_return_comment_wizard" type="object" string="Return to Emp."
+                    class="btn-warning"
+                        attrs="{'invisible': ['|', ('business_trip_id.trip_status', '!=', 'submitted'), ('is_manager', '=', False)]}"
+                        groups="base.group_system"
+                        help="Return the business trip request to employee with comments for revision."/>
+                <button name="action_open_rejection_wizard" string="Reject" type="object" class="btn-danger"
+                        attrs="{'invisible': ['|', ('business_trip_id.trip_status', '!=', 'submitted'), ('is_manager', '=', False)]}"
+                        groups="base.group_system"
+                        help="Reject this business trip request."/>
+
+                <!-- Organizer: When 'pending_organization' -->
+                <button name="action_organizer_confirm_planning" type="object" string="Confirm Plan &amp; Notify Emp."
+                    class="oe_highlight"
+                        attrs="{'invisible': ['|', ('business_trip_id.trip_status', '!=', 'pending_organization'), ('is_organizer', '=', False)]}"
+                        groups="custom_business_trip_management.group_business_trip_organizer,base.group_system"
+                        help="Confirm that trip organization is complete. This will notify the employee."/>
+                
+                <!-- Button for opening organizer planning wizard -->
+                <button name="action_open_organizer_plan_wizard" string="Edit Trip Plan" type="object"
+                    class="btn-info"
+                    attrs="{'invisible': ['|', ('business_trip_id.trip_status', '!=', 'pending_organization'), ('is_organizer', '=', False)]}"
+                    groups="custom_business_trip_management.group_business_trip_organizer"
+                    help="Edit trip plan details, cost, and attachments"/>
+            </header>
+            <header attrs="{'invisible': ['|', ('state', '!=', 'COMPLETE'), '&amp;', ('business_trip_id.trip_status', '!=', 'organization_done'), ('business_trip_id.trip_status', 'not in', ['awaiting_trip_start', 'in_progress', 'completed_waiting_expense', 'expense_submitted', 'expense_returned', 'completed'])]}"> <!-- Header 3: Trip Execution & Expense Management Phase - Show when in awaiting_trip_start or later -->
+                <field name="is_expense_returned" invisible="1"/>
+                
+                <!-- AWAITING TRIP START: Show only awaiting_trip_start and later expense states (EXCEPT in_progress) -->
+                <field name="trip_status_phase2" widget="statusbar"
+                       attrs="{'invisible': [('business_trip_id.trip_status', 'not in', ['organization_done', 'awaiting_trip_start'])]}"
+                       statusbar_visible="awaiting_trip_start,completed_waiting_expense,expense_submitted,completed"
+                       decoration-warning="trip_status_phase2 == 'expense_submitted'"
+                       decoration-info="trip_status_phase2 == 'completed_waiting_expense'"
+                       decoration-yellow="trip_status_phase2 == 'awaiting_trip_start'"
+                       decoration-success="trip_status_phase2 == 'completed'"
+                       decoration-orange="trip_status_phase2 == 'expense_returned'"/>
+                       
+                <!-- IN PROGRESS: Show only in_progress and later expense states (NO awaiting_trip_start) -->
+                <field name="trip_status_phase2" widget="statusbar"
+                       attrs="{'invisible': [('business_trip_id.trip_status', '!=', 'in_progress')]}"
+                       statusbar_visible="in_progress,completed_waiting_expense,expense_submitted,completed"
+                       decoration-warning="trip_status_phase2 == 'expense_submitted'"
+                       decoration-info="trip_status_phase2 == 'completed_waiting_expense'"
+                       decoration-primary="trip_status_phase2 == 'in_progress'"
+                       decoration-success="trip_status_phase2 == 'completed'"
+                       decoration-orange="trip_status_phase2 == 'expense_returned'"/>
+                       
+                <!-- EXPENSE STATES: Show only in_progress and expense states -->
+                <field name="trip_status_phase2" widget="statusbar"
+                       attrs="{'invisible': [('business_trip_id.trip_status', 'not in', ['completed_waiting_expense', 'expense_submitted', 'expense_returned', 'completed'])]}"
+                       statusbar_visible="in_progress,completed_waiting_expense,expense_submitted,completed"
+                       decoration-warning="trip_status_phase2 == 'expense_submitted'"
+                       decoration-info="trip_status_phase2 == 'completed_waiting_expense'"
+                       decoration-primary="trip_status_phase2 == 'in_progress'"
+                       decoration-success="trip_status_phase2 == 'completed'"
+                       decoration-orange="trip_status_phase2 == 'expense_returned'"/>
+                
+                <!-- Badge indicator for Expense Returned status -->
+                <div class="alert alert-warning d-flex align-items-center" role="alert" style="margin: 2px 0 8px 0; padding: 8px 15px; border-left: 5px solid #ffc107;" 
+                     attrs="{'invisible': [('is_expense_returned', '=', False)]}">
+                    <i class="fa fa-exclamation-triangle mr-2" style="font-size: 18px;" title="Warning"></i>
+                    <div>
+                        <strong>Action Required:</strong> The expenses have been returned for revision. Please check the comments and resubmit.
+                    </div>
+                </div>
+                
+                <!-- Employee: When 'awaiting_trip_start' -->
+                <button name="action_start_trip" type="object" string="Start Trip"
+                      class="btn-success oe_highlight"
+                      attrs="{'invisible': ['|', ('trip_status_phase2', '!=', 'awaiting_trip_start'), ('is_current_user_owner', '=', False)]}"
+                      help="Mark your business trip as started."/>
+
+                <!-- Employee: When 'in_progress' -->
+                <button name="action_return_from_trip" type="object" string="Returned from Trip"
+                    class="btn-info oe_highlight"
+                        attrs="{'invisible': ['|', ('business_trip_id.trip_status', '!=', 'in_progress'), ('is_current_user_owner', '=', False)]}"
+                        help="Mark your trip as completed and ready for expense submission."/>
+
+                <!-- Employee: When 'completed_waiting_expense' -->
+                <button name="action_open_expense_submission_wizard" type="object" string="Submit Expenses"
+                      class="btn-primary oe_highlight"
+                      attrs="{'invisible': ['|', ('business_trip_id.trip_status', '!=', 'completed_waiting_expense'), ('is_current_user_owner', '=', False)]}"
+                      help="Submit your expenses for this trip."/>
+
+                <!-- Employee: When 'expense_returned' -->
+                <button name="action_open_expense_submission_wizard" type="object" string="Resubmit Expenses"
+                      class="btn-primary oe_highlight"
+                      attrs="{'invisible': ['|', ('business_trip_id.trip_status', '!=', 'expense_returned'), ('is_current_user_owner', '=', False)]}"
+                      help="Resubmit your expenses after making the requested changes."/>
+
+                <!-- Actions for 'expense_submitted' -->
+                <button name="action_user_undo_expense_submission" type="object" string="Recall Expenses"
+                      class="btn-warning"
+                      attrs="{'invisible': ['|', ('business_trip_id.trip_status', '!=', 'expense_submitted'), ('is_current_user_owner', '=', False)]}"
+                      confirm="Are you sure you want to recall your expense submission for editing? This is only possible if it has not been processed yet."
+                      help="Recall your submitted expenses for further editing before they are processed."/>
+                <button name="action_open_expense_return_comment_wizard" type="object" string="Return Expenses"
+                      class="btn-warning"
+                      attrs="{'invisible': ['|', ('business_trip_id.trip_status', '!=', 'expense_submitted'), '&amp;', ('is_finance', '=', False), ('is_organizer', '=', False)]}"
+                      help="Return expense submission to employee with comments for revision."/>
+
+                <!-- New button for expense approval -->
+                <button name="action_approve_expenses" type="object" string="Approve Expenses"
+                      class="btn-success oe_highlight"
+                      attrs="{'invisible': ['|', ('business_trip_id.trip_status', '!=', 'expense_submitted'), '&amp;', ('is_finance', '=', False), ('is_organizer', '=', False)]}"
+                      help="Approve the submitted expenses and complete the business trip process."/>
+
+                <!-- Manager/Admin/Finance: When 'completed' (after expense approval) -->
+                <button name="action_manager_undo_expense_approval" type="object" string="Undo Exp. Approval"
+                    class="btn-danger"
+                    attrs="{'invisible': ['|', ('business_trip_id.trip_status', '!=', 'completed'), ('business_trip_id.can_undo_expense_approval_action', '=', False)]}"
+                        groups="base.group_system"
+                    confirm="Are you sure you want to undo the expense approval? This will move the request back to 'Expenses Under Review' for review."
+                    help="Undo the approval of expenses. The request will return to 'Expenses Under Review' state."/>
+            </header>
+
             <sheet>
               <div class="oe_button_box" name="button_box">
-                <button name="action_view_formio" type="object" string="Form"
-                        class="oe_stat_button" icon="fa-rocket" aria-label="Form"/>
-                <button name="action_open_res_act_window" type="object"
-                        attrs="{'invisible': ['|', ('res_id', '=', False), ('res_id', '=', 0)]}"
-                        class="oe_stat_button" icon="fa-link" aria-label="Resource">
-                  <field name="res_name"/>
-                </button>
+                <button name="action_view_formio" type="object" string="Form" class="oe_stat_button" icon="fa-wpforms"/>
               </div>
-              <h1><field name="title" attrs="{'invisible': [('builder_id', '=', False)]}"/></h1>
-              <group name="general">
-                <group>
-                  <field name="res_name" string="Resource" attrs="{'invisible': [('res_name', '=', False)]}"/>
-                  <field name="builder_id" attrs="{'readonly': [('id', '!=', False)]}"/>
-                </group>
-                <group>
-                  <field name="id" attrs="{'invisible': [('id', '=', False)]}"/>
-                  <field name="uuid" attrs="{'invisible': [('id', '=', False)]}"/>
-                  <field name="res_id" invisible="1"/>
-                  <field name="allow_force_update_state" invisible="1"/>
-                </group>
-              </group>
-              <group name="assignment_and_submission">
-                <group attrs="{'invisible': [('builder_id', '=', False)]}">
-                  <field name="invitation_mail_template_id" invisible="1"/>
-                  <field name="user_id" groups="formio.group_formio_user_all_forms" attrs="{'readonly': [('state', 'in', ['COMPLETE', 'CANCEL'])]}"/>
-                  <field name="submission_partner_id" string="Submission Partner"/>
-                  <field name="submission_user_id" groups="base.group_erp_manager" string="Submission User"/>
-                  <field name="submission_date" string="Submission Date"/>
-                </group>
-              </group>
-              <group name="business_trip">
-                <group string="Trip Details">
-                  <field name="travel_start_date" readonly="1"/>
-                  <field name="travel_end_date" readonly="1"/>
-                  <field name="final_total_cost" attrs="{'readonly': [('trip_status', 'not in', ['expense_waiting', 'completed']), ('expense_approved_by', '!=', False)]}" groups="account.group_account_manager,base.group_system"/>
-                  <field name="currency_id" attrs="{'readonly': [('trip_status', 'not in', ['draft', 'submitted'])]}" options="{'no_create': True, 'no_open': True}"/>
-                  <field name="trip_status" groups="base.group_system" readonly="1"/>
+              <div class="oe_title">
+                <label for="title"/>
+                <h1>
+                  <field name="title" readonly="1"/>
+                </h1>
+              </div>
+
+              <!-- Hidden fields -->
+              <field name="allow_force_update_state" invisible="1"/>
+              <field name="allow_copy" invisible="1"/>
+              <field name="copy_to_current" invisible="1"/>
+              <field name="is_manager" invisible="1"/>
+              <field name="is_finance" invisible="1"/>
+              <field name="is_organizer" invisible="1"/>
+              <field name="can_cancel_trip" invisible="1"/>
+              <field name="is_current_user_owner" invisible="1"/>
+              <field name="can_undo_expense_approval_action" invisible="1"/>
+              <field name="trip_status" invisible="1"/>
+              <field name="has_trip_details" invisible="1"/>
+              <field name="edit_in_returned_state" invisible="1"/>
+              <field name="accommodation_needed" invisible="1"/>
+              <field name="has_any_transportation" invisible="1"/>
+              <field name="has_any_return_transportation" invisible="1"/>
+              <field name="form_data_use_airplane_display" invisible="1"/>
+              <field name="form_data_use_return_airplane_display" invisible="1"/>
+              <field name="form_data_use_rental_car_display" invisible="1"/>
+              <field name="form_data_use_return_rental_car_display" invisible="1"/>
+              <field name="form_data_use_train_display" invisible="1"/>
+              <field name="form_data_use_return_train_display" invisible="1"/>
+              <field name="form_data_use_bus_display" invisible="1"/>
+              <field name="form_data_use_return_bus_display" invisible="1"/>
+
+              <group>
+                <group string="Trip Information">
+                    <field name="destination" readonly="1"/>
+                    <field name="purpose" readonly="1" widget="text"/>
+                    <field name="travel_start_date" string="Requested Start Date" readonly="1"/>
+                    <field name="travel_end_date" string="Requested End Date" readonly="1"/>
+                    <field name="travel_duration_days" string="Requested Duration (Days)" readonly="1"/>
+
+                    <separator string="Actual Trip Dates" colspan="2" attrs="{'invisible': [('business_trip_id.trip_status', 'not in', ['in_progress', 'completed_waiting_expense', 'expense_submitted', 'expense_returned', 'completed'])]}"/>
+                    <field name="actual_start_date_display" string="Actual Start" readonly="1" attrs="{'invisible': [('business_trip_id.trip_status', 'not in', ['in_progress', 'completed_waiting_expense', 'expense_submitted', 'expense_returned', 'completed'])]}"/>
+                    <field name="actual_end_date_display" string="Actual End" readonly="1" attrs="{'invisible': [('business_trip_id.trip_status', 'not in', ['in_progress', 'completed_waiting_expense', 'expense_submitted', 'expense_returned', 'completed'])]}"/>
+                    <field name="actual_duration_display" string="Actual Duration" readonly="1" attrs="{'invisible': [('business_trip_id.trip_status', 'not in', ['in_progress', 'completed_waiting_expense', 'expense_submitted', 'expense_returned', 'completed'])]}"/>
+                    
+                    <!-- Hide original technical fields -->
+                    <field name="actual_start_date" invisible="1"/>
+                    <field name="actual_end_date" invisible="1"/>
+                    <field name="actual_travel_duration_days" invisible="1"/>
+
+                    <field name="trip_type" invisible="1"/>
                 </group>
                 <group string="Approval Information">
-                  <field name="manager_id" options="{'no_create': True, 'no_open': True}" 
-                         attrs="{'readonly': [('trip_status', 'not in', ['draft', 'submitted'])]}"
-                         groups="base.group_system,base.group_erp_manager"/>
-                  <field name="manager_approval_date" readonly="1"/>
-                  <field name="manager_comments" 
-                         attrs="{'readonly': [('trip_status', 'not in', ['draft', 'submitted', 'manager_review'])]}"
-                         groups="base.group_erp_manager,base.group_system"/>
-                  <field name="finance_approver_id" options="{'no_create': True, 'no_open': True}" 
-                         attrs="{'readonly': [('trip_status', 'not in', ['manager_approved'])]}"
-                         groups="account.group_account_manager,base.group_system"/>
-                  <field name="finance_approval_date" readonly="1"/>
-                  <field name="finance_comments" 
-                         attrs="{'readonly': [('trip_status', 'not in', ['manager_approved', 'finance_review'])]}"
-                         groups="account.group_account_manager,base.group_system"/>
+                  <field name="user_id" string="Employee" readonly="1"/>
+                  <field name="form_data_approving_colleague_name" string="Approving Colleague" readonly="1"/>
+                  <field name="business_trip_id.manager_id" readonly="1"/>
+                  <field name="business_trip_id.organizer_id" readonly="1"/>
+                  <field name="business_trip_id.submission_date" readonly="1"/>
+                  <field name="business_trip_id.manager_approval_date" string="Manager Initial Approval Date" attrs="{'invisible': [('business_trip_id.manager_approval_date', '=', False)]}" readonly="1"/>
+                  <field name="organizer_confirmation_date" readonly="1" string="Organizer Plan Approval Date"/>
+                  <field name="business_trip_id.rejection_reason" attrs="{'invisible': [('business_trip_id.trip_status', '!=', 'rejected')]}"/>
+                  <field name="business_trip_id.rejection_comment" attrs="{'invisible': [('business_trip_id.trip_status', '!=', 'rejected')]}"/>
+                  <field name="business_trip_id.rejected_by" readonly="1" attrs="{'invisible': [('business_trip_id.trip_status', '!=', 'rejected')]}"/>
+                  <field name="business_trip_id.rejection_date" readonly="1" attrs="{'invisible': [('business_trip_id.trip_status', '!=', 'rejected')]}"/>
                 </group>
               </group>
+
               <notebook>
-                <page string="Expenses" name="expenses" attrs="{'invisible': [('trip_status', 'not in', ['in_progress', 'returned', 'expense_waiting', 'completed'])]}">
-                  <group>
+                <page string="Request Form Data" name="request_form_data">
+                    <!-- Hidden fields needed for conditional logic in this tab -->
+                    <field name="submission_data" invisible="1"/>
+                    <field name="form_data_accommodation_needed_display" invisible="1"/> 
+                    <field name="has_any_transportation" invisible="1"/>
+                    <field name="has_any_return_transportation" invisible="1"/>
+                    <field name="use_rental_car" invisible="1"/>
+                    <field name="use_train" invisible="1"/>
+                    <field name="use_airplane" invisible="1"/>
+                    <field name="use_bus" invisible="1"/>
+                    <field name="use_company_car" invisible="1"/>
+                    <field name="use_personal_car" invisible="1"/>
+                    <field name="use_return_rental_car" invisible="1"/>
+                    <field name="use_return_train" invisible="1"/>
+                    <field name="use_return_airplane" invisible="1"/>
+                    <field name="use_return_bus" invisible="1"/>
+                    <field name="use_return_company_car" invisible="1"/>
+                    <field name="use_return_personal_car" invisible="1"/>
+                    
+                    <div class="alert alert-info mb-3" role="alert" attrs="{'invisible': [('submission_data', '!=', False)]}">
+                        <i class="fa fa-info-circle mr-2"></i>
+                        <span>No form data is available. This data is only available after the form has been submitted.</span>
+                    </div>
+
+                    <!-- Requester Information Section -->
+                    <div>
+                        <h4 style="border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
+                            <i class="fa fa-user mr-2" title="Requester Information"></i>Requester Information
+                        </h4>
+                    </div>
+                    <group attrs="{'invisible': [('submission_data', '=', False)]}">
+                        <field name="form_data_requester_name" readonly="1"/>
+                        <field name="form_data_approving_colleague_name" readonly="1"/>
+                    </group>
+                    
+                    <!-- Trip Overview Section -->
+                    <div>
+                        <h4 style="border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
+                            <i class="fa fa-info-circle mr-2" title="Trip Overview"></i>Trip Overview
+                        </h4>
+                    </div>
+                    <group attrs="{'invisible': [('submission_data', '=', False)]}">
+                        <field name="form_data_destination_display" readonly="1"/>
+                        <field name="form_data_travel_start_date_display" readonly="1"/>
+                        <field name="form_data_travel_end_date_display" readonly="1"/>
+                        <field name="form_data_trip_duration_type_display" readonly="1"/>
+                        <field name="form_data_trip_type_display" readonly="1"/>
+                    </group>
+
+                    <!-- ====== Outbound Transportation Details from BTD ====== -->
+                    <div attrs="{'invisible': ['|', ('submission_data', '=', False), ('has_any_transportation', '=', False)]}">
+                        <h4 style="border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
+                            <i class="fa fa-arrow-right mr-2" title="Outbound Transportation"></i>Outbound Transportation
+                        </h4>
+                    </div>
+                    <group attrs="{'invisible': ['|', ('submission_data', '=', False), ('has_any_transportation', '=', False)]}">
+                        <div class="alert alert-info" role="alert" attrs="{'invisible': [('has_any_transportation', '=', True)]}">
+                            <span>No outbound transportation details found in the submitted form data.</span>
+                        </div>
+                        
+                        <!-- Outbound Rental Car -->
+                        <group string="Rental Car" attrs="{'invisible': [('form_data_use_rental_car_display', '=', False)]}" class="o_inner_group">
+                            <group>
+                                <field name="form_data_rental_car_pickup_point_display" readonly="1"/>
+                                <field name="form_data_rental_car_pickup_date_display" readonly="1"/>
+                                <field name="form_data_rental_car_pickup_flexible_display" readonly="1"/>
+                                <field name="form_data_rental_car_kilometer_limit_display" readonly="1" attrs="{'invisible': [('form_data_rental_car_unlimited_km_display', '=', True)]}"/>
+                                <field name="form_data_rental_car_unlimited_km_display" readonly="1"/>
+                            </group>
+                            <group>
+                                <field name="form_data_rental_car_dropoff_point_display" readonly="1"/>
+                                <field name="form_data_rental_car_dropoff_date_display" readonly="1"/>
+                                <field name="form_data_rental_car_dropoff_flexible_display" readonly="1"/>
+                                <field name="form_data_rental_car_type_display" readonly="1"/>
+                                <field name="form_data_rental_car_credit_card_display" readonly="1"/>
+                                <field name="form_data_rental_car_drivers_license_display" readonly="1" widget="binary" filename="form_data_rental_car_drivers_license_filename_display" string="Driver's License"/>
+                            </group>
+                            <group colspan="2"> <!-- Adjusted colspan to 2 as it's inside a 2-col group -->
+                                 <field name="form_data_rental_car_preferences_display" readonly="1" widget="text" placeholder="No special preferences specified."/>
+                            </group>
+                        </group>
+
+                        <!-- Outbound Train -->
+                        <group string="Train" attrs="{'invisible': [('form_data_use_train_display', '=', False)]}" class="o_inner_group">
+                            <group>
+                                <field name="form_data_train_departure_city_display" readonly="1"/>
+                                <field name="form_data_train_departure_station_display" readonly="1"/>
+                                <field name="form_data_train_departure_date_display" readonly="1"/>
+                                <field name="form_data_train_departure_flexible_display" readonly="1"/>
+                            </group>
+                            <group>
+                                <field name="form_data_train_arrival_station_display" readonly="1"/>
+                                <field name="form_data_train_arrival_date_display" readonly="1"/>
+                                <field name="form_data_train_arrival_flexible_display" readonly="1"/>
+                            </group>
+                        </group>
+
+                        <!-- Outbound Airplane -->
+                        <group string="Airplane" attrs="{'invisible': [('form_data_use_airplane_display', '=', False)]}" class="o_inner_group">
+                            <group>
+                                <field name="form_data_airplane_departure_airport_display" readonly="1"/>
+                                <field name="form_data_airplane_departure_date_display" readonly="1"/>
+                                <field name="form_data_airplane_departure_flexible_display" readonly="1"/>
+                            </group>
+                            <group>
+                                <field name="form_data_airplane_arrival_airport_display" readonly="1"/>
+                                <field name="form_data_airplane_arrival_flexible_display" readonly="1"/>
+                                <field name="form_data_airplane_baggage_type_display" readonly="1"/>
+                            </group>
+                            <group colspan="2">
+                                <field name="form_data_airplane_preferences_display" readonly="1" widget="text" placeholder="No special preferences specified."/>
+                            </group>
+                        </group>
+
+                        <!-- Outbound Bus -->
+                        <group string="Bus" attrs="{'invisible': [('form_data_use_bus_display', '=', False)]}" class="o_inner_group">
+                            <group>
+                                <field name="form_data_bus_departure_city_display" readonly="1"/>
+                                <field name="form_data_bus_departure_terminal_display" readonly="1"/>
+                                <field name="form_data_bus_departure_date_display" readonly="1"/>
+                                <field name="form_data_bus_departure_flexible_display" readonly="1"/>
+                            </group>
+                            <group>
+                                <field name="form_data_bus_arrival_terminal_display" readonly="1"/>
+                                <field name="form_data_bus_arrival_date_display" readonly="1"/>
+                                <field name="form_data_bus_arrival_flexible_display" readonly="1"/>
+                            </group>
+                        </group>
+                        
+                        <!-- Outbound Company/Personal Car (Minimal Info) -->
+                         <group string="Company Car" attrs="{'invisible': [('use_company_car', '=', False)]}" class="o_inner_group">
+                            <field name="use_company_car" string="Selected" readonly="1" widget="boolean_toggle"/>
+                        </group>
+                         <group string="Personal Car" attrs="{'invisible': [('use_personal_car', '=', False)]}" class="o_inner_group">
+                            <field name="use_personal_car" string="Selected" readonly="1" widget="boolean_toggle"/>
+                        </group>
+                    </group>
+
+                    <!-- Spacer not needed if groups handle spacing -->
+                    <!-- <div style="height: 20px;"/> -->
+
+                    <!-- ====== Return Transportation Details from BTD ====== -->
+                    <div attrs="{'invisible': ['|', ('submission_data', '=', False), ('has_any_return_transportation', '=', False)]}">
+                        <h4 style="border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
+                            <i class="fa fa-arrow-left mr-2" title="Return Transportation"></i>Return Transportation
+                        </h4>
+                    </div>
+                    <group attrs="{'invisible': ['|', ('submission_data', '=', False), ('has_any_return_transportation', '=', False)]}">
+                         <div class="alert alert-info" role="alert" attrs="{'invisible': [('has_any_return_transportation', '=', True)]}">
+                            <span>No return transportation details found in the submitted form data.</span>
+                        </div>
+
+                        <!-- Return Rental Car -->
+                        <group string="Rental Car" attrs="{'invisible': [('form_data_use_return_rental_car_display', '=', False)]}" class="o_inner_group">
+                            <group>
+                                <field name="form_data_return_rental_car_pickup_point_display" readonly="1"/>
+                                <field name="form_data_return_rental_car_pickup_date_display" readonly="1"/>
+                                <field name="form_data_return_rental_car_pickup_flexible_display" readonly="1"/>
+                                <field name="form_data_return_rental_car_kilometer_limit_display" readonly="1" attrs="{'invisible': [('form_data_return_rental_car_unlimited_km_display', '=', True)]}"/>
+                                <field name="form_data_return_rental_car_unlimited_km_display" readonly="1"/>
+                            </group>
+                            <group>
+                                <field name="form_data_return_rental_car_dropoff_point_display" readonly="1"/>
+                                <field name="form_data_return_rental_car_dropoff_date_display" readonly="1"/>
+                                <field name="form_data_return_rental_car_dropoff_flexible_display" readonly="1"/>
+                                <field name="form_data_return_rental_car_type_display" readonly="1"/>
+                                <field name="form_data_return_rental_car_credit_card_display" readonly="1"/>
+                                <field name="form_data_return_rental_car_drivers_license_display" readonly="1" widget="binary" filename="form_data_return_rental_car_drivers_license_filename_display" string="Driver's License"/>
+                            </group>
+                             <group colspan="2">
+                                 <field name="form_data_return_rental_car_preferences_display" readonly="1" widget="text" placeholder="No special preferences specified."/>
+                            </group>
+                        </group>
+
+                        <!-- Return Train -->
+                        <group string="Train" attrs="{'invisible': [('form_data_use_return_train_display', '=', False)]}" class="o_inner_group">
+                            <group>
+                                <field name="form_data_return_train_departure_city_display" readonly="1"/>
+                                <field name="form_data_return_train_departure_station_display" readonly="1"/>
+                                <field name="form_data_return_train_departure_date_display" readonly="1"/>
+                                <field name="form_data_return_train_departure_flexible_display" readonly="1"/>
+                            </group>
+                            <group>
+                                <field name="form_data_return_train_arrival_station_display" readonly="1"/>
+                                <field name="form_data_return_train_arrival_date_display" readonly="1"/>
+                                <field name="form_data_return_train_arrival_flexible_display" readonly="1"/>
+                            </group>
+                        </group>
+
+                        <!-- Return Airplane -->
+                        <group string="Airplane" attrs="{'invisible': [('form_data_use_return_airplane_display', '=', False)]}" class="o_inner_group">
+                            <group>
+                                <field name="form_data_return_airplane_departure_airport_display" readonly="1"/>
+                                <field name="form_data_return_airplane_departure_date_display" readonly="1"/>
+                                <field name="form_data_return_airplane_departure_flexible_display" readonly="1"/>
+                            </group>
+                            <group>
+                                <field name="form_data_return_airplane_destination_airport_display" readonly="1"/>
+                                <field name="form_data_return_airplane_destination_flexible_display" readonly="1"/>
+                                <field name="form_data_return_airplane_baggage_type_display" readonly="1"/>
+                            </group>
+                            <group colspan="2">
+                                 <field name="form_data_return_airplane_preferences_display" readonly="1" widget="text" placeholder="No special preferences specified."/>
+                            </group>
+                        </group>
+
+                        <!-- Return Bus -->
+                        <group string="Bus" attrs="{'invisible': [('form_data_use_return_bus_display', '=', False)]}" class="o_inner_group">
+                            <group>
+                                <field name="form_data_return_bus_departure_city_display" readonly="1"/>
+                                <field name="form_data_return_bus_departure_station_display" readonly="1"/>
+                                <field name="form_data_return_bus_departure_date_display" readonly="1"/>
+                                <field name="form_data_return_bus_departure_flexible_display" readonly="1"/>
+                            </group>
+                            <group>
+                                <field name="form_data_return_bus_arrival_station_display" readonly="1"/>
+                                <field name="form_data_return_bus_arrival_date_display" readonly="1"/>
+                                <field name="form_data_return_bus_arrival_flexible_display" readonly="1"/>
+                            </group>
+                        </group>
+                        
+                        <!-- Return Company/Personal Car (Minimal Info) -->
+                         <group string="Company Car" attrs="{'invisible': [('use_return_company_car', '=', False)]}" class="o_inner_group">
+                            <field name="use_return_company_car" string="Selected" readonly="1" widget="boolean_toggle"/>
+                        </group>
+                         <group string="Personal Car" attrs="{'invisible': [('use_return_personal_car', '=', False)]}" class="o_inner_group">
+                            <field name="use_return_personal_car" string="Selected" readonly="1" widget="boolean_toggle"/>
+                        </group>
+                    </group>
+                    
+                    <!-- Accompanying Persons Section -->
+                    <div attrs="{'invisible': [('submission_data', '=', False)]}">
+                        <h4 style="border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
+                            <i class="fa fa-users mr-2" title="Accompanying Persons"></i>Accompanying Persons
+                        </h4>
+                    </div>
+                    <group attrs="{'invisible': [('submission_data', '=', False)]}">
+                        <group string="Accompanying Persons" attrs="{'invisible': [('form_data_accompanying_persons_summary_display', 'in', [False, ''])]}">
+                            <field name="form_data_accompanying_persons_summary_display" readonly="1" nolabel="1" widget="html"/>
+                        </group>
+                    </group>
+
+                    <div class="o_horizontal_separator mt32" attrs="{'invisible': [('form_data_accommodation_needed_display', 'in', (False, 'no'))]}">
+                        <h4 style="border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
+                            <i class="fa fa-fw fa-bed" title="Accommodation Details"/>
+                            Accommodation Details
+                        </h4>
+                    </div>
+                    <group attrs="{'invisible': [('form_data_accommodation_needed_display', 'in', (False, 'no'))]}">
+                        <group>
+                            <field name="form_data_accommodation_needed_display"/>
+                            <field name="form_data_accommodation_residence_city_display"/>
+                            <field name="form_data_accommodation_check_in_date_display"/>
+                            <field name="form_data_accommodation_check_out_date_display"/>
+                        </group>
+                        <group>
+                            <field name="form_data_accommodation_points_of_interest_display"/>
+                            <field name="form_data_accommodation_need_24h_reception_display"/>
+                            <field name="form_data_accommodation_number_of_people_display"/>
+                        </group>
+                    </group>
+                </page>
+
+                <page string="Expenses"
+                      attrs="{'invisible': [('business_trip_id.trip_status', 'in', ['draft', 'submitted', 'returned', 'pending_organization'])]}">
                     <group>
-                      <field name="expense_total" attrs="{'readonly': ['|', ('trip_status', 'not in', ['returned', 'expense_waiting']), ('expense_approved_by', '!=', False)]}"/>
-                      <field name="expense_approval_date" readonly="1"/>
-                      <field name="expense_approved_by" readonly="1"/>
+                        <group string="Employee Expense Submission">
+                            <field name="expense_total"
+                                   readonly="1" force_save="1"/>
+                            <field name="expense_attachment_ids" widget="many2many_binary" force_save="1"/>
+                            <field name="business_trip_id.actual_expense_submission_date" readonly="1"/>
+                        </group>
+                        <group string="Expense Approval by Organizer">
+                            <field name="business_trip_id.expense_return_comments" readonly="1"
+                                   attrs="{'invisible': [('business_trip_id.trip_status', '!=', 'expense_returned')]}"/>
+                            <field name="business_trip_id.expense_approval_date" readonly="1" string="Approval Date"/>
+                            <field name="business_trip_id.expense_approved_by" readonly="1"/>
+                            <field name="business_trip_id.final_total_cost" readonly="1"
+                                   groups="account.group_account_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+                        </group>
                     </group>
+                </page>
+                
+                <page string="Trip Cost Analysis"
+                      attrs="{'invisible': ['|', ('business_trip_id.trip_status', 'in', ['draft', 'submitted', 'returned', 'pending_organization']), '&amp;', ('is_organizer', '=', False), ('is_manager', '=', False)]}">
                     <group>
-                      <field name="expense_comments" 
-                             attrs="{'readonly': ['|', ('trip_status', 'not in', ['returned', 'expense_waiting']), ('expense_approved_by', '!=', False)]}"/>
+                        <group>
+                            <field name="business_trip_id.manager_max_budget" readonly="1" string="Manager Budget" attrs="{'invisible': [('business_trip_id.manager_max_budget', '=', 0)]}"/>
+                            <field name="business_trip_id.organizer_planned_cost" readonly="1" string="Planned Travel Costs"/>
+                            <field name="expense_total" readonly="1" string="Employee Expenditures"/>
+                            <field name="business_trip_id.budget_difference" readonly="1" widget="monetary" options="{'currency_field': 'currency_id'}"
+                                   decoration-success="business_trip_id.budget_difference &gt; 0"
+                                   decoration-danger="business_trip_id.budget_difference &lt; 0"
+                                   decoration-info="business_trip_id.budget_difference == 0"/>
+                            <field name="business_trip_id.budget_status" readonly="1" widget="badge"
+                                   decoration-success="business_trip_id.budget_status == 'under_budget'"
+                                   decoration-danger="business_trip_id.budget_status == 'over_budget'"
+                                   decoration-info="business_trip_id.budget_status == 'on_budget'"/>
+                            <field name="business_trip_id.final_total_cost" readonly="1" widget="monetary" options="{'currency_field': 'currency_id'}"
+                                   string="Final Total Cost (Planned + Actual)"
+                                   attrs="{'invisible': [('business_trip_id.trip_status', '!=', 'completed')]}"
+                                   help="Total cost to company: sum of planned costs (organized by company) plus actual expenses (paid by employee)"/>
+                        </group>
                     </group>
-                  </group>
-                  <field name="expense_attachment_ids" widget="many2many_binary" string="Expense Receipts" 
-                         attrs="{'readonly': ['|', ('trip_status', 'not in', ['returned', 'expense_waiting']), ('expense_approved_by', '!=', False)]}"/>
                 </page>
-                <page string="Settings" name="settings">
-                  <group>
-                    <group name="access_settings" string="Access">
-                      <field name="public_share" groups="formio.group_formio_admin"/>
-                      <field name="public_access_date_from" groups="formio.group_formio_admin" attrs="{'required': [('public_share', '=', True)]}"/>
-                      <label for="public_access_interval_number" string="Public Access Expire"/>
-                      <div>
-                        <field name="public_access_interval_number" class="oe_inline" groups="formio.group_formio_admin" attrs="{'required': [('public_share', '=', True)]}"/>
-                        <field name="public_access_interval_type" class="oe_inline ml-2" groups="formio.group_formio_admin" attrs="{'required': [('public_share', '=', True)]}"/>
-                      </div>
-                      <field name="public_access" groups="formio.group_formio_admin"/>
+
+                <page string="Organizer's Plan" name="organizer_plan" attrs="{'invisible': [('business_trip_id.trip_status', 'not in', ['organization_done', 'awaiting_trip_start', 'in_progress', 'completed_waiting_expense', 'expense_submitted', 'expense_returned', 'completed'])]}">
+                    
+                    <!-- Hidden fields needed for conditional logic -->
+                    <field name="structured_plan_items_json" invisible="1"/>
+                    <field name="organizer_plan_has_flight" invisible="1"/>
+                    <field name="organizer_plan_has_train" invisible="1"/>
+                    <field name="organizer_plan_has_hotel" invisible="1"/>
+                    <field name="organizer_plan_has_car_rental" invisible="1"/>
+                    <field name="organizer_plan_has_other" invisible="1"/>
+                    <field name="can_see_costs" invisible="1"/>
+                    
+                    <!-- Alert message for empty plan -->
+                    <div class="alert alert-info mb-3" role="alert" attrs="{'invisible': ['|', '|', '|', '|', '|', ('organizer_plan_has_flight', '=', True), ('organizer_plan_has_train', '=', True), ('organizer_plan_has_hotel', '=', True), ('organizer_plan_has_car_rental', '=', True), ('organizer_plan_has_other', '=', True), ('organizer_trip_plan_details', '!=', False)]}">
+                        <i class="fa fa-info-circle mr-2"></i>
+                        <span>The organizer has not yet provided detailed trip plan information.</span>
+                    </div>
+
+                    <!-- Organizer Information Section -->
+                    <div>
+                        <h4 style="border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
+                            <i class="fa fa-user-tie mr-2" title="Organizer Information"></i>Organizer Information
+                        </h4>
+                    </div>
+                    <group>
+                        <field name="business_trip_id.organizer_id" readonly="1" string="Trip Organizer"/>
+                        <field name="organizer_confirmation_date" readonly="1" string="Plan Confirmation Date"/>
+                        <field name="business_trip_id.organizer_planned_cost" readonly="1" string="Planned Cost" widget="monetary" attrs="{'invisible': ['|', ('business_trip_id.organizer_planned_cost', '=', 0), ('can_see_costs', '=', False)]}"/>
+                        <field name="business_trip_id.manager_max_budget" readonly="1" string="Manager Budget" widget="monetary" attrs="{'invisible': ['|', '|', ('business_trip_id.manager_max_budget', '=', 0), ('business_trip_id.manager_max_budget', '=', False), ('can_see_costs', '=', False)]}"/>
                     </group>
-                    <group name="actions_settings" string="Actions">
-                      <field name="allow_copy" groups="formio.group_formio_admin"/>
-                      <field name="copy_to_current" groups="formio.group_formio_admin" attrs="{'invisible': [('allow_copy', '=', False)]}"/>
+
+                    <!-- Transportation Section -->
+                    <div attrs="{'invisible': [('organizer_plan_has_flight', '=', False)]}">
+                        <h4 style="border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
+                            <i class="fa fa-plane mr-2" title="Air Transportation"></i>Air Transportation
+                        </h4>
+                    </div>
+                    <group attrs="{'invisible': [('organizer_plan_has_flight', '=', False)]}">
+                        <field name="organizer_plan_flight_html" nolabel="1" readonly="1"/>
                     </group>
-                    <group string="Display" name="display_settings" col="4">
-                      <field name="show_title" groups="formio.group_formio_admin" attrs="{'invisible': [('builder_id', '=', False)]}"/>
-                      <field name="show_id" string="Show ID" groups="formio.group_formio_admin" attrs="{'invisible': [('builder_id', '=', False)]}"/>
-                      <field name="show_state" groups="formio.group_formio_admin" attrs="{'invisible': [('builder_id', '=', False)]}"/>
-                      <field name="show_uuid" string="Show UUID" groups="formio.group_formio_admin" attrs="{'invisible': [('builder_id', '=', False)]}"/>
-                      <field name="show_user_metadata" groups="formio.group_formio_admin" attrs="{'invisible': [('builder_id', '=', False)]}"/>
+
+                    <div attrs="{'invisible': [('organizer_plan_has_train', '=', False)]}">
+                        <h4 style="border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
+                            <i class="fa fa-train mr-2" title="Train Transportation"></i>Train Transportation
+                        </h4>
+                    </div>
+                    <group attrs="{'invisible': [('organizer_plan_has_train', '=', False)]}">
+                        <field name="organizer_plan_train_html" nolabel="1" readonly="1"/>
                     </group>
-                  </group>
+
+                    <div attrs="{'invisible': [('organizer_plan_has_car_rental', '=', False)]}">
+                        <h4 style="border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
+                            <i class="fa fa-car mr-2" title="Car Rental"></i>Car Rental
+                        </h4>
+                    </div>
+                    <group attrs="{'invisible': [('organizer_plan_has_car_rental', '=', False)]}">
+                        <field name="organizer_plan_car_rental_html" nolabel="1" readonly="1"/>
+                    </group>
+
+                    <!-- Accommodation Section -->
+                    <div attrs="{'invisible': [('organizer_plan_has_hotel', '=', False)]}">
+                        <h4 style="border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
+                            <i class="fa fa-bed mr-2" title="Accommodation"></i>Accommodation
+                        </h4>
+                    </div>
+                    <group attrs="{'invisible': [('organizer_plan_has_hotel', '=', False)]}">
+                        <field name="organizer_plan_hotel_html" nolabel="1" readonly="1"/>
+                    </group>
+
+                    <!-- Other Items Section -->
+                    <div attrs="{'invisible': [('organizer_plan_has_other', '=', False)]}">
+                        <h4 style="border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
+                            <i class="fa fa-list mr-2" title="Other Items"></i>Other Items
+                        </h4>
+                    </div>
+                    <group attrs="{'invisible': [('organizer_plan_has_other', '=', False)]}">
+                        <field name="organizer_plan_other_html" nolabel="1" readonly="1"/>
+                    </group>
+
+                    <!-- Additional Notes Section -->
+                    <div attrs="{'invisible': [('organizer_trip_plan_details', '=', False)]}">
+                        <h4 style="border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
+                            <i class="fa fa-sticky-note mr-2" title="Additional Notes"></i>Additional Notes from Organizer
+                        </h4>
+                    </div>
+                    <group attrs="{'invisible': [('organizer_trip_plan_details', '=', False)]}">
+                        <field name="organizer_trip_plan_details" readonly="1" nolabel="1" widget="text" placeholder="No additional notes from the organizer."/>
+                    </group>
+
+                    <!-- Travel Documents Section -->
+                    <div attrs="{'invisible': [('employee_documents_ids', '=', False)]}">
+                        <h4 style="border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
+                            <i class="fa fa-ticket mr-2" title="Travel Documents"></i>Travel Documents
+                        </h4>
+                    </div>
+                    <group attrs="{'invisible': [('employee_documents_ids', '=', False)]}">
+                        <field name="employee_documents_ids" widget="many2many_binary" readonly="1" nolabel="1" string="Travel Documents"/>
+                    </group>
+
+                    <!-- Organizer Attachments Section -->
+                    <div attrs="{'invisible': [('business_trip_id.organizer_attachments_ids', '=', False)]}">
+                        <h4 style="border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
+                            <i class="fa fa-paperclip mr-2" title="Organizer Attachments"></i>Organizer Attachments
+                        </h4>
+                    </div>
+                    <group attrs="{'invisible': [('business_trip_id.organizer_attachments_ids', '=', False)]}">
+                        <field name="business_trip_id.organizer_attachments_ids" widget="many2many_binary" readonly="1" nolabel="1"/>
+                    </group>
+
+                    <!-- Comments to Manager Section -->
+                    <div attrs="{'invisible': ['|', ('business_trip_id.organizer_comments_to_manager', '=', False), ('is_current_user_owner', '=', True)]}">
+                        <h4 style="border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
+                            <i class="fa fa-comments mr-2" title="Comments to Manager"></i>Comments to Manager
+                        </h4>
+                    </div>
+                    <group attrs="{'invisible': ['|', ('business_trip_id.organizer_comments_to_manager', '=', False), ('is_current_user_owner', '=', True)]}">
+                        <field name="business_trip_id.organizer_comments_to_manager" readonly="1" nolabel="1" widget="text" placeholder="No comments from organizer to manager."/>
+                    </group>
+
                 </page>
-                <page string="Data" name="data" groups="formio.group_formio_admin">
-                  <field name="submission_data" attrs="{'readonly': ['|', ('id', '!=', False), ('readonly_submission_data', '=', True)]}"/>
-                  <field name="readonly_submission_data" invisible="1"/>
-                  <field name="id" invisible="1"/>
+
+                <!-- Raw JSON Data tab - moved to last position -->
+                <page string="Raw JSON Data" name="raw_json_data" groups="base.group_system">
+                    <group string="Raw Form Data (JSON)" attrs="{'invisible': [('submission_data', '=', False)]}">
+                        <field name="form_data_json" readonly="1" nolabel="1"/>
+                    </group>
                 </page>
+
               </notebook>
+
+              <field name="builder_id" string="Form Builder" attrs="{'invisible': [('id', '!=', False)]}" options="{'no_create': True}" required="0"/>
             </sheet>
             <div class="oe_chatter">
               <field name="message_follower_ids" widget="mail_followers"/>
@@ -313,6 +869,228 @@
               <field name="message_ids" widget="mail_thread"/>
             </div>
           </form>
+        </field>
+      </record>
+    
+      <!-- Search View for Business Trip Forms (Admin) -->
+      <record id="view_formio_form_search_business_trip" model="ir.ui.view">
+        <field name="name">formio.form.search.business.trip</field>
+        <field name="model">formio.form</field>
+        <field name="arch" type="xml">
+          <search string="Business Trip Forms">
+            <!-- Quick Search Fields -->
+            <field name="title" string="Title" filter_domain="[('title', 'ilike', self)]"/>
+            <field name="user_id" string="Employee"/>
+            <field name="destination" string="Destination"/>
+            <field name="display_quotation_ref" string="Quotation Reference"/>
+            
+            <!-- Status Filters -->
+            <separator/>
+            <filter name="filter_draft" string="Draft" domain="[('business_trip_id.trip_status', '=', 'draft')]"/>
+            <filter name="filter_submitted" string="Submitted" domain="[('business_trip_id.trip_status', '=', 'submitted')]"/>
+            <filter name="filter_pending_organization" string="Pending Organization" domain="[('business_trip_id.trip_status', '=', 'pending_organization')]"/>
+            <filter name="filter_organization_done" string="Organization Done" domain="[('business_trip_id.trip_status', '=', 'organization_done')]"/>
+            <filter name="filter_in_progress" string="In Progress" domain="[('business_trip_id.trip_status', '=', 'in_progress')]"/>
+            <filter name="filter_completed" string="Completed" domain="[('business_trip_id.trip_status', '=', 'completed')]"/>
+            
+            <separator/>
+            <filter name="filter_returned" string="Returned" domain="[('business_trip_id.trip_status', '=', 'returned')]"/>
+            <filter name="filter_rejected" string="Rejected" domain="[('business_trip_id.trip_status', '=', 'rejected')]"/>
+            <filter name="filter_cancelled" string="Cancelled" domain="[('business_trip_id.trip_status', '=', 'cancelled')]"/>
+            
+            <!-- Trip Type Filters -->
+            <separator/>
+            <filter name="filter_domestic" string="Domestic" domain="[('trip_type', '=', 'domestic')]"/>
+            <filter name="filter_international" string="International" domain="[('trip_type', '=', 'international')]"/>
+            
+            <!-- Financial Status Filters -->
+            <separator/>
+            <filter name="filter_under_budget" string="Under Budget" domain="[('business_trip_id.budget_status', '=', 'under_budget')]"/>
+            <filter name="filter_on_budget" string="On Budget" domain="[('business_trip_id.budget_status', '=', 'on_budget')]"/>
+            <filter name="filter_over_budget" string="Over Budget" domain="[('business_trip_id.budget_status', '=', 'over_budget')]"/>
+            
+            <!-- Date Filters -->
+            <separator/>
+            <filter name="filter_this_month" string="This Month" domain="[('business_trip_id.submission_date', '&gt;=', (context_today() - relativedelta(day=1)).strftime('%Y-%m-%d'))]"/>
+            <filter name="filter_last_month" string="Last Month" domain="[('business_trip_id.submission_date', '&gt;=', (context_today() - relativedelta(months=1, day=1)).strftime('%Y-%m-%d')), ('business_trip_id.submission_date', '&lt;', (context_today() - relativedelta(day=1)).strftime('%Y-%m-%d'))]"/>
+            <filter name="filter_this_year" string="This Year" domain="[('business_trip_id.submission_date', '&gt;=', (context_today() - relativedelta(month=1, day=1)).strftime('%Y-%m-%d'))]"/>
+            
+            <!-- Travel Date Filters -->
+            <separator/>
+            <filter name="filter_upcoming_trips" string="Upcoming Trips" domain="[('travel_start_date', '&gt;=', context_today().strftime('%Y-%m-%d'))]"/>
+            <filter name="filter_past_trips" string="Past Trips" domain="[('travel_end_date', '&lt;', context_today().strftime('%Y-%m-%d'))]"/>
+            <filter name="filter_current_trips" string="Current Trips" domain="[('travel_start_date', '&lt;=', context_today().strftime('%Y-%m-%d')), ('travel_end_date', '&gt;=', context_today().strftime('%Y-%m-%d'))]"/>
+            
+            <!-- Advanced Filters -->
+            <separator/>
+            <filter name="filter_has_quotation" string="Has Quotation" domain="[('display_quotation_ref', '!=', False)]"/>
+            
+            <!-- Group By Options -->
+            <group expand="0" string="Group By">
+              <filter name="group_by_status" string="Status" domain="[]" context="{'group_by': 'business_trip_id.trip_status'}"/>
+              <filter name="group_by_employee" string="Employee" domain="[]" context="{'group_by': 'user_id'}"/>
+              <filter name="group_by_manager" string="Manager" domain="[]" context="{'group_by': 'business_trip_id.manager_id'}"/>
+              <filter name="group_by_organizer" string="Organizer" domain="[]" context="{'group_by': 'business_trip_id.organizer_id'}"/>
+              <separator/>
+              <filter name="group_by_destination" string="Destination" domain="[]" context="{'group_by': 'destination'}"/>
+              <filter name="group_by_trip_type" string="Trip Type" domain="[]" context="{'group_by': 'trip_type'}"/>
+              <filter name="group_by_budget_status" string="Budget Status" domain="[]" context="{'group_by': 'business_trip_id.budget_status'}"/>
+              <separator/>
+              <filter name="group_by_submission_date" string="Submission Date" domain="[]" context="{'group_by': 'business_trip_id.submission_date:month'}"/>
+              <filter name="group_by_travel_date" string="Travel Date" domain="[]" context="{'group_by': 'travel_start_date:month'}"/>
+              <filter name="group_by_create_date" string="Create Date" domain="[]" context="{'group_by': 'create_date:month'}"/>
+            </group>
+          </search>
+        </field>
+      </record>
+
+      <!-- Search View for My Business Trip Forms -->
+      <record id="view_formio_form_search_my_business_trip" model="ir.ui.view">
+        <field name="name">formio.form.search.my.business.trip</field>
+        <field name="model">formio.form</field>
+        <field name="arch" type="xml">
+          <search string="My Business Trip Forms">
+            <!-- Quick Search Fields -->
+            <field name="title" string="Title" filter_domain="[('title', 'ilike', self)]"/>
+            <field name="destination" string="Destination"/>
+            <field name="display_quotation_ref" string="Quotation Reference"/>
+            
+            <!-- Status Filters -->
+            <separator/>
+            <filter name="filter_draft" string="Draft" domain="[('business_trip_id.trip_status', '=', 'draft')]"/>
+            <filter name="filter_submitted" string="Submitted" domain="[('business_trip_id.trip_status', '=', 'submitted')]"/>
+            <filter name="filter_pending_organization" string="Pending Organization" domain="[('business_trip_id.trip_status', '=', 'pending_organization')]"/>
+            <filter name="filter_organization_done" string="Organization Done" domain="[('business_trip_id.trip_status', '=', 'organization_done')]"/>
+            <filter name="filter_in_progress" string="In Progress" domain="[('business_trip_id.trip_status', '=', 'in_progress')]"/>
+            <filter name="filter_completed" string="Completed" domain="[('business_trip_id.trip_status', '=', 'completed')]"/>
+            
+            <separator/>
+            <filter name="filter_returned" string="Returned" domain="[('business_trip_id.trip_status', '=', 'returned')]"/>
+            <filter name="filter_rejected" string="Rejected" domain="[('business_trip_id.trip_status', '=', 'rejected')]"/>
+            <filter name="filter_cancelled" string="Cancelled" domain="[('business_trip_id.trip_status', '=', 'cancelled')]"/>
+            
+            <!-- Trip Type Filters -->
+            <separator/>
+            <filter name="filter_domestic" string="Domestic" domain="[('trip_type', '=', 'domestic')]"/>
+            <filter name="filter_international" string="International" domain="[('trip_type', '=', 'international')]"/>
+            
+            <!-- Financial Status Filters (only for managers/organizers) -->
+            <separator groups="custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+            <filter name="filter_under_budget" string="Under Budget" domain="[('business_trip_id.budget_status', '=', 'under_budget')]" groups="custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+            <filter name="filter_on_budget" string="On Budget" domain="[('business_trip_id.budget_status', '=', 'on_budget')]" groups="custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+            <filter name="filter_over_budget" string="Over Budget" domain="[('business_trip_id.budget_status', '=', 'over_budget')]" groups="custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+            
+            <!-- Date Filters -->
+            <separator/>
+            <filter name="filter_this_month" string="This Month" domain="[('business_trip_id.submission_date', '&gt;=', (context_today() - relativedelta(day=1)).strftime('%Y-%m-%d'))]"/>
+            <filter name="filter_last_month" string="Last Month" domain="[('business_trip_id.submission_date', '&gt;=', (context_today() - relativedelta(months=1, day=1)).strftime('%Y-%m-%d')), ('business_trip_id.submission_date', '&lt;', (context_today() - relativedelta(day=1)).strftime('%Y-%m-%d'))]"/>
+            <filter name="filter_this_year" string="This Year" domain="[('business_trip_id.submission_date', '&gt;=', (context_today() - relativedelta(month=1, day=1)).strftime('%Y-%m-%d'))]"/>
+            
+            <!-- Travel Date Filters -->
+            <separator/>
+            <filter name="filter_upcoming_trips" string="Upcoming Trips" domain="[('travel_start_date', '&gt;=', context_today().strftime('%Y-%m-%d'))]"/>
+            <filter name="filter_past_trips" string="Past Trips" domain="[('travel_end_date', '&lt;', context_today().strftime('%Y-%m-%d'))]"/>
+            <filter name="filter_current_trips" string="Current Trips" domain="[('travel_start_date', '&lt;=', context_today().strftime('%Y-%m-%d')), ('travel_end_date', '&gt;=', context_today().strftime('%Y-%m-%d'))]"/>
+            
+            <!-- Advanced Filters -->
+            <separator/>
+            <filter name="filter_has_quotation" string="Has Quotation" domain="[('display_quotation_ref', '!=', False)]"/>
+            
+            <!-- Group By Options -->
+            <group expand="0" string="Group By">
+              <filter name="group_by_status" string="Status" domain="[]" context="{'group_by': 'business_trip_id.trip_status'}"/>
+              <filter name="group_by_destination" string="Destination" domain="[]" context="{'group_by': 'destination'}"/>
+              <filter name="group_by_trip_type" string="Trip Type" domain="[]" context="{'group_by': 'trip_type'}"/>
+              <filter name="group_by_budget_status" string="Budget Status" domain="[]" context="{'group_by': 'business_trip_id.budget_status'}" groups="custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+              <separator/>
+              <filter name="group_by_submission_date" string="Submission Date" domain="[]" context="{'group_by': 'business_trip_id.submission_date:month'}"/>
+              <filter name="group_by_travel_date" string="Travel Date" domain="[]" context="{'group_by': 'travel_start_date:month'}"/>
+              <filter name="group_by_create_date" string="Create Date" domain="[]" context="{'group_by': 'create_date:month'}"/>
+            </group>
+          </search>
+        </field>
+      </record>
+
+      <!-- Search View for Assigned to Me -->
+      <record id="view_formio_form_search_assigned_business_trip" model="ir.ui.view">
+        <field name="name">formio.form.search.assigned.business.trip</field>
+        <field name="model">formio.form</field>
+        <field name="arch" type="xml">
+          <search string="Assigned Business Trips">
+            <!-- Quick Search Fields -->
+            <field name="title" string="Title" filter_domain="[('title', 'ilike', self)]"/>
+            <field name="user_id" string="Employee"/>
+            <field name="destination" string="Destination"/>
+            <field name="display_quotation_ref" string="Quotation Reference"/>
+            
+            <!-- Role-based Filters -->
+            <separator/>
+            <filter name="filter_my_requests" string="My Requests" domain="[('user_id', '=', uid)]"/>
+            <filter name="filter_as_manager" string="As Manager" domain="[('business_trip_id.manager_id', '=', uid)]"/>
+            <filter name="filter_as_organizer" string="As Organizer" domain="[('business_trip_id.organizer_id', '=', uid)]"/>
+            
+            <!-- Status Filters -->
+            <separator/>
+            <filter name="filter_needs_manager_action" string="Needs Manager Action" domain="[('business_trip_id.trip_status', 'in', ['submitted', 'pending_organization']), ('business_trip_id.manager_id', '=', uid)]"/>
+            <filter name="filter_needs_organizer_action" string="Needs Organizer Action" domain="[('business_trip_id.trip_status', 'in', ['pending_organization', 'organization_done']), ('business_trip_id.organizer_id', '=', uid)]"/>
+            <filter name="filter_needs_employee_action" string="Needs Employee Action" domain="[('business_trip_id.trip_status', 'in', ['draft', 'organization_done', 'completed']), ('user_id', '=', uid)]"/>
+            
+            <separator/>
+            <filter name="filter_draft" string="Draft" domain="[('business_trip_id.trip_status', '=', 'draft')]"/>
+            <filter name="filter_submitted" string="Submitted" domain="[('business_trip_id.trip_status', '=', 'submitted')]"/>
+            <filter name="filter_pending_organization" string="Pending Organization" domain="[('business_trip_id.trip_status', '=', 'pending_organization')]"/>
+            <filter name="filter_organization_done" string="Organization Done" domain="[('business_trip_id.trip_status', '=', 'organization_done')]"/>
+            <filter name="filter_in_progress" string="In Progress" domain="[('business_trip_id.trip_status', '=', 'in_progress')]"/>
+            <filter name="filter_completed" string="Completed" domain="[('business_trip_id.trip_status', '=', 'completed')]"/>
+            
+            <separator/>
+            <filter name="filter_returned" string="Returned" domain="[('business_trip_id.trip_status', '=', 'returned')]"/>
+            <filter name="filter_rejected" string="Rejected" domain="[('business_trip_id.trip_status', '=', 'rejected')]"/>
+            <filter name="filter_cancelled" string="Cancelled" domain="[('business_trip_id.trip_status', '=', 'cancelled')]"/>
+            
+            <!-- Trip Type Filters -->
+            <separator/>
+            <filter name="filter_domestic" string="Domestic" domain="[('trip_type', '=', 'domestic')]"/>
+            <filter name="filter_international" string="International" domain="[('trip_type', '=', 'international')]"/>
+            
+            <!-- Financial Status Filters -->
+            <separator/>
+            <filter name="filter_under_budget" string="Under Budget" domain="[('business_trip_id.budget_status', '=', 'under_budget')]"/>
+            <filter name="filter_on_budget" string="On Budget" domain="[('business_trip_id.budget_status', '=', 'on_budget')]"/>
+            <filter name="filter_over_budget" string="Over Budget" domain="[('business_trip_id.budget_status', '=', 'over_budget')]"/>
+            
+            <!-- Date Filters -->
+            <separator/>
+            <filter name="filter_this_month" string="This Month" domain="[('business_trip_id.submission_date', '&gt;=', (context_today() - relativedelta(day=1)).strftime('%Y-%m-%d'))]"/>
+            <filter name="filter_last_month" string="Last Month" domain="[('business_trip_id.submission_date', '&gt;=', (context_today() - relativedelta(months=1, day=1)).strftime('%Y-%m-%d')), ('business_trip_id.submission_date', '&lt;', (context_today() - relativedelta(day=1)).strftime('%Y-%m-%d'))]"/>
+            <filter name="filter_this_year" string="This Year" domain="[('business_trip_id.submission_date', '&gt;=', (context_today() - relativedelta(month=1, day=1)).strftime('%Y-%m-%d'))]"/>
+            
+            <!-- Travel Date Filters -->
+            <separator/>
+            <filter name="filter_upcoming_trips" string="Upcoming Trips" domain="[('travel_start_date', '&gt;=', context_today().strftime('%Y-%m-%d'))]"/>
+            <filter name="filter_past_trips" string="Past Trips" domain="[('travel_end_date', '&lt;', context_today().strftime('%Y-%m-%d'))]"/>
+            <filter name="filter_current_trips" string="Current Trips" domain="[('travel_start_date', '&lt;=', context_today().strftime('%Y-%m-%d')), ('travel_end_date', '&gt;=', context_today().strftime('%Y-%m-%d'))]"/>
+            
+            <!-- Advanced Filters -->
+            <separator/>
+            <filter name="filter_has_quotation" string="Has Quotation" domain="[('display_quotation_ref', '!=', False)]"/>
+            
+            <!-- Group By Options -->
+            <group expand="0" string="Group By">
+              <filter name="group_by_status" string="Status" domain="[]" context="{'group_by': 'business_trip_id.trip_status'}"/>
+              <filter name="group_by_employee" string="Employee" domain="[]" context="{'group_by': 'user_id'}"/>
+              <filter name="group_by_manager" string="Manager" domain="[]" context="{'group_by': 'business_trip_id.manager_id'}"/>
+              <filter name="group_by_organizer" string="Organizer" domain="[]" context="{'group_by': 'business_trip_id.organizer_id'}"/>
+              <separator/>
+              <filter name="group_by_destination" string="Destination" domain="[]" context="{'group_by': 'destination'}"/>
+              <filter name="group_by_trip_type" string="Trip Type" domain="[]" context="{'group_by': 'trip_type'}"/>
+              <filter name="group_by_budget_status" string="Budget Status" domain="[]" context="{'group_by': 'business_trip_id.budget_status'}"/>
+              <separator/>
+              <filter name="group_by_submission_date" string="Submission Date" domain="[]" context="{'group_by': 'business_trip_id.submission_date:month'}"/>
+              <filter name="group_by_travel_date" string="Travel Date" domain="[]" context="{'group_by': 'travel_start_date:month'}"/>
+              <filter name="group_by_create_date" string="Create Date" domain="[]" context="{'group_by': 'create_date:month'}"/>
+            </group>
+          </search>
         </field>
       </record>
     
@@ -324,6 +1102,7 @@
         <field name="view_ids" eval="[(5, 0, 0),
           (0, 0, {'view_mode': 'tree', 'view_id': ref('custom_business_trip_management.view_formio_form_tree_business_trip')}),
           (0, 0, {'view_mode': 'form', 'view_id': ref('custom_business_trip_management.view_formio_form_form_business_trip')})]"/>
+        <field name="search_view_id" ref="view_formio_form_search_business_trip"/>
       </record>
       
       <!-- Action for My Business Trip Forms -->
@@ -336,6 +1115,7 @@
         <field name="view_ids" eval="[(5, 0, 0),
           (0, 0, {'view_mode': 'tree', 'view_id': ref('custom_business_trip_management.view_formio_form_tree_my_business_trip')}),
           (0, 0, {'view_mode': 'form', 'view_id': ref('custom_business_trip_management.view_formio_form_form_business_trip')})]"/>
+        <field name="search_view_id" ref="view_formio_form_search_my_business_trip"/>
         <field name="help" type="html">
           <p class="o_view_nocontent_smiling_face">
             No business trip forms found
@@ -345,17 +1125,118 @@
           </p>
         </field>
       </record>
-    
-      <menuitem id="menu_view_business_trip_forms"
-        name="Business Trip Forms"
-        parent="menu_business_trip_root"
-        action="custom_business_trip_management.action_view_business_trip_forms"
-        sequence="1"
-        groups="base.group_system"/>
-        
-      <menuitem id="menu_view_my_business_trip_forms"
-        name="My Business Trip Forms"
-        parent="menu_business_trip_root"
-        action="custom_business_trip_management.action_view_my_business_trip_forms"
-        sequence="2"/>
+
+    <menuitem id="menu_view_business_trip_forms"
+      name="Business Trip Forms"
+      parent="menu_business_trip_root"
+      action="custom_business_trip_management.action_view_business_trip_forms"
+      sequence="3"
+      groups="base.group_system"/>
+      
+    <menuitem id="menu_view_my_business_trip_forms"
+      name="My Business Trip Forms"
+      parent="menu_business_trip_root"
+      action="custom_business_trip_management.action_view_my_business_trip_forms"
+      sequence="2"/>
+
+    <!-- Organizer Assigned Business Trip Forms -->
+    <record id="view_formio_form_tree_organizer_business_trip" model="ir.ui.view">
+      <field name="name">formio.form.tree.organizer.business.trip</field>
+      <field name="model">formio.form</field>
+      <field name="arch" type="xml">
+        <tree string="Trips to Organize"
+              decoration-info="business_trip_id.trip_status in ('draft', 'in_progress')" 
+              decoration-success="business_trip_id.trip_status == 'completed'"
+              decoration-primary="business_trip_id.trip_status in ('organization_done', 'completed_waiting_expense')"
+              decoration-danger="business_trip_id.trip_status == 'rejected'"
+              decoration-muted="business_trip_id.trip_status == 'cancelled'"
+              decoration-warning="business_trip_id.trip_status in ('submitted', 'pending_organization', 'awaiting_trip_start', 'expense_submitted', 'returned', 'expense_returned')">
+          
+          <field name="id"/>
+          <field name="business_trip_id" invisible="1"/>
+          <field name="title"/>
+          <field name="user_id" string="Employee"/>
+          <field name="destination"/>
+          <field name="trip_type"/>
+          <field name="travel_start_date"/>
+          <field name="travel_end_date"/>
+          <field name="business_trip_id.manager_max_budget" string="Budget"/>
+          <field name="business_trip_id.organizer_planned_cost" string="Planned Cost"/>
+          <field name="currency_id"/>
+          <field name="business_trip_id.trip_status" widget="badge"/>
+          
+          <button name="action_open_organizer_plan_wizard" 
+                  string="Plan Trip" 
+                  type="object" 
+                  icon="fa-calendar" 
+                  attrs="{'invisible': [('business_trip_id.trip_status', '!=', 'pending_organization')]}"/>
+                  
+          <button name="action_organizer_confirm_planning" 
+                  string="Confirm" 
+                  type="object" 
+                  icon="fa-check" 
+                  attrs="{'invisible': [('business_trip_id.trip_status', '!=', 'pending_organization')]}"/>
+        </tree>
+      </field>
+    </record>
+
+
+      
+    <!-- Add missing view for all assigned business trips -->
+    <record id="view_formio_form_tree_all_assigned_business_trip" model="ir.ui.view">
+      <field name="name">formio.form.tree.all.assigned.business.trip</field>
+      <field name="model">formio.form</field>
+      <field name="arch" type="xml">
+        <tree string="My Assigned Business Trips"
+              create="false"
+              decoration-info="business_trip_id.trip_status in ('draft', 'in_progress')" 
+              decoration-success="business_trip_id.trip_status == 'completed'"
+              decoration-primary="business_trip_id.trip_status in ('organization_done', 'completed_waiting_expense')"
+              decoration-danger="business_trip_id.trip_status == 'rejected'"
+              decoration-muted="business_trip_id.trip_status == 'cancelled'"
+              decoration-warning="business_trip_id.trip_status in ('submitted', 'pending_organization', 'awaiting_trip_start', 'expense_submitted', 'returned', 'expense_returned')">
+            
+            <!-- Essential Fields (Always Visible) -->
+            <field name="id"/>
+            <field name="business_trip_id" invisible="1"/>
+            <field name="title"/>
+            <field name="display_quotation_ref" string="Linked Quotation"/>
+            <field name="user_id" string="Employee"/>
+            <field name="business_trip_id.trip_status" string="Status" widget="badge"/>
+            <field name="my_role" string="My Role"/>
+            <field name="business_trip_id.submission_date" string="Submission Date"/>
+            
+            <!-- Travel Information -->
+            <field name="destination" optional="show"/>
+            <field name="travel_start_date"/>
+            <field name="travel_end_date"/>
+            <field name="trip_type" optional="show"/>
+            
+            <!-- Financial Information (Grouped Together) - Trip Cost Analysis -->
+            <field name="business_trip_id.manager_max_budget" string="Manager Budget" groups="custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+            <field name="business_trip_id.organizer_planned_cost" string="Planned Travel Costs" groups="custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+            <field name="business_trip_id.budget_difference" string="Budget Deviation" widget="monetary" options="{'currency_field': 'currency_id'}"
+                   decoration-success="business_trip_id.budget_difference &gt; 0"
+                   decoration-danger="business_trip_id.budget_difference &lt; 0"
+                   decoration-info="business_trip_id.budget_difference == 0"
+                   groups="custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+            <field name="business_trip_id.final_total_cost" string="Final Total Cost (Planned + Actual)" widget="monetary" options="{'currency_field': 'currency_id'}" groups="custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+            <field name="business_trip_id.budget_status" string="Budget Status" widget="badge"
+                   decoration-success="business_trip_id.budget_status == 'under_budget'"
+                   decoration-danger="business_trip_id.budget_status == 'over_budget'"
+                   decoration-info="business_trip_id.budget_status == 'on_budget'"
+                   groups="custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+            <field name="currency_id" optional="show" groups="custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_organizer,base.group_system"/>
+            
+            <!-- Additional Information -->
+            <field name="display_quotation_ref" string="Linked Quotation" optional="hide"/>
+            <field name="business_trip_id.manager_id" string="Manager" optional="hide"/>
+            <field name="business_trip_id.organizer_id" string="Organizer" optional="hide"/>
+            <field name="state" string="Form State" optional="hide"/>
+            <field name="create_date" string="Created On" optional="hide"/>
+            
+            <button string="View" name="action_view_formio" type="object" class="btn-primary"/>
+          </tree>
+        </field>
+      </record>
 </odoo>

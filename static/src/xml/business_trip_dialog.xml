@@ -19,15 +19,8 @@
                         </div>
                         
                         <div class="form-group">
-                            <label for="form_selection">Select Form:</label>
-                            <select class="form-control" name="form_selection">
-                                <option value="new">Create New Form (Always Creates a New Form)</option>
-                                <t t-foreach="forms" t-as="form">
-                                    <option t-att-value="form.id">
-                                        <t t-esc="form.name or ''"/> - <t t-esc="form.create_date or ''"/>
-                                    </option>
-                                </t>
-                            </select>
+                            <p>A new business trip request will be created for this quotation.</p>
+                            <p>Do you want to proceed?</p>
                         </div>
                     </div>
                     <div class="modal-footer">

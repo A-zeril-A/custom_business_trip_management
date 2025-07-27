@@ -22,6 +22,17 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane">
+                                <field name="undo_expense_approval_days_limit"/>
+                            </div>
+                            <div class="o_setting_right_pane">
+                                <label for="undo_expense_approval_days_limit"/>
+                                <div class="text-muted">
+                                    Days after expense approval within which it can be undone (0 for no limit).
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </xpath>

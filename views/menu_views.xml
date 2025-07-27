@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Root menu for Business Trip Management -->
+    <menuitem id="menu_business_trip_root"
+        name="Business Trip"
+        sequence="50"/>
+        
+    <!-- Configuration menu item -->
+    <menuitem id="menu_business_trip_config"
+        name="Configuration"
+        parent="custom_business_trip_management.menu_business_trip_root"
+        sequence="100"/>
+        
+    <!-- Settings menu item -->
+    <menuitem id="menu_business_trip_settings"
+        name="Settings"
+        parent="menu_business_trip_config"
+        action="custom_business_trip_management.action_business_trip_settings"
+        sequence="10"
+        groups="base.group_system"/>
+</odoo> 

@@ -1,14 +1,113 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
-    <!-- قانون امنیتی برای نمایش تمام کوتیشن‌ها به کاربران عادی فقط در بخش سفر کاری -->
-    <record id="sale_order_all_quotations_rule" model="ir.rule">
-        <field name="name">All users can see all quotations</field>
+    <record id="group_business_trip_requester" model="res.groups">
+        <field name="name">Business Trip Requester</field>
+        <field name="category_id" ref="base.module_category_human_resources_employees"/>
+        <field name="comment">Users in this group can request business trips and view all sale orders for selection.</field>
+    </record>
+
+    <record id="base.group_user" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('custom_business_trip_management.group_business_trip_requester'))]"/>
+    </record>
+
+
+    <record id="group_business_trip_organizer" model="res.groups">
+        <field name="name">Business Trip Organizer</field>
+        <field name="category_id" ref="base.module_category_human_resources_employees"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        <field name="comment">Users in this group can organize and plan business trips after manager's initial approval and budget allocation.</field>
+    </record>
+    
+    <record id="group_business_trip_manager" model="res.groups">
+        <field name="name">Business Trip Manager</field>
+        <field name="category_id" ref="base.module_category_human_resources_employees"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        <field name="comment">Users in this group can manage business trips, approve requests and budgets.</field>
+    </record>
+
+    <!-- Form Access Rules -->
+    <record id="formio_form_user_rule" model="ir.rule">
+        <field name="name">Employee can only see their own trip requests</field>
+        <field name="model_id" ref="formio.model_formio_form"/>
+        <field name="domain_force">['&amp;', ('trip_status', '!=', False), ('user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <record id="formio_form_manager_rule" model="ir.rule">
+        <field name="name">Manager can see their employees' trip requests</field>
+        <field name="model_id" ref="formio.model_formio_form"/>
+        <field name="domain_force">['&amp;', ('trip_status', '!=', False), ('manager_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_manager'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="formio_form_organizer_rule" model="ir.rule">
+        <field name="name">Organizer can see their assigned trip requests</field>
+        <field name="model_id" ref="formio.model_formio_form"/>
+        <field name="domain_force">['&amp;', ('trip_status', '!=', False), ('organizer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <!-- Sale Order Access Rule for Requesters -->
+    <record id="sale_order_requester_rule" model="ir.rule">
+        <field name="name">Requester can see all sale orders</field>
         <field name="model_id" ref="sale.model_sale_order"/>
         <field name="domain_force">[(1, '=', 1)]</field>
-        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="groups" eval="[(4, ref('custom_business_trip_management.group_business_trip_requester'))]"/>
         <field name="perm_read" eval="True"/>
         <field name="perm_write" eval="False"/>
         <field name="perm_create" eval="False"/>
         <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <!-- Attachment Access Rule -->
+    <!-- <record id="ir_attachment_business_trip_rule" model="ir.rule">
+        <field name="name">Access to Business Trip Attachments</field>
+        <field name="model_id" ref="base.model_ir_attachment"/>
+        <field name="domain_force">
+            [
+                '|',
+                    ('res_model', '!=', 'formio.form'),
+                    '&amp;',
+                        ('res_model', '=', 'formio.form'),
+                        ('res_id', 'in', user.env['formio.form'].search([
+                            '|',
+                                ('trip_status', '=', False),
+                                '&amp;',
+                                    ('trip_status', '!=', False),
+                                    '|', '|',
+                                        ('user_id', '=', user.id),
+                                        ('manager_id', '=', user.id),
+                                        ('organizer_id', '=', user.id)
+                        ]).ids)
+            ]
+        </field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record> -->
+   
+    <!-- Access rights for wizards -->
+    <record id="access_business_trip_expense_return_comment_wizard_organizer" model="ir.model.access">
+        <field name="name">business.trip.expense.return.comment.wizard.organizer</field>
+        <field name="model_id" ref="model_business_trip_expense_return_comment_wizard"/>
+        <field name="group_id" ref="custom_business_trip_management.group_business_trip_organizer"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="0"/>
     </record>
 </odoo>

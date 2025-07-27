@@ -5,27 +5,33 @@ class SaleOrder(models.Model):
     _inherit = 'sale.order'
 
     def start_trip_for_quotation(self):
+        """
+        Creates a new Business Trip record linked to this sales order and
+        opens the associated form.
+        """
         self.ensure_one()
-        
-        # Find or create formio.builder
-        builder = self.env['formio.builder'].search([('name', '=', 'Business Trip Form')], limit=1)
-        if not builder:
-            builder = self.env['formio.builder'].create({
-                'name': 'Business Trip Form',
-                'title': 'Business Trip Form',
-                'display': 'form',
-                'components': [],
-            })
 
-        # Create formio.form
-        form = self.env['formio.form'].create({
-            'builder_id': builder.id,
-            'title': f'Business Trip Form - {self.name}',
-            'sale_order_id': self.id,
+        # Create the main business trip record
+        trip = self.env['business.trip'].create({
+            'user_id': self.env.user.id,
+            'sale_order_id': self.id, # Assuming we will add this field to business.trip
         })
 
+        # The formio.form is now created automatically via business.trip logic
+        # (We will implement this in the next steps)
+        # For now, we assume the trip record has a link to it.
+        # We need to add the logic to create the form and link it.
+
+        # Find the form associated with the trip.
+        # This part will be completed in the next refactoring steps.
+        # For now, we'll just return a placeholder or open the trip record.
+        
+        # Open the newly created business trip record
         return {
-            'type': 'ir.actions.act_url',
-            'url': f'/web#active_id={form.id}&model=formio.form&view_type=formio_form&id={form.id}&cids=1',
-            'target': 'self',
+            'type': 'ir.actions.act_window',
+            'name': 'Business Trip Request',
+            'res_model': 'business.trip',
+            'res_id': trip.id,
+            'view_mode': 'form',
+            'target': 'current',
         } 
