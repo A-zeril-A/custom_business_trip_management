@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="action_business_trip_admin_forms" model="ir.actions.act_window">
+        <field name="name">Submitted Forms</field>
+        <field name="res_model">business.trip</field>
+        <field name="view_mode">tree,form</field>
+        <field name="view_id" ref="custom_business_trip_management.view_business_trip_tree"/>
+    </record>
+
+    <!-- URL Action for intelligent role-based redirection -->
+    <record id="action_business_trip_entry" model="ir.actions.act_url">
+        <field name="name">Business Trip Entry</field>
+        <field name="url">/business_trip/entry</field>
+        <field name="target">self</field>
+    </record>
+    
+    <!-- Action for management assigned business trip forms (only managerial roles) -->
+    <record id="action_all_assigned_business_trip_forms" model="ir.actions.act_window">
+        <field name="name">Assigned to Me</field>
+        <field name="res_model">business.trip</field>
+        <field name="view_mode">tree,form</field>
+        <field name="domain">['|', 
+                              '&amp;', ('manager_id', '=', uid), ('trip_status', '!=', 'draft'),
+                              ('organizer_id', '=', uid)
+                             ]</field>
+        <field name="view_id" ref="custom_business_trip_management.view_all_assigned_business_trip_tree"/>
+        <field name="search_view_id" ref="custom_business_trip_management.view_business_trip_search"/>
+        <field name="context">{'from_assigned_to_me': True}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+          (0, 0, {'view_mode': 'tree', 'view_id': ref('custom_business_trip_management.view_all_assigned_business_trip_tree')}),
+          (0, 0, {'view_mode': 'form', 'view_id': ref('custom_business_trip_management.view_business_trip_form')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No business trips assigned to you for management
+            </p>
+            <p>
+                Business trips where you have a management role (Travel Approver or Organizer) will appear here. Your own trip requests as an employee will not appear in this list.
+            </p>
+        </field>
+    </record>
+    
+    <!-- Action for organizer assigned business trip forms -->
+    <record id="action_organizer_assigned_business_trip_forms" model="ir.actions.act_window">
+        <field name="name">Assigned Business Trips</field>
+        <field name="res_model">business.trip</field>
+        <field name="view_mode">tree,form,kanban</field>
+        <field name="context">{'from_assigned_to_me': True}</field>
+        <field name="domain">[('organizer_id', '=', uid)]</field>
+        <field name="search_view_id" ref="custom_business_trip_management.view_assigned_business_trip_search"/>
+        <field name="view_ids" eval="[(5, 0, 0),
+          (0, 0, {'view_mode': 'tree', 'view_id': ref('custom_business_trip_management.view_organizer_business_trip_tree')}),
+          (0, 0, {'view_mode': 'form', 'view_id': ref('custom_business_trip_management.view_business_trip_form')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No assigned business trips found
+            </p>
+            <p>
+                Business trips assigned to you for organization will appear here.
+            </p>
+        </field>
+    </record>
+
+    <!-- This action opens the formio form builder/editor. We might need to replace it or point it to the new form view -->
+    <record id="action_business_trip_formio_form" model="ir.actions.act_window">
+        <field name="name">Business Trip Request</field>
+        <field name="res_model">business.trip</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="custom_business_trip_management.view_business_trip_form" />
+        <field name="target">current</field>
+    </record>
+</odoo>

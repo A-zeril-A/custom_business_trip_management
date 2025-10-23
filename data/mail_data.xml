@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+        <!-- Define a custom message subtype for confidential messages -->
+        <record id="mt_confidential_message" model="mail.message.subtype">
+            <!-- The name of the subtype shown in the UI (if applicable) -->
+            <field name="name">Confidential Message</field>
+            
+            <!-- Description of the subtype; helps users understand its purpose -->
+            <field name="description">Confidential Message - Only visible to Manager and Organizer</field>
+            
+            <!-- Marks this subtype as internal, meaning it's not shown to regular users by default -->
+            <field name="internal" eval="True"/>
+            
+            <!-- Specifies the model this message subtype is associated with -->
+            <field name="res_model">formio.form</field>
+        </record>
+    </data>
+</odoo>

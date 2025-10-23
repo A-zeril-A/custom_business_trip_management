@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Single Root Menu - One icon for all users -->
+    <record id="menu_business_trip_root" model="ir.ui.menu">
+        <field name="name">Business Trip Management</field>
+        <field name="action" ref="action_business_trip_entry"/>
+        <field name="web_icon">custom_business_trip_management,static/description/icon.png</field>
+        <field name="sequence">90</field>
+        <field name="groups_id" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+
+    <!-- Hidden structure menus (used only for menu organization, no web_icon) -->
+    <record id="menu_business_trip_root_admin" model="ir.ui.menu">
+        <field name="name">Business Trip Management (Admin)</field>
+        <field name="action" ref="custom_business_trip_management.action_view_business_trip_forms"/>
+        <field name="sequence">90</field>
+        <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        <field name="active" eval="False"/>
+    </record>
+
+    <record id="menu_business_trip_root_manager" model="ir.ui.menu">
+        <field name="name">Business Trip Management (Manager)</field>
+        <field name="action" ref="custom_business_trip_management.action_all_assigned_business_trip_forms"/>
+        <field name="sequence">90</field>
+        <field name="groups_id" eval="[(4, ref('custom_business_trip_management.group_business_trip_manager')), (4, ref('custom_business_trip_management.group_business_trip_organizer'))]"/>
+        <field name="active" eval="False"/>
+    </record>
+
+    <record id="menu_business_trip_root_user" model="ir.ui.menu">
+        <field name="name">Business Trip Management (User)</field>
+        <field name="action" ref="custom_business_trip_management.action_view_my_business_trip_forms"/>
+        <field name="sequence">90</field>
+        <field name="groups_id" eval="[(4, ref('base.group_user'))]"/>
+        <field name="active" eval="False"/>
+    </record>
+
+    <!-- Active Menu Items -->
+    <menuitem id="menu_view_business_trip_forms"
+      name="Business Trip Forms"
+      parent="menu_business_trip_root"
+      action="custom_business_trip_management.action_view_business_trip_forms"
+      sequence="3"
+      groups="base.group_system"/>
+      
+    <menuitem id="menu_view_my_business_trip_forms"
+      name="My Business Trip Forms"
+      parent="menu_business_trip_root"
+      action="custom_business_trip_management.action_view_my_business_trip_forms"
+      sequence="2"/>
+      
+    <record id="menu_business_trip_admin_forms" model="ir.ui.menu">
+        <field name="name">Submitted Forms</field>
+        <field name="parent_id" ref="custom_business_trip_management.menu_business_trip_root"/>
+        <field name="action" ref="action_business_trip_admin_forms"/>
+        <field name="sequence">100</field>
+        <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+        <field name="active" eval="False"/>
+    </record>
+
+    <!-- Menu for all assigned business trip forms -->
+    <record id="menu_all_assigned_business_trip_forms" model="ir.ui.menu">
+        <field name="name">Assigned to Me</field>
+        <field name="parent_id" ref="custom_business_trip_management.menu_business_trip_root"/>
+        <field name="action" ref="action_all_assigned_business_trip_forms"/>
+        <field name="sequence">1</field>
+        <field name="groups_id" eval="[(4, ref('base.group_system')), (4, ref('custom_business_trip_management.group_business_trip_manager')), (4, ref('custom_business_trip_management.group_business_trip_organizer'))]"/>
+    </record>
+</odoo>

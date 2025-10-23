@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Settings form view -->
+    <record id="res_config_settings_view_form_business_trip" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.business.trip</field>
+        <field name="model">res.config.settings</field>
+        <field name="priority" eval="70"/>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[hasclass('settings')]" position="inside">
+                <div class="app_settings_block" data-string="Business Trip" string="Business Trip" data-key="custom_business_trip_management">
+                    <h2>Approval Process</h2>
+                    <div class="row mt16 o_settings_container">
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane">
+                                <field name="require_finance_approval_for_trips"/>
+                            </div>
+                            <div class="o_setting_right_pane">
+                                <label for="require_finance_approval_for_trips"/>
+                                <div class="text-muted">
+                                    Require finance department approval for business trip requests after manager approval
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane">
+                                <field name="undo_expense_approval_days_limit"/>
+                            </div>
+                            <div class="o_setting_right_pane">
+                                <label for="undo_expense_approval_days_limit"/>
+                                <div class="text-muted">
+                                    Days after expense approval within which it can be undone (0 for no limit).
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h2>Expense Submission Reminders</h2>
+                    <div class="row mt16 o_settings_container">
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane">
+                                <field name="expense_reminder_interval"/>
+                            </div>
+                            <div class="o_setting_right_pane">
+                                <label for="expense_reminder_interval"/>
+                                <div class="text-muted">
+                                    Interval for sending expense submission reminders to employees
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_left_pane">
+                                <field name="expense_reminder_interval_type"/>
+                            </div>
+                            <div class="o_setting_right_pane">
+                                <label for="expense_reminder_interval_type"/>
+                                <div class="text-muted">
+                                    Unit type for expense reminder interval (Minutes or Days)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Settings action -->
+    <record id="action_business_trip_settings" model="ir.actions.act_window">
+        <field name="name">Business Trip Settings</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">inline</field>
+        <field name="context">{'module' : 'custom_business_trip_management'}</field>
+    </record>
+
+    <!-- Settings menu -->
+    <menuitem id="menu_business_trip_settings"
+        name="Settings"
+        parent="custom_business_trip_management.menu_business_trip_root"
+        action="action_business_trip_settings"
+        sequence="100"
+        groups="base.group_system,custom_business_trip_management.group_business_trip_manager"/>
+
+
+</odoo> 

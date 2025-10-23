@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Configuration menu item - now under main menu -->
+    <menuitem id="menu_business_trip_config"
+        name="Configuration"
+        parent="custom_business_trip_management.menu_business_trip_root"
+        sequence="100"
+        groups="base.group_system"/>
+        
+    <!-- Settings moved to business_trip_settings_views.xml to avoid duplication -->
+</odoo> 

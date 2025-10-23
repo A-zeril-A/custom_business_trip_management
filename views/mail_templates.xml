@@ -1,0 +1,452 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        This QWeb template provides a generic, styled card for chatter messages.
+        It can be adapted for different message types (info, success, warning, danger)
+        by passing a 'card_type' in the context.
+
+        Expected context variables:
+        - card_type: (str) 'info', 'success', 'warning', 'danger', or 'default'. Determines the color scheme.
+        - icon: (str) The emoji icon to display next to the title.
+        - title: (str) The main title of the message card.
+        - body_html: (str) The raw HTML content for the main body of the message.
+        - next_steps: (str, optional) Text to display in the "Next steps" box.
+        - submitted_by: (str, optional) The name of the user to display in the footer.
+    -->
+    <template id="chatter_message_card" name="Generic Chatter Message Card">
+        <t t-set="styles" t-value="{
+            'info':    {'bg': '#EBF5FF', 'border': '#B3D4FF', 'title': '#00529B', 'text': '#004085', 'next_steps_bg': '#DAE8FC'},
+            'success': {'bg': 'transparent', 'border': '#C3E6CB', 'title': '#155724', 'text': '#155724', 'next_steps_bg': '#C3E6CB'},
+            'warning': {'bg': '#FFF3CD', 'border': '#FFEEBA', 'title': '#856404', 'text': '#856404', 'next_steps_bg': '#FFEEBA'},
+            'danger':  {'bg': '#F8D7DA', 'border': '#F5C6CB', 'title': '#721C24', 'text': '#721C24', 'next_steps_bg': '#F5C6CB'},
+            'default': {'bg': '#2E2E2E', 'border': '#444444', 'title': '#5599FF', 'text': '#E0E0E0', 'next_steps_bg': '#3C3C3C'},
+        }"/>
+        <t t-set="style" t-value="styles.get(card_type, styles.get('default'))"/>
+
+        <!-- Main Card Container -->
+        <div t-attf-style="background-color: #{style.get('bg')}; border: 1px solid #{style.get('border')}; border-radius: 5px; padding: 15px; margin: 10px 0; font-family: sans-serif; color: #{style.get('title')};">
+            
+            <!-- Header -->
+            <div style="font-size: 16px; font-weight: bold; margin-bottom: 12px;">
+                <t t-if="icon_class">
+                    <i t-att-class="icon_class" style="margin-right: 8px;"/>
+                </t>
+                <t t-elif="icon">
+                    <span t-esc="icon" style="margin-right: 8px;"/>
+                </t>
+                <span t-esc="title"/>
+            </div>
+
+            <!-- Body -->
+            <div t-attf-style="color: #{style.get('text')}; font-size: 14px; line-height: 1.6; margin-bottom: 12px;">
+                <t t-out="body_html"/>
+            </div>
+
+            <!-- Next Steps -->
+            <t t-if="next_steps">
+                <div t-attf-style="background-color: #{style.get('next_steps_bg')}; border-radius: 4px; padding: 10px; margin-top: 15px;">
+                    <strong style="font-weight: bold;">Next steps:</strong>
+                    <div style="font-size: 13px; margin-top: 5px;">
+                        <t t-esc="next_steps"/>
+                    </div>
+                </div>
+            </t>
+
+            <!-- Footer -->
+            <t t-if="submitted_by">
+                <div t-attf-style="text-align: right; font-size: 12px; color: #{style.get('text')}; margin-top: 15px; border-top: 1px solid #{style.get('border')}; padding-top: 8px;">
+                    <em>Posted by: <t t-esc="submitted_by"/></em>
+                </div>
+            </t>
+        </div>
+    </template>
+
+    <!--
+        Helper template to render a detail list item.
+        - label: The label for the field.
+        - value: The value of the field.
+        - condition: (optional) A boolean condition to check before rendering. Defaults to True.
+        - is_boolean: (optional) If True, displays 'Yes'/'No' instead of the raw value.
+    -->
+    <template id="chatter_detail_item" name="Chatter Detail List Item">
+        <t t-if="condition if condition is not None else True">
+            <t t-if="value">
+                <li style="margin-bottom: 5px;">
+                    <strong t-esc="label" style="margin-right: 5px;"/>
+                    <t t-if="is_boolean">
+                        <span t-if="value" class="text-success">Yes</span>
+                        <span t-else="" class="text-muted">No</span>
+                    </t>
+                    <t t-else="">
+                        <span t-esc="value"/>
+                    </t>
+                </li>
+            </t>
+        </t>
+    </template>
+
+    <!--
+        QWeb Template for the comprehensive Form Submission Summary.
+        This template is called after the form is processed to post a single,
+        detailed message in the chatter, summarizing all submitted data.
+
+        Expected context variables:
+        - record: The 'business.trip.data' record object.
+    -->
+    <template id="form_submission_summary" name="Form Submission Summary">
+        <div style="font-family: sans-serif; font-size: 14px; color: #333;">
+            <h4 style="border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-top: 15px; font-weight: bold;">General Information</h4>
+            <ul style="list-style-type: none; padding-left: 10px;">
+                <t t-call="custom_business_trip_management.chatter_detail_item">
+                    <t t-set="label" t-value="'Destination:'"/>
+                    <t t-set="value" t-value="record.destination"/>
+                </t>
+                <t t-call="custom_business_trip_management.chatter_detail_item">
+                    <t t-set="label" t-value="'Purpose of Trip:'"/>
+                    <t t-set="value" t-value="record.purpose"/>
+                </t>
+                <t t-call="custom_business_trip_management.chatter_detail_item">
+                    <t t-set="label" t-value="'Start Date:'"/>
+                    <t t-set="value" t-value="record.travel_start_date"/>
+                </t>
+                <t t-call="custom_business_trip_management.chatter_detail_item">
+                    <t t-set="label" t-value="'End Date:'"/>
+                    <t t-set="value" t-value="record.travel_end_date"/>
+                </t>
+                <t t-call="custom_business_trip_management.chatter_detail_item">
+                    <t t-set="label" t-value="'Trip Type:'"/>
+                    <t t-set="value" t-value="dict(record._fields['trip_type'].selection).get(record.trip_type)"/>
+                </t>
+            </ul>
+
+            <t t-if="record.accommodation_needed == 'yes'">
+                <h4 style="border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-top: 15px; font-weight: bold;">Accommodation Request</h4>
+                <ul style="list-style-type: none; padding-left: 10px;">
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Number of People:'"/><t t-set="value" t-value="record.accommodation_number_of_people"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Residence City:'"/><t t-set="value" t-value="record.accommodation_residence_city"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Check-in Date:'"/><t t-set="value" t-value="record.accommodation_check_in_date"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Check-out Date:'"/><t t-set="value" t-value="record.accommodation_check_out_date"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'24h Reception Needed:'"/><t t-set="value" t-value="record.accommodation_need_24h_reception == 'yes'" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Points of Interest:'"/><t t-set="value" t-value="record.accommodation_points_of_interest"/></t>
+                </ul>
+            </t>
+
+            <t t-if="record.accompanying_person_ids">
+                <h4 style="border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-top: 15px; font-weight: bold;">Accompanying Persons</h4>
+                <ul style="list-style-type: none; padding-left: 10px;">
+                    <t t-foreach="record.accompanying_person_ids" t-as="person">
+                        <li><t t-esc="person.full_name"/></li>
+                    </t>
+                </ul>
+            </t>
+
+            <!-- OUTBOUND -->
+            <h4 style="border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-top: 15px; font-weight: bold;">Outbound Journey Details</h4>
+            <ul style="list-style-type: none; padding-left: 10px;">
+                <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Using Personal Car:'"/><t t-set="value" t-value="record.use_personal_car" t-set-is_boolean="True"/></t>
+                <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Using Company Car:'"/><t t-set="value" t-value="record.use_company_car" t-set-is_boolean="True"/></t>
+            </ul>
+            <t t-if="record.use_rental_car">
+                <h5 style="font-weight: bold; margin-top: 10px; padding-left: 10px;">Rental Car</h5>
+                <ul style="list-style-type: none; padding-left: 20px;">
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Pickup Point:'"/><t t-set="value" t-value="record.rental_car_pickup_point"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Pickup Date:'"/><t t-set="value" t-value="record.rental_car_pickup_date"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Pickup Date Flexible:'"/><t t-set="value" t-value="record.rental_car_pickup_flexible" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Drop-off Point:'"/><t t-set="value" t-value="record.rental_car_dropoff_point"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Drop-off Date:'"/><t t-set="value" t-value="record.rental_car_dropoff_date"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Drop-off Date Flexible:'"/><t t-set="value" t-value="record.rental_car_dropoff_flexible" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Rental Type:'"/><t t-set="value" t-value="dict(record._fields['rental_car_type'].selection).get(record.rental_car_type)"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Credit Card Available:'"/><t t-set="value" t-value="dict(record._fields['rental_car_credit_card'].selection).get(record.rental_car_credit_card)"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Unlimited Kilometers:'"/><t t-set="value" t-value="record.rental_car_unlimited_km" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item" condition="not record.rental_car_unlimited_km"><t t-set="label" t-value="'Kilometer Limit:'"/><t t-set="value" t-value="record.rental_car_kilometer_limit"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Preferences:'"/><t t-set="value" t-value="record.rental_car_preferences"/></t>
+                </ul>
+            </t>
+            <t t-if="record.use_airplane">
+                <h5 style="font-weight: bold; margin-top: 10px; padding-left: 10px;">Airplane</h5>
+                <ul style="list-style-type: none; padding-left: 20px;">
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Airport:'"/><t t-set="value" t-value="record.airplane_departure_airport"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date:'"/><t t-set="value" t-value="record.airplane_departure_date"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date Flexible:'"/><t t-set="value" t-value="record.airplane_departure_flexible" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Airport:'"/><t t-set="value" t-value="record.airplane_arrival_airport"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date:'"/><t t-set="value" t-value="record.airplane_arrival_date"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date Flexible:'"/><t t-set="value" t-value="record.airplane_arrival_flexible" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Baggage:'"/><t t-set="value" t-value="dict(record._fields['airplane_baggage_type'].selection).get(record.airplane_baggage_type)"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Preferences:'"/><t t-set="value" t-value="record.airplane_preferences"/></t>
+                </ul>
+            </t>
+            <t t-if="record.use_train">
+                <h5 style="font-weight: bold; margin-top: 10px; padding-left: 10px;">Train</h5>
+                <ul style="list-style-type: none; padding-left: 20px;">
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure City:'"/><t t-set="value" t-value="record.train_departure_city"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Station:'"/><t t-set="value" t-value="record.train_departure_station"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date:'"/><t t-set="value" t-value="record.train_departure_date"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date Flexible:'"/><t t-set="value" t-value="record.train_departure_flexible" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Station:'"/><t t-set="value" t-value="record.train_arrival_station"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date:'"/><t t-set="value" t-value="record.train_arrival_date"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date Flexible:'"/><t t-set="value" t-value="record.train_arrival_flexible" t-set-is_boolean="True"/></t>
+                </ul>
+            </t>
+            <t t-if="record.use_bus">
+                <h5 style="font-weight: bold; margin-top: 10px; padding-left: 10px;">Bus</h5>
+                <ul style="list-style-type: none; padding-left: 20px;">
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure City:'"/><t t-set="value" t-value="record.bus_departure_city"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Terminal:'"/><t t-set="value" t-value="record.bus_departure_terminal"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date:'"/><t t-set="value" t-value="record.bus_departure_date"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date Flexible:'"/><t t-set="value" t-value="record.bus_departure_flexible" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Terminal:'"/><t t-set="value" t-value="record.bus_arrival_terminal"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date:'"/><t t-set="value" t-value="record.bus_arrival_date"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date Flexible:'"/><t t-set="value" t-value="record.bus_arrival_flexible" t-set-is_boolean="True"/></t>
+                </ul>
+            </t>
+
+            <!-- RETURN -->
+            <t t-if="record.trip_type == 'twoWay'">
+                <h4 style="border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-top: 15px; font-weight: bold;">Return Journey Details</h4>
+                <ul style="list-style-type: none; padding-left: 10px;">
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Using Personal Car:'"/><t t-set="value" t-value="record.use_return_personal_car" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Using Company Car:'"/><t t-set="value" t-value="record.use_return_company_car" t-set-is_boolean="True"/></t>
+                </ul>
+                <t t-if="record.use_return_rental_car">
+                    <h5 style="font-weight: bold; margin-top: 10px; padding-left: 10px;">Rental Car (Return)</h5>
+                    <ul style="list-style-type: none; padding-left: 20px;">
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Pickup Point:'"/><t t-set="value" t-value="record.return_rental_car_pickup_point"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Pickup Date:'"/><t t-set="value" t-value="record.return_rental_car_pickup_date"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Pickup Date Flexible:'"/><t t-set="value" t-value="record.return_rental_car_pickup_flexible" t-set-is_boolean="True"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Drop-off Point:'"/><t t-set="value" t-value="record.return_rental_car_dropoff_point"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Drop-off Date:'"/><t t-set="value" t-value="record.return_rental_car_dropoff_date"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Drop-off Date Flexible:'"/><t t-set="value" t-value="record.return_rental_car_dropoff_flexible" t-set-is_boolean="True"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Rental Type:'"/><t t-set="value" t-value="dict(record._fields['return_rental_car_type'].selection).get(record.return_rental_car_type)"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Credit Card Available:'"/><t t-set="value" t-value="dict(record._fields['return_rental_car_credit_card'].selection).get(record.return_rental_car_credit_card)"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Unlimited Kilometers:'"/><t t-set="value" t-value="record.return_rental_car_unlimited_km" t-set-is_boolean="True"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item" condition="not record.return_rental_car_unlimited_km"><t t-set="label" t-value="'Kilometer Limit:'"/><t t-set="value" t-value="record.return_rental_car_kilometer_limit"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Preferences:'"/><t t-set="value" t-value="record.return_rental_car_preferences"/></t>
+                    </ul>
+                </t>
+                <t t-if="record.use_return_airplane">
+                    <h5 style="font-weight: bold; margin-top: 10px; padding-left: 10px;">Airplane (Return)</h5>
+                    <ul style="list-style-type: none; padding-left: 20px;">
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Airport:'"/><t t-set="value" t-value="record.return_airplane_departure_airport"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date:'"/><t t-set="value" t-value="record.return_airplane_departure_date"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date Flexible:'"/><t t-set="value" t-value="record.return_airplane_departure_flexible" t-set-is_boolean="True"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Destination Airport:'"/><t t-set="value" t-value="record.return_airplane_destination_airport"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Destination Date:'"/><t t-set="value" t-value="record.return_airplane_destination_date"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Destination Date Flexible:'"/><t t-set="value" t-value="record.return_airplane_destination_flexible" t-set-is_boolean="True"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Baggage:'"/><t t-set="value" t-value="dict(record._fields['return_airplane_baggage_type'].selection).get(record.return_airplane_baggage_type)"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Preferences:'"/><t t-set="value" t-value="record.return_airplane_preferences"/></t>
+                    </ul>
+                </t>
+                <t t-if="record.use_return_train">
+                    <h5 style="font-weight: bold; margin-top: 10px; padding-left: 10px;">Train (Return)</h5>
+                    <ul style="list-style-type: none; padding-left: 20px;">
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure City:'"/><t t-set="value" t-value="record.return_train_departure_city"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Station:'"/><t t-set="value" t-value="record.return_train_departure_station"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date:'"/><t t-set="value" t-value="record.return_train_departure_date"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date Flexible:'"/><t t-set="value" t-value="record.return_train_departure_flexible" t-set-is_boolean="True"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Station:'"/><t t-set="value" t-value="record.return_train_arrival_station"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date:'"/><t t-set="value" t-value="record.return_train_arrival_date"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date Flexible:'"/><t t-set="value" t-value="record.return_train_arrival_flexible" t-set-is_boolean="True"/></t>
+                    </ul>
+                </t>
+                 <t t-if="record.use_return_bus">
+                    <h5 style="font-weight: bold; margin-top: 10px; padding-left: 10px;">Bus (Return)</h5>
+                    <ul style="list-style-type: none; padding-left: 20px;">
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure City:'"/><t t-set="value" t-value="record.return_bus_departure_city"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Station:'"/><t t-set="value" t-value="record.return_bus_departure_station"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date:'"/><t t-set="value" t-value="record.return_bus_departure_date"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date Flexible:'"/><t t-set="value" t-value="record.return_bus_departure_flexible" t-set-is_boolean="True"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Station:'"/><t t-set="value" t-value="record.return_bus_arrival_station"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date:'"/><t t-set="value" t-value="record.return_bus_arrival_date"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date Flexible:'"/><t t-set="value" t-value="record.return_bus_arrival_flexible" t-set-is_boolean="True"/></t>
+                    </ul>
+                </t>
+            </t>
+        </div>
+    </template>
+
+    <!-- This template is now deprecated and can be removed in a future cleanup.
+         It is replaced by the more comprehensive 'form_submission_summary'
+         which is called with the generic 'chatter_message_card'.
+    -->
+    <template id="business_trip_chatter_summary" name="Business Trip Request Summary">
+        <t t-call="custom_business_trip_management.chatter_message_card">
+            <t t-set="card_type" t-value="'info'"/>
+            <t t-set="icon" t-value="'✈️'"/>
+            <t t-set="title">Business Trip Request Summary</t>
+            <t t-set="body_html">
+                <t t-call="custom_business_trip_management.form_submission_summary">
+                    <t t-set="record" t-value="record"/>
+                </t>
+            </t>
+            <t t-set="next_steps">The request is awaiting approval from the manager.</t>
+            <t t-set="submitted_by" t-value="record.create_uid.name"/>
+        </t>
+    </template>
+
+    <!--
+        QWeb Template for the confidential summary of the organizer's plan.
+        This is posted as an internal, confidential note for the manager and organizer.
+
+        Expected context variables:
+        - record: The 'formio.form' record object.
+        - wizard: The 'business.trip.organizer.plan.wizard' object.
+        - plan_details: The pre-formatted string containing the full plan details.
+    -->
+    <template id="organizer_plan_confidential_summary" name="Organizer Plan Confidential Summary">
+        <p>The trip plan has been updated by <t t-esc="record.organizer_id.name or 'the organizer'"/>. These changes are not yet confirmed.</p>
+        
+        <!-- Over Budget Warning -->
+        <t t-if="wizard.over_budget">
+            <div style="border: 2px solid #D9534F; background-color: #F8D7DA; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                <strong style="color: #721C24;">Warning: Over Budget!</strong>
+                <p style="margin: 5px 0 0 0; color: #721C24;">
+                    The planned cost of <strong t-esc="wizard.organizer_planned_cost" t-options='{"widget": "monetary", "display_currency": wizard.currency_id}'/>
+                    exceeds the maximum budget of <strong t-esc="wizard.manager_max_budget" t-options='{"widget": "monetary", "display_currency": wizard.currency_id}'/>
+                    by <strong t-esc="abs(wizard.budget_difference)" t-options='{"widget": "monetary", "display_currency": wizard.currency_id}'/>.
+                </p>
+            </div>
+        </t>
+
+        <p><strong>Current Plan Details:</strong></p>
+        <pre t-esc="plan_details" style="white-space: pre-wrap; font-family: monospace; background-color: #f5f5f5; padding: 10px; border-radius: 4px;"/>
+    </template>
+
+    <!--
+        QWeb Template for the public summary of the organizer's plan.
+        This is posted as a public comment for the employee.
+
+        Expected context variables:
+        - record: The 'formio.form' record object.
+    -->
+    <template id="organizer_plan_public_summary" name="Organizer Plan Public Summary">
+        <div style="font-family: sans-serif; font-size: 14px; color: #333;">
+            <p>
+                The trip plan is currently being updated by the organizer (<t t-esc="record.organizer_id.name or 'N/A'"/>).
+                The work is in progress and is not yet finalized.
+            </p>
+            <p>Please wait for the organizer to confirm the final plan.</p>
+        </div>
+    </template>
+
+    <!--
+        NEW QWeb Template for the Organizer's Plan Summary.
+        This template renders the structured data prepared by the organizer.
+        Expected context variables:
+        - plan_data: A dictionary from _prepare_plan_details_structured.
+        - organizer_name: The name of the organizer submitting the plan.
+    -->
+    <template id="organizer_plan_summary" name="Organizer Plan Summary">
+        <div style="font-family: sans-serif; font-size: 14px; color: #333;">
+            <p>
+                <t t-if="title">
+                    <strong t-esc="title"/>
+                </t>
+                <t t-else="">
+                    The travel plan has been drafted by <strong t-esc="organizer_name"/>. Below are the details.
+                </t>
+            </p>
+
+            <!-- Transportation -->
+            <t t-if="plan_data.get('transport_items')">
+                <h4 style="border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-top: 15px; font-weight: bold;">TRANSPORTATION</h4>
+                <ul style="list-style-type: none; padding-left: 10px;">
+                    <t t-foreach="plan_data.get('transport_items')" t-as="item">
+                        <li style="margin-bottom: 10px;">
+                            <strong t-esc="item.get('description')"/>
+                            <ul style="list-style-type: '– '; padding-left: 20px; margin-top: 5px; color: #555;">
+                                <t t-foreach="item.get('details', [])" t-as="detail">
+                                    <li><t t-esc="detail"/></li>
+                                </t>
+                            </ul>
+                        </li>
+                    </t>
+                </ul>
+            </t>
+
+            <!-- Accommodation -->
+            <t t-if="plan_data.get('accommodation_items')">
+                <h4 style="border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-top: 15px; font-weight: bold;">ACCOMMODATION</h4>
+                <ul style="list-style-type: none; padding-left: 10px;">
+                    <t t-foreach="plan_data.get('accommodation_items')" t-as="item">
+                        <li style="margin-bottom: 10px;">
+                            <strong t-esc="item.get('description')"/>
+                            <ul style="list-style-type: '– '; padding-left: 20px; margin-top: 5px; color: #555;">
+                                <t t-foreach="item.get('details', [])" t-as="detail">
+                                    <li><t t-esc="detail"/></li>
+                                </t>
+                            </ul>
+                        </li>
+                    </t>
+                </ul>
+            </t>
+
+            <!-- Meals -->
+            <t t-if="plan_data.get('meals_items')">
+                <h4 style="border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-top: 15px; font-weight: bold;">MEALS &amp; PER DIEM</h4>
+                <ul style="list-style-type: none; padding-left: 10px;">
+                    <t t-foreach="plan_data.get('meals_items')" t-as="item">
+                        <li style="margin-bottom: 10px;">
+                            <strong t-esc="item.get('description')"/>
+                            <ul style="list-style-type: '– '; padding-left: 20px; margin-top: 5px; color: #555;">
+                                <t t-foreach="item.get('details', [])" t-as="detail">
+                                    <li><t t-esc="detail"/></li>
+                                </t>
+                            </ul>
+                        </li>
+                    </t>
+                </ul>
+            </t>
+            
+            <!-- Other Items -->
+            <t t-if="plan_data.get('other_items')">
+                <h4 style="border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-top: 15px; font-weight: bold;">OTHER EXPENSES</h4>
+                <ul style="list-style-type: none; padding-left: 10px;">
+                    <t t-foreach="plan_data.get('other_items')" t-as="item">
+                        <li style="margin-bottom: 10px;">
+                            <strong t-esc="item.get('description')"/>
+                            <ul style="list-style-type: '– '; padding-left: 20px; margin-top: 5px; color: #555;">
+                                <t t-foreach="item.get('details', [])" t-as="detail">
+                                    <li><t t-esc="detail"/></li>
+                                </t>
+                            </ul>
+                        </li>
+                    </t>
+                </ul>
+            </t>
+
+            <!-- Employee Documents -->
+            <t t-if="plan_data.get('employee_documents')">
+                <h4 style="border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-top: 15px; font-weight: bold;">DOCUMENTS &amp; TICKETS</h4>
+                <ul style="list-style-type: none; padding-left: 10px;">
+                    <t t-foreach="plan_data.get('employee_documents')" t-as="doc">
+                        <li style="margin-bottom: 5px;">
+                            <a t-att-href="doc.get('url')" target="_blank" style="text-decoration: none; color: #0056b3; font-weight: 500;">
+                                <i class="fa fa-fw fa-download"/> <t t-esc="doc.get('name')"/>
+                            </a>
+                        </li>
+                    </t>
+                </ul>
+            </t>
+            
+            <!-- Totals and Notes -->
+            <div style="margin-top: 20px; padding-top: 10px; border-top: 1px solid #ddd;">
+                <t t-if="plan_data.get('total_auto_cost')">
+                    <p style="margin-bottom: 10px;">
+                        <strong>TOTAL PLANNED COST (AUTO-CALCULATED):</strong>
+                        <span t-esc="plan_data.get('total_auto_cost')"/> <span t-esc="plan_data.get('currency_symbol')"/>
+                    </p>
+                </t>
+                <t t-if="plan_data.get('total_manual_cost')">
+                    <p style="margin-bottom: 10px;">
+                        <strong>TOTAL PLANNED COST (MANUALLY ENTERED):</strong>
+                        <span t-esc="plan_data.get('total_manual_cost')"/> <span t-esc="plan_data.get('currency_symbol')"/>
+                    </p>
+                </t>
+                <t t-if="plan_data.get('organizer_notes')">
+                    <h5 style="font-weight: bold; margin-top: 15px;">Additional Notes from Organizer:</h5>
+                    <p t-esc="plan_data.get('organizer_notes')" style="white-space: pre-wrap;"/>
+                </t>
+            </div>
+        </div>
+    </template>
+</odoo> 
