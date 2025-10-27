@@ -2,5 +2,4 @@
 
 from . import controllers
 from . import main
-from . import formio_overrides
 from . import attachment

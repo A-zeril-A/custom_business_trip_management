@@ -18,14 +18,15 @@ class BusinessTripData(models.Model):
         # Add support for tracking parameter
         return name == 'tracking' or super()._valid_field_parameter(field, name)
     
-    # Reference to formio.form
-    form_id = fields.Many2one('formio.form', string='Form', ondelete='cascade', required=True, index=True)
-    form_title = fields.Char(string='Form Title', compute='_compute_form_title', store=True)
+    # These fields were related to the old formio model and are no longer needed.
+    # form_id = fields.Many2one('formio.form', string='Form', ondelete='cascade', required=True, index=True)
+    # form_title = fields.Char(string='Form Title', compute='_compute_form_title', store=True)
     active = fields.Boolean(default=True)
     
     # Personal information fields
-    first_name = fields.Char(string='First Name', compute='_compute_personal_info_from_submission', store=True, readonly=False)
-    last_name = fields.Char(string='Last Name', compute='_compute_personal_info_from_submission', store=True, readonly=False)
+    # Modified by A_zeril_A, 2025-10-20: Changed from compute fields to regular fields after formio removal
+    first_name = fields.Char(string='First Name')
+    last_name = fields.Char(string='Last Name')
     full_name = fields.Char(string='Full Name', compute='_compute_full_name', store=True)
     
         # Trip approval and type fields
@@ -39,13 +40,13 @@ class BusinessTripData(models.Model):
     trip_type = fields.Selection([
         ('oneWay', 'One Way'),
         ('twoWay', 'Two Way')
-    ], string='Trip Type', help="Indicates if the trip is one-way or two-way")
+    ], string='Trip Type', default='oneWay', help="Indicates if the trip is one-way or two-way")
     
     # Accommodation fields
     accommodation_needed = fields.Selection([
         ('yes', 'Yes'),
         ('no', 'No')
-    ], string='Accommodation Needed', help="Indicates if accommodation arrangements are required for this trip")
+    ], string='Accommodation Needed', default='no', help="Indicates if accommodation arrangements are required for this trip")
     accommodation_number_of_people = fields.Integer(string='Number of People', help="Total number of people requiring accommodation")
     accommodation_residence_city = fields.Char(string='Residence City', help="City of residence of the traveler")
     accommodation_check_in_date = fields.Date(string='Check-in Date', help="Planned accommodation check-in date")
@@ -204,7 +205,7 @@ class BusinessTripData(models.Model):
     
     # Basic trip information fields
     destination = fields.Char(string='Destination')
-    purpose = fields.Char(string='Purpose of Trip', compute='_compute_purpose', store=True)
+    purpose = fields.Char(string='Purpose of Trip') # Removed compute='_compute_purpose', store=True
     travel_start_date = fields.Date(string='Start Date')
     travel_end_date = fields.Date(string='End Date')
     manual_travel_duration = fields.Float(string='Manual Travel Duration', help="Travel duration manually set from the trip details wizard")
@@ -267,16 +268,6 @@ class BusinessTripData(models.Model):
                 f'{"".join(html_parts)}</div>'
             )
 
-    @api.depends('form_id', 'form_id.sale_order_id', 'form_id.sale_order_id.name')
-    def _compute_purpose(self):
-        for record in self:
-            if record.form_id and hasattr(record.form_id, 'sale_order_id') and record.form_id.sale_order_id:
-                record.purpose = record.form_id.sale_order_id.name # type: ignore
-                _logger.info(f"BTD_COMPUTE_PURPOSE: Purpose for BTD {record.id} set to Sale Order Name: {record.purpose} from Form {record.form_id.id}")
-            else:
-                record.purpose = "Standalone"
-                _logger.info(f"BTD_COMPUTE_PURPOSE: Purpose for BTD {record.id} set to Standalone. Form ID: {record.form_id.id if record.form_id else 'N/A'}, SO on Form: {record.form_id.sale_order_id if record.form_id and hasattr(record.form_id, 'sale_order_id') else 'N/A'}")
-
     @api.depends('first_name', 'last_name')
     def _compute_full_name(self):
         for record in self:
@@ -287,14 +278,8 @@ class BusinessTripData(models.Model):
                 names.append(record.last_name)
             record.full_name = ' '.join(names) if names else False
     
-    @api.depends('form_id', 'form_id.title')
-    def _compute_form_title(self):
-        """Computes the form title from the related formio.form record."""
-        for record in self:
-            record.form_title = record.form_id.title if record.form_id else False
-    
     def process_submission_data(self, submission_data):
-        _logger.info(f"BTD_PROCESS: Starting process_submission_data for BusinessTripData ID: {self.id}, Form ID: {self.form_id.id if self.form_id else 'N/A'}")
+        _logger.info(f"BTD_PROCESS: Starting process_submission_data for BusinessTripData ID: {self.id}")
 
         if not submission_data or not isinstance(submission_data, dict):
             _logger.warning(f"BTD_PROCESS: No submission data provided or not a dict for BTD ID: {self.id}. Type: {type(submission_data)}")

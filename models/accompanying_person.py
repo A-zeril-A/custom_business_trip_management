@@ -11,7 +11,8 @@ class AccompanyingPerson(models.Model):
     _rec_name = 'full_name'
 
     business_trip_id = fields.Many2one('business.trip.data', string='Business Trip', required=True, ondelete='cascade')
-    formio_form_id = fields.Many2one('formio.form', string='Formio Form Reference')
+    # Modified by A_zeril_A, 2025-10-20: Removed formio dependency
+    # formio_form_id = fields.Many2one('formio.form', string='Formio Form Reference')
     full_name = fields.Char(string='Full Name', required=True, tracking=True)
     identity_document = fields.Binary(string='Identity Document', attachment=True, tracking=True)
     identity_document_filename = fields.Char(string='Identity Document Filename')

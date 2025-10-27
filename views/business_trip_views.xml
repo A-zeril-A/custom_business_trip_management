@@ -47,6 +47,8 @@
             <field name="create_date" string="Created On" optional="hide"/>
             
             <!-- Technical Fields (Hidden by Default) -->
+            <!-- Modified by A_zeril_A, 2025-10-24: Commented out formio-related fields after formio module removal -->
+            <!--
             <field name="formio_form_builder_id" optional="hide"/>
             <field name="formio_form_submission_partner_id" optional="hide"/>
             <field name="formio_form_uuid" optional="hide"/>
@@ -59,6 +61,7 @@
             <field name="formio_form_initial_res_model_name" string="Resource Type #1" optional="hide"/>
             <field name="formio_form_res_name" optional="hide"/>
             <field name="formio_form_res_partner_id" optional="hide"/>
+            -->
             
             <button string="Open Form" groups="!custom_business_trip_management.group_business_trip_organizer,!base.group_system" name="action_view_formio" type="object" class="btn-primary"/>
             <button string="Review Form" groups="custom_business_trip_management.group_business_trip_organizer,base.group_system" name="action_view_formio" type="object" class="btn-primary"/>
@@ -118,7 +121,8 @@
             <field name="create_date" string="Created On" optional="hide"/>
             
             <!-- Technical Fields (Hidden by Default) -->
-            <field name="res_name" optional="hide"/>
+            <!-- Modified by A_zeril_A, 2025-10-24: Commented out formio-related field after formio module removal -->
+            <!-- <field name="res_name" optional="hide"/> -->
             <button string="Open Form" groups="!custom_business_trip_management.group_business_trip_organizer,!base.group_system" class="btn-primary" name="action_view_formio" type="object"/>
             <button string="Review Form" groups="custom_business_trip_management.group_business_trip_organizer,base.group_system" class="btn-primary" name="action_view_formio" type="object"/>
           </tree>
@@ -131,26 +135,32 @@
         <field name="model">business.trip</field>
         <field name="arch" type="xml">
           <form string="Form" edit="false" create="false" delete="false">
-            <header> <!-- Header 1: Overall Form State -->
-                <field name="formio_form_state" widget="statusbar" statusbar_visible="DRAFT,COMPLETE" decoration-danger="formio_form_state == 'CANCEL'"/>
+            <header> <!-- Header 1: Form Completion Status -->
+                <!-- Form completion status bar - shows if form data entry is complete -->
+                <field name="form_completion_status" widget="statusbar" 
+                       statusbar_visible="awaiting_completion,form_completed"
+                       decoration-info="form_completion_status == 'awaiting_completion'"
+                       decoration-success="form_completion_status == 'form_completed'"
+                       decoration-danger="form_completion_status == 'cancelled'"
+                       readonly="1"/>
                 
                 <!-- To Draft button - visible only when form is COMPLETE and user is the owner -->
                 <button name="action_back_to_draft" type="object" string="Return to Draft"
-                        attrs="{'invisible': ['|', ('formio_form_state', '!=', 'COMPLETE'), ('is_current_user_owner', '=', False)]}"
+                        attrs="{'invisible': ['|', ('trip_status', '!=', 'completed'), ('is_current_user_owner', '=', False)]}"
                         class="btn-warning"
                         help="Return this form to draft status for further editing by owner."/>
                 
-                <!-- Open Form button - visible for non-manager/organizer when form is in DRAFT -->
+                <!-- Open Form button - visible when form is awaiting completion -->
                 <button name="action_view_formio" type="object" string="Open Form"
-                        attrs="{'invisible': ['|', ('trip_status', '!=', 'draft'), '|', ('is_manager', '=', True), ('is_organizer', '=', True)]}"
+                        attrs="{'invisible': [('form_completion_status', '=', 'form_completed')]}"
                         class="btn-primary"
                         help="Open form to complete data entry"/>
                         
-                <!-- Edit Form button when in Returned status - Only for the owner -->
-                <button name="action_edit_returned_form" type="object" string="Edit Form" 
-                        attrs="{'invisible': ['|', ('trip_status', '!=', 'returned'), ('is_current_user_owner', '=', False)]}"
+                <!-- Edit Form button - visible when form is completed -->
+                <button name="action_edit_form" type="object" string="Edit Form" 
+                        attrs="{'invisible': [('form_completion_status', '!=', 'form_completed')]}"
                         class="btn-warning"
-                        help="Edit form to make requested changes"/>
+                        help="Edit the completed form"/>
                         
                 <!-- Review Form button for managers and organizers - visible in all states -->
                 <button name="action_view_formio" type="object" string="Review Form"
@@ -166,7 +176,7 @@
                         confirm="Are you sure you want to cancel this trip request? This action cannot be undone."
                         help="Cancel this business trip request permanently."/>
             </header>
-            <header attrs="{'invisible': [('formio_form_state', '!=', 'COMPLETE')]}"> <!-- Header 2: Trip Request & Organization Phase - Always visible when in COMPLETE state -->
+            <header attrs="{'invisible': ['|', ('form_completion_status', '!=', 'form_completed'), ('trip_status', 'in', ['cancelled', 'rejected'])]}"> <!-- Header 2: Trip Request & Organization Phase -->
                 <field name="trip_status_phase1" widget="statusbar" 
                        statusbar_visible="draft,submitted,pending_organization,organization_done"
                        decoration-info="trip_status_phase1 == 'draft'" 
@@ -261,7 +271,7 @@
                     groups="custom_business_trip_management.group_business_trip_organizer"
                     help="Edit trip plan details, cost, and attachments"/>
             </header>
-            <header attrs="{'invisible': ['|', ('formio_form_state', '!=', 'COMPLETE'), '&amp;', ('trip_status', '!=', 'organization_done'), ('trip_status', 'not in', ['completed_waiting_expense', 'expense_submitted', 'expense_returned', 'completed'])]}"> <!-- Header 3: Trip Execution & Expense Management Phase - Show when in completed_waiting_expense or later -->
+            <header attrs="{'invisible': [('trip_status', 'not in', ['organization_done', 'completed_waiting_expense', 'expense_submitted', 'expense_returned', 'completed'])]}"> <!-- Header 3: Trip Execution & Expense Management Phase -->
                 <field name="is_expense_returned" invisible="1"/>
                 
                 <!-- EXPENSE MANAGEMENT: Show expense states -->
@@ -334,9 +344,11 @@
               </div>
 
               <!-- Hidden fields -->
-              <field name="allow_force_update_state" invisible="1"/>
-              <field name="allow_copy" invisible="1"/>
-              <field name="copy_to_current" invisible="1"/>
+              <!-- Modified by A_zeril_A, 2025-10-24: Commented out formio-related fields after formio module removal -->
+              <!-- <field name="allow_force_update_state" invisible="1"/> -->
+              <!-- <field name="allow_copy" invisible="1"/> -->
+              <!-- <field name="copy_to_current" invisible="1"/> -->
+              <!-- <field name="form_completion_status" invisible="1"/> REMOVED - Already defined in statusbar -->
               <field name="is_manager" invisible="1"/>
               <field name="is_finance" invisible="1"/>
               <field name="is_organizer" invisible="1"/>
@@ -406,7 +418,8 @@
               
                 <page string="Request Form Data" name="request_form_data">
                     <!-- Hidden fields needed for conditional logic in this tab -->
-                    <field name="submission_data" invisible="1"/>
+                    <!-- Modified by A_zeril_A, 2025-10-24: Commented out formio-related field after formio module removal -->
+                    <!-- <field name="submission_data" invisible="1"/> -->
                     <field name="accommodation_needed" invisible="1"/> 
                     <field name="has_any_transportation" invisible="1"/>
                     <field name="has_any_return_transportation" invisible="1"/>
@@ -423,7 +436,8 @@
                     <field name="use_return_company_car" invisible="1"/>
                     <field name="use_return_personal_car" invisible="1"/>
                     
-                    <div class="alert alert-info mb-3" role="alert" attrs="{'invisible': [('submission_data', '!=', False)]}">
+                    <!-- Modified by A_zeril_A, 2025-10-24: Changed attrs from submission_data to id check -->
+                    <div class="alert alert-info mb-3" role="alert" attrs="{'invisible': [('id', '!=', False)]}">
                         <i class="fa fa-info-circle mr-2"></i>
                         <span>No form data is available. This data is only available after the form has been submitted.</span>
                     </div>
@@ -434,7 +448,7 @@
                             <i class="fa fa-user mr-2" title="Requester Information"></i>Requester Information
                         </h4>
                     </div>
-                    <group attrs="{'invisible': [('submission_data', '=', False)]}">
+                    <group attrs="{'invisible': [('id', '=', False)]}">
                         <field name="full_name" string="Requester Name" readonly="1"/>
                     </group>
                     
@@ -444,7 +458,8 @@
                             <i class="fa fa-info-circle mr-2" title="Trip Overview"></i>Trip Overview
                         </h4>
                     </div>
-                    <group attrs="{'invisible': [('submission_data', '=', False)]}">
+                    <!-- Modified by A_zeril_A, 2025-10-24: Changed attrs from submission_data to id check -->
+                    <group attrs="{'invisible': [('id', '=', False)]}">
                         <field name="destination" readonly="1"/>
                         <field name="travel_start_date" readonly="1"/>
                         <field name="travel_end_date" readonly="1"/>
@@ -453,12 +468,13 @@
                     </group>
 
                     <!-- ====== Outbound Transportation Details from BTD ====== -->
-                    <div attrs="{'invisible': ['|', ('submission_data', '=', False), ('has_any_transportation', '=', False)]}">
+                    <!-- Modified by A_zeril_A, 2025-10-24: Changed attrs from submission_data to id check -->
+                    <div attrs="{'invisible': ['|', ('id', '=', False), ('has_any_transportation', '=', False)]}">
                         <h4 style="border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
                             <i class="fa fa-arrow-right mr-2" title="Outbound Transportation"></i>Outbound Transportation
                         </h4>
                     </div>
-                    <group attrs="{'invisible': ['|', ('submission_data', '=', False), ('has_any_transportation', '=', False)]}">
+                    <group attrs="{'invisible': ['|', ('id', '=', False), ('has_any_transportation', '=', False)]}">
                         <div class="alert alert-info" role="alert" attrs="{'invisible': [('has_any_transportation', '=', True)]}">
                             <span>No outbound transportation details found in the submitted form data.</span>
                         </div>
@@ -547,12 +563,13 @@
                     <!-- <div style="height: 20px;"/> -->
 
                     <!-- ====== Return Transportation Details from BTD ====== -->
-                    <div attrs="{'invisible': ['|', ('submission_data', '=', False), ('has_any_return_transportation', '=', False)]}">
+                    <!-- Modified by A_zeril_A, 2025-10-24: Changed attrs from submission_data to id check -->
+                    <div attrs="{'invisible': ['|', ('id', '=', False), ('has_any_return_transportation', '=', False)]}">
                         <h4 style="border-bottom: 1px solid #dee2e6; padding-bottom: 0.5rem; margin-top: 1rem; margin-bottom: 1rem;">
                             <i class="fa fa-arrow-left mr-2" title="Return Transportation"></i>Return Transportation
                         </h4>
                     </div>
-                    <group attrs="{'invisible': ['|', ('submission_data', '=', False), ('has_any_return_transportation', '=', False)]}">
+                    <group attrs="{'invisible': ['|', ('id', '=', False), ('has_any_return_transportation', '=', False)]}">
                          <div class="alert alert-info" role="alert" attrs="{'invisible': [('has_any_return_transportation', '=', True)]}">
                             <span>No return transportation details found in the submitted form data.</span>
                         </div>
@@ -828,16 +845,19 @@
 
                 </page>
 
-                <!-- Raw JSON Data tab - moved to last position -->
+                <!-- Modified by A_zeril_A, 2025-10-24: Commented out Raw JSON Data tab as it was for formio submission data -->
+                <!--
                 <page string="Raw JSON Data" name="raw_json_data" groups="base.group_system">
                     <group string="Raw Form Data (JSON)" attrs="{'invisible': [('submission_data', '=', False)]}">
                         <field name="form_data_json" readonly="1" nolabel="1"/>
                     </group>
                 </page>
+                -->
 
               </notebook>
 
-              <field name="formio_form_builder_id" string="Form Builder" attrs="{'invisible': [('id', '!=', False)]}" options="{'no_create': True}" required="0"/>
+              <!-- Modified by A_zeril_A, 2025-10-24: Commented out formio-related field as it no longer exists. -->
+              <!-- <field name="formio_form_builder_id" string="Form Builder" attrs="{'invisible': [('id', '!=', False)]}" options="{'no_create': True}" required="0"/> -->
             </sheet>
             <div class="oe_chatter">
               <field name="message_follower_ids" widget="mail_followers"/>
@@ -1088,7 +1108,7 @@
         <field name="res_model">business.trip</field>
         <field name="view_mode">tree,form</field>
         <field name="domain">[('user_id', '=', uid)]</field>
-        <field name="context">{'create': False, 'from_my_business_trip': True}</field>
+        <field name="context">{'from_my_business_trip': True}</field>
         <field name="view_ids" eval="[(5, 0, 0),
           (0, 0, {'view_mode': 'tree', 'view_id': ref('custom_business_trip_management.view_my_business_trip_tree')}),
           (0, 0, {'view_mode': 'form', 'view_id': ref('custom_business_trip_management.view_business_trip_form')})]"/>
@@ -1202,7 +1222,8 @@
             <field name="create_date" string="Created On" optional="hide"/>
             
             <!-- Technical Fields (Hidden by Default) -->
-            <field name="res_name" optional="hide"/>
+            <!-- Modified by A_zeril_A, 2025-10-24: Commented out formio-related field after formio module removal -->
+            <!-- <field name="res_name" optional="hide"/> -->
             <button string="View" name="action_view_formio" type="object" class="btn-primary"/>
           </tree>
       </field>

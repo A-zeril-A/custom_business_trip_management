@@ -12,8 +12,9 @@
             <!-- Marks this subtype as internal, meaning it's not shown to regular users by default -->
             <field name="internal" eval="True"/>
             
+            <!-- Modified by A_zeril_A, 2025-10-20: Changed from formio.form to business.trip after formio removal -->
             <!-- Specifies the model this message subtype is associated with -->
-            <field name="res_model">formio.form</field>
+            <field name="res_model">business.trip</field>
         </record>
     </data>
 </odoo>

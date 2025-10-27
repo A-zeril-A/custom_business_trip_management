@@ -5,14 +5,14 @@ class PlannedTripAccommodationLine(models.Model):
     _name = 'planned.trip.accommodation.line'
     _description = 'Planned Trip Accommodation Line (by Organizer)'
 
-    form_id = fields.Many2one('formio.form', string='Business Trip Form', required=True, ondelete='cascade')
+    trip_id = fields.Many2one('business.trip', string='Business Trip', required=True, ondelete='cascade')
     name = fields.Char(string="Hotel/Place Name", required=True)
     address = fields.Text(string="Address")
     check_in_date = fields.Date(string="Check-in Date")
     check_out_date = fields.Date(string="Check-out Date")
     booking_reference = fields.Char(string="Booking Reference")
     cost = fields.Float(string="Cost")
-    currency_id = fields.Many2one('res.currency', string='Currency', related='form_id.business_trip_id.currency_id', store=True)
+    currency_id = fields.Many2one('res.currency', string='Currency', related='trip_id.currency_id', store=True)
     notes = fields.Text(string="Notes")
     attachment_ids = fields.Many2many('ir.attachment', 'planned_accom_line_ir_attachments_rel', 'line_id', 'attachment_id', string="Attachments")
 
@@ -20,7 +20,7 @@ class PlannedTripTransportLine(models.Model):
     _name = 'planned.trip.transport.line'
     _description = 'Planned Trip Transport Line (by Organizer)'
 
-    form_id = fields.Many2one('formio.form', string='Business Trip Form', required=True, ondelete='cascade')
+    trip_id = fields.Many2one('business.trip', string='Business Trip', required=True, ondelete='cascade')
     transport_type = fields.Selection([
         ('airplane', 'Airplane'),
         ('train', 'Train'),
@@ -37,7 +37,7 @@ class PlannedTripTransportLine(models.Model):
     departure_datetime = fields.Datetime(string="Departure Date & Time")
     arrival_datetime = fields.Datetime(string="Arrival Date & Time")
     cost = fields.Float(string="Cost")
-    currency_id = fields.Many2one('res.currency', string='Currency', related='form_id.business_trip_id.currency_id', store=True)
+    currency_id = fields.Many2one('res.currency', string='Currency', related='trip_id.currency_id', store=True)
     notes = fields.Text(string="Notes")
     attachment_ids = fields.Many2many('ir.attachment', 'planned_transport_line_ir_attachments_rel', 'line_id', 'attachment_id', string="Attachments")
 

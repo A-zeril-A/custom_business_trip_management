@@ -34,6 +34,22 @@
     border-color: #dc3545 !important;
 }
 
+/* ===== FORM COMPLETION STATUS COLORS ===== */
+
+/* Change color for "Awaiting Completion" to blue - ONLY when active */
+.o_statusbar_status button.o_arrow_button[data-value="awaiting_completion"][aria-checked="true"] {
+    background-color: #007bff !important; /* Bootstrap blue (info) */
+    color: #fff !important;
+    border-color: #007bff !important;
+}
+
+/* Change color for "Form Completed" to green - ONLY when active */
+.o_statusbar_status button.o_arrow_button[data-value="form_completed"][aria-checked="true"] {
+    background-color: #28a745 !important; /* Bootstrap green (success) */
+    color: #fff !important;
+    border-color: #28a745 !important;
+}
+
 /* Change color for rejected to dark red - ONLY when active */
 .o_statusbar_status button.o_arrow_button[data-value="rejected"][aria-checked="true"] {
     background-color: #dc3545 !important; /* Bootstrap red */
@@ -71,12 +87,17 @@
     border-color: #6f42c1 !important;
 }
 
-/* Ensure non-active status buttons remain gray */
+/* 
+   COMMENTED OUT - This rule was preventing decoration attributes from working
+   and was overriding all other statusbar color logic.
+*/
+/*
 .o_statusbar_status button.o_arrow_button:not([aria-checked="true"]) {
-    background-color: #e9ecef !important; /* Bootstrap gray-200 */
+    background-color: #e9ecef !important;
     color: #495057 !important;
     border-color: #ced4da !important;
 }
+*/
 
 /* Badge colors for status display */
 .o_status[data-value="expense_returned"],

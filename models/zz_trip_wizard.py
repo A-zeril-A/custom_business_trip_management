@@ -645,13 +645,14 @@ class BusinessTripAssignOrganizerWizard(models.TransientModel):
         if self.organizer_id and self.organizer_id.partner_id:
             self.trip_id.message_subscribe(partner_ids=[self.organizer_id.partner_id.id])
             
-        try:
-            self.env['share.formio.form'].sudo().create({
-                'share_user_id': self.organizer_id.id,
-                'formio_form_id': self.trip_id.id,
-            })
-        except Exception as e:
-            _logger.warning(f"Could not share form with organizer: {e}. This is expected if 'share.formio.form' model doesn't exist.")
+        # Modified by A_zeril_A, 2025-10-20: Removed formio dependency
+        # try:
+        #     self.env['share.formio.form'].sudo().create({
+        #         'share_user_id': self.organizer_id.id,
+        #         'formio_form_id': self.trip_id.id,
+        #     })
+        # except Exception as e:
+        #     _logger.warning(f"Could not share form with organizer: {e}. This is expected if 'share.formio.form' model doesn't exist.")
             
         # Values to write to the main form (formio.form)
         form_vals_to_write = {
@@ -764,10 +765,11 @@ class BusinessTripProjectSelectionWizard(models.TransientModel):
             'selected_project_task_id': task.id,
         })
         
+        # Modified by A_zeril_A, 2025-10-20: Removed formio dependency
         # Get the automatically created form
-        form = business_trip.formio_form_id
-        if not form:
-            raise UserError("Form was not created automatically.")
+        # form = business_trip.formio_form_id
+        # if not form:
+        #     raise UserError("Form was not created automatically.")
         
         # Set initial submission data with user information
         partner = current_user.partner_id
@@ -798,11 +800,17 @@ class BusinessTripProjectSelectionWizard(models.TransientModel):
                 "data": {}
             }
             
-            # Update form with initial submission data
-            form.sudo().write({'submission_data': json.dumps(initial_data)})
+            # Modified by A_zeril_A, 2025-10-20: Removed formio dependency - form data is now handled directly in business_trip_data
+            # Update business_trip_data with initial submission data
+            if business_trip.business_trip_data_id:
+                business_trip.business_trip_data_id.sudo().write({
+                    'first_name': first_name_val,
+                    'last_name': last_name_val,
+                    'purpose': f"Standalone business trip request for project: {self.project_id.name}",
+                })
             
-            # Process the initial data
-            form.sudo().after_submit()
+            # Process the initial data (no longer needed as formio is removed)
+            # form.sudo().after_submit()
             
             # Set the Travel Approver on the business trip record
             if travel_approver_id:

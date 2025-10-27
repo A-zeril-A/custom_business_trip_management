@@ -1,0 +1,416 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 
+    Created by A_zeril_A, 2025-10-24
+    This form view replaces the formio form builder with a modern, single-page Odoo form.
+    Design: Professional, modern UI similar to React-based forms, all sections in one scrollable page.
+-->
+<odoo>
+    <record id="view_business_trip_form_page" model="ir.ui.view">
+        <field name="name">business.trip.form.page</field>
+        <field name="model">business.trip</field>
+        <field name="arch" type="xml">
+            <form string="Business Trip Request Form" create="0" delete="0" class="o_business_trip_modern_form">
+                <header>
+                    <!-- Form Completion Status Bar -->
+                    <field name="form_completion_status" widget="statusbar" 
+                           statusbar_visible="awaiting_completion,form_completed"
+                           decoration-info="form_completion_status == 'awaiting_completion'"
+                           decoration-success="form_completion_status == 'form_completed'"
+                           decoration-danger="form_completion_status == 'cancelled'"
+                           readonly="1"/>
+                    
+                    <!-- Trip Workflow Status Bar - visible only after form is completed -->
+                    <!-- This statusbar has been commented out as per user request -->
+                    <!--
+                    <field name="trip_status" widget="statusbar" 
+                           statusbar_visible="draft,submitted,pending_organization,organization_done,completed_waiting_expense,completed"
+                           attrs="{'invisible': [('form_completion_status', '!=', 'form_completed')]}"
+                           readonly="1"/>
+                    -->
+                    
+                    <!-- Submit for Approval Button - visible when form is completed and trip is in draft/returned status
+                    <button name="action_submit_to_manager" type="object" string="Submit for Approval"
+                        class="oe_highlight"
+                        attrs="{'invisible': ['|', '|', ('form_completion_status', '!=', 'form_completed'), ('trip_status', 'not in', ['draft', 'returned']), ('is_current_user_owner', '=', False)]}"
+                        confirm="Are you sure you want to submit this trip request for approval?"/> -->
+                </header>
+                <sheet>
+                    <!-- Save & Done button at top - only visible when form is awaiting completion -->
+                    <div class="o_form_buttons_top" attrs="{'invisible': [('form_completion_status', '!=', 'awaiting_completion')]}">
+                        <button name="action_save_and_complete_form" string="Save &amp; Done" type="object" 
+                                class="btn-success o_form_button_save_done"
+                                confirm="Are you sure you want to complete this form and return to the trip management page?"/>
+                    </div>
+                    <!-- Hidden fields for conditional logic -->
+                    <!-- <field name="form_completion_status" invisible="1"/> REMOVED - Already defined in statusbar -->
+                    <field name="trip_status" invisible="1"/>
+                    <field name="is_current_user_owner" invisible="1"/>
+                    <field name="trip_type" invisible="1"/>
+                    <field name="accommodation_needed" invisible="1"/>
+                    <field name="use_rental_car" invisible="1"/>
+                    <field name="use_train" invisible="1"/>
+                    <field name="use_bus" invisible="1"/>
+                    <field name="use_airplane" invisible="1"/>
+                    <field name="use_return_rental_car" invisible="1"/>
+                    <field name="use_return_train" invisible="1"/>
+                    <field name="use_return_bus" invisible="1"/>
+                    <field name="use_return_airplane" invisible="1"/>
+                    <field name="rental_car_unlimited_km" invisible="1"/>
+                    <field name="return_rental_car_unlimited_km" invisible="1"/>
+                    <field name="rental_car_type" invisible="1"/>
+                    <field name="return_rental_car_type" invisible="1"/>
+                    
+                    <!-- Modern Card-based Layout -->
+                    <div class="o_trip_form_container">
+                        
+                        <!-- Header Section -->
+                        <div class="o_trip_header_card">
+                            <div class="o_trip_title">
+                                <h1><field name="name" readonly="1" class="o_trip_name_field"/></h1>
+                            </div>
+                        </div>
+                        
+                        <!-- Section 1: Personal Information & Trip Overview -->
+                        <div class="o_form_section_card">
+                            <div class="o_section_header">
+                                <span class="o_section_icon">👤</span>
+                                <h2>Personal Information &amp; Trip Details</h2>
+                            </div>
+                            <div class="o_section_content">
+                                <group>
+                                    <group string="Personal Information">
+                                        <field name="full_name" string="Full Name" readonly="1"/>
+                                        <field name="user_id" string="Employee" readonly="1"/>
+                                    </group>
+                                    <group string="Trip Dates">
+                                        <field name="travel_start_date" string="Proposed Start Date"/>
+                                        <field name="travel_end_date" string="Proposed End Date"/>
+                                        <field name="submission_date" string="Submission Date" readonly="1"/>
+                                    </group>
+                                </group>
+                                
+                                <group>
+                                    <group string="Trip Details">
+                                        <field name="approving_colleague_name" string="Name of Approving Colleague" 
+                                               placeholder="E.g., Emily Smith"/>
+                                        <field name="trip_duration_type" string="Trip Duration Type"/>
+                                        <field name="destination" string="Destination"
+                                               placeholder="Type to search for a destination city"/>
+                                    </group>
+                                    <group string="Trip Type">
+                                        <field name="trip_type" string="One Way / Two Way" widget="radio" 
+                                               options="{'horizontal': true}" default="one_way"/>
+                                    </group>
+                                </group>
+                                
+                                <group>
+                                    <field name="purpose" string="Purpose of Trip" widget="text" 
+                                           placeholder="Describe the purpose of your trip" colspan="2"
+                                           options="{'resizable': false}"/>
+                                </group>
+                            </div>
+                        </div>
+                        
+                        <!-- Section 2: Departure Transportation -->
+                        <div class="o_form_section_card">
+                            <div class="o_section_header">
+                                <span class="o_section_icon">🛫</span>
+                                <h2>Departure Transportation</h2>
+                            </div>
+                            <div class="o_section_content">
+                                <div class="alert alert-info" role="alert">
+                                    Select all means of transport you will use for your outbound trip.
+                                </div>
+                                
+                                <group>
+                                    <group>
+                                        <field name="use_rental_car" string="🚘 Rental Car"/>
+                                        <field name="use_company_car" string="🚗 Company Car"/>
+                                        <field name="use_personal_car" string="🚙 Personal Car"/>
+                                    </group>
+                                    <group>
+                                        <field name="use_train" string="🚄 Train"/>
+                                        <field name="use_airplane" string="✈ Airplane"/>
+                                        <field name="use_bus" string="🚍 Bus"/>
+                                    </group>
+                                </group>
+                                
+                                <!-- Rental Car Details -->
+                                <div class="o_transport_detail_section o_transport_rental_car" attrs="{'invisible': [('use_rental_car', '=', False)]}">
+                                    <div class="o_transport_detail_header">
+                                        <h3>Rental Car Details</h3>
+                                    </div>
+                                    <group>
+                                        <group>
+                                            <field name="rental_car_pickup_date" string="Pick-up Date"/>
+                                            <field name="rental_car_pickup_flexible" string="Flexible by 2 days"/>
+                                            <field name="rental_car_pickup_point" string="Pick-up Point" 
+                                                   placeholder="E.g., Rome Airport"/>
+                                            <field name="rental_car_dropoff_point" string="Drop-off Point" 
+                                                   placeholder="E.g., Milan Central Station"/>
+                                            <field name="rental_car_dropoff_date" string="Drop-off Date"/>
+                                            <field name="rental_car_dropoff_flexible" string="Flexible by 2 days"/>
+                                        </group>
+                                        <group>
+                                            <field name="rental_car_credit_card" string="Can you use your credit card?"/>
+                                            <field name="rental_car_type" string="Rental Type"/>
+                                            <field name="rental_car_drivers_license" string="Driver's License" widget="binary" 
+                                                   filename="rental_car_drivers_license_filename"
+                                                   attrs="{'invisible': [('rental_car_type', '!=', 'self')]}"/>
+                                            <field name="rental_car_unlimited_km" string="Unlimited Kilometers"/>
+                                            <field name="rental_car_kilometer_limit" string="Kilometer Limit" 
+                                                   attrs="{'invisible': [('rental_car_unlimited_km', '=', True)]}"/>
+                                        </group>
+                                    </group>
+                                    <group>
+                                        <field name="rental_car_preferences" string="Additional Preferences" 
+                                               widget="text" placeholder="E.g., early morning pick-up, car model preferences" colspan="2"/>
+                                    </group>
+                                </div>
+                                
+                                <!-- Train Details -->
+                                <div class="o_transport_detail_section o_transport_train" attrs="{'invisible': [('use_train', '=', False)]}">
+                                    <div class="o_transport_detail_header">
+                                        <h3>Train Details</h3>
+                                    </div>
+                                    <group>
+                                        <group>
+                                            <field name="train_departure_city" string="Departure City" placeholder="E.g., Rome"/>
+                                            <field name="train_departure_station" string="Departure Station" 
+                                                   placeholder="E.g., Roma Termini"/>
+                                            <field name="train_arrival_station" string="Arrival Station" 
+                                                   placeholder="E.g., Milano Centrale"/>
+                                        </group>
+                                        <group>
+                                            <field name="train_departure_date" string="Departure Date"/>
+                                            <field name="train_departure_flexible" string="Flexible by 2 days"/>
+                                            <field name="train_arrival_date" string="Arrival Date"/>
+                                            <field name="train_arrival_flexible" string="Flexible by 2 days"/>
+                                        </group>
+                                    </group>
+                                </div>
+                                
+                                <!-- Bus Details -->
+                                <div class="o_transport_detail_section o_transport_bus" attrs="{'invisible': [('use_bus', '=', False)]}">
+                                    <div class="o_transport_detail_header">
+                                        <h3>Bus Details</h3>
+                                    </div>
+                                    <group>
+                                        <group>
+                                            <field name="bus_departure_city" string="Departure City" placeholder="E.g., Rome"/>
+                                            <field name="bus_departure_terminal" string="Departure Terminal" 
+                                                   placeholder="E.g., Roma Tiburtina"/>
+                                            <field name="bus_arrival_terminal" string="Arrival Terminal" 
+                                                   placeholder="E.g., Milano Lampugnano"/>
+                                        </group>
+                                        <group>
+                                            <field name="bus_departure_date" string="Departure Date"/>
+                                            <field name="bus_departure_flexible" string="Flexible by 2 days"/>
+                                            <field name="bus_arrival_date" string="Arrival Date"/>
+                                            <field name="bus_arrival_flexible" string="Flexible by 2 days"/>
+                                        </group>
+                                    </group>
+                                </div>
+                                
+                                <!-- Airplane Details -->
+                                <div class="o_transport_detail_section o_transport_airplane" attrs="{'invisible': [('use_airplane', '=', False)]}">
+                                    <div class="o_transport_detail_header">
+                                        <h3>Airplane Details</h3>
+                                    </div>
+                                    <group>
+                                        <group>
+                                            <field name="airplane_departure_airport" string="Departure Airport" 
+                                                   placeholder="E.g., Rome Fiumicino"/>
+                                            <field name="airplane_arrival_airport" string="Arrival Airport" 
+                                                   placeholder="E.g., Paris CDG"/>
+                                            <field name="airplane_baggage_type" string="Baggage"/>
+                                        </group>
+                                        <group>
+                                            <field name="airplane_departure_date" string="Departure Date"/>
+                                            <field name="airplane_departure_flexible" string="Flexible by 2 days"/>
+                                            <field name="airplane_arrival_flexible" string="Flexible by 2 days"/>
+                                        </group>
+                                    </group>
+                                    <group>
+                                        <field name="airplane_preferences" string="Additional Preferences" 
+                                               widget="text" placeholder="E.g., seat preference, early flight" colspan="2"/>
+                                    </group>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Section 3: Return Transportation (conditional on trip_type) -->
+                        <div class="o_form_section_card" attrs="{'invisible': [('trip_type', '!=', 'twoWay')]}">
+                            <div class="o_section_header">
+                                <span class="o_section_icon">🛬</span>
+                                <h2>Return Transportation</h2>
+                            </div>
+                            <div class="o_section_content">
+                                <div class="alert alert-info" role="alert">
+                                    Select all means of transport you will use for your return trip.
+                                </div>
+                                
+                                <group>
+                                    <group>
+                                        <field name="use_return_rental_car" string="🚘 Rental Car"/>
+                                        <field name="use_return_company_car" string="🚗 Company Car"/>
+                                        <field name="use_return_personal_car" string="🚙 Personal Car"/>
+                                    </group>
+                                    <group>
+                                        <field name="use_return_train" string="🚄 Train"/>
+                                        <field name="use_return_airplane" string="✈ Airplane"/>
+                                        <field name="use_return_bus" string="🚍 Bus"/>
+                                    </group>
+                                </group>
+                                
+                                <!-- Return Rental Car Details -->
+                                <div class="o_transport_detail_section o_transport_rental_car" attrs="{'invisible': [('use_return_rental_car', '=', False)]}">
+                                    <div class="o_transport_detail_header">
+                                        <h3>Return Rental Car Details</h3>
+                                    </div>
+                                    <group>
+                                        <group>
+                                            <field name="return_rental_car_pickup_date" string="Pick-up Date"/>
+                                            <field name="return_rental_car_pickup_flexible" string="Flexible by 2 days"/>
+                                            <field name="return_rental_car_pickup_point" string="Pick-up Point"/>
+                                            <field name="return_rental_car_dropoff_point" string="Drop-off Point"/>
+                                            <field name="return_rental_car_dropoff_date" string="Drop-off Date"/>
+                                            <field name="return_rental_car_dropoff_flexible" string="Flexible by 2 days"/>
+                                        </group>
+                                        <group>
+                                            <field name="return_rental_car_credit_card" string="Can you use a credit card?"/>
+                                            <field name="return_rental_car_type" string="Rental Type"/>
+                                            <field name="return_rental_car_drivers_license" string="Driver's License" 
+                                                   widget="binary" filename="return_rental_car_drivers_license_filename"
+                                                   attrs="{'invisible': [('return_rental_car_type', '!=', 'self')]}"/>
+                                            <field name="return_rental_car_unlimited_km" string="Unlimited Kilometers"/>
+                                            <field name="return_rental_car_kilometer_limit" string="Kilometer Limit" 
+                                                   attrs="{'invisible': [('return_rental_car_unlimited_km', '=', True)]}"/>
+                                        </group>
+                                    </group>
+                                    <group>
+                                        <field name="return_rental_car_preferences" string="Additional Preferences" 
+                                               widget="text" colspan="2"/>
+                                    </group>
+                                </div>
+                                
+                                <!-- Return Train Details -->
+                                <div class="o_transport_detail_section o_transport_train" attrs="{'invisible': [('use_return_train', '=', False)]}">
+                                    <div class="o_transport_detail_header">
+                                        <h3>Return Train Details</h3>
+                                    </div>
+                                    <group>
+                                        <group>
+                                            <field name="return_train_departure_city" string="Departure City"/>
+                                            <field name="return_train_departure_station" string="Departure Station"/>
+                                            <field name="return_train_arrival_station" string="Arrival Station"/>
+                                        </group>
+                                        <group>
+                                            <field name="return_train_departure_date" string="Departure Date"/>
+                                            <field name="return_train_departure_flexible" string="Flexible by 2 days"/>
+                                            <field name="return_train_arrival_date" string="Arrival Date"/>
+                                            <field name="return_train_arrival_flexible" string="Flexible by 2 days"/>
+                                        </group>
+                                    </group>
+                                </div>
+                                
+                                <!-- Return Airplane Details -->
+                                <div class="o_transport_detail_section o_transport_airplane" attrs="{'invisible': [('use_return_airplane', '=', False)]}">
+                                    <div class="o_transport_detail_header">
+                                        <h3>Return Airplane Details</h3>
+                                    </div>
+                                    <group>
+                                        <group>
+                                            <field name="return_airplane_departure_airport" string="Departure Airport"/>
+                                            <field name="return_airplane_destination_airport" string="Destination Airport"/>
+                                            <field name="return_airplane_baggage_type" string="Baggage"/>
+                                        </group>
+                                        <group>
+                                            <field name="return_airplane_departure_date" string="Departure Date"/>
+                                            <field name="return_airplane_departure_flexible" string="Flexible by 2 days"/>
+                                            <field name="return_airplane_destination_flexible" string="Flexible by 2 days"/>
+                                        </group>
+                                    </group>
+                                    <group>
+                                        <field name="return_airplane_preferences" string="Additional Preferences" 
+                                               widget="text" colspan="2"/>
+                                    </group>
+                                </div>
+                                
+                                <!-- Return Bus Details -->
+                                <div class="o_transport_detail_section o_transport_bus" attrs="{'invisible': [('use_return_bus', '=', False)]}">
+                                    <div class="o_transport_detail_header">
+                                        <h3>Return Bus Details</h3>
+                                    </div>
+                                    <group>
+                                        <group>
+                                            <field name="return_bus_departure_city" string="Departure City"/>
+                                            <field name="return_bus_departure_station" string="Departure Station"/>
+                                            <field name="return_bus_arrival_station" string="Arrival Station"/>
+                                        </group>
+                                        <group>
+                                            <field name="return_bus_departure_date" string="Departure Date"/>
+                                            <field name="return_bus_departure_flexible" string="Flexible by 2 days"/>
+                                            <field name="return_bus_arrival_date" string="Arrival Date"/>
+                                            <field name="return_bus_arrival_flexible" string="Flexible by 2 days"/>
+                                        </group>
+                                    </group>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Section 4: Accommodation -->
+                        <div class="o_form_section_card">
+                            <div class="o_section_header">
+                                <span class="o_section_icon">🛏</span>
+                                <h2>Accommodation</h2>
+                            </div>
+                            <div class="o_section_content">
+                                <group>
+                                    <field name="accommodation_needed" string="Do you need accommodation?" widget="radio" 
+                                           options="{'horizontal': true}"/>
+                                </group>
+                                
+                                <div attrs="{'invisible': [('accommodation_needed', '!=', 'yes')]}">
+                                    <group>
+                                        <group string="Accommodation Details">
+                                            <field name="accommodation_number_of_people" string="Number of People"/>
+                                            <field name="accommodation_residence_city" string="City" placeholder="E.g., Rome"/>
+                                            <field name="accommodation_check_in_date" string="Check-in Date"/>
+                                            <field name="accommodation_check_out_date" string="Check-out Date"/>
+                                        </group>
+                                        <group string="Preferences">
+                                            <field name="accommodation_points_of_interest" string="Points of Interest" 
+                                                   widget="text" placeholder="E.g., Close to university, near city center"/>
+                                            <field name="accommodation_need_24h_reception" string="Need 24-hour reception?"/>
+                                        </group>
+                                    </group>
+                                    
+                                    <!-- Accompanying Person Details -->
+                                    <div class="o_accompanying_persons_section">
+                                        <h3>Accompanying Persons</h3>
+                                        <field name="accompanying_person_ids" nolabel="1" context="{'default_business_trip_id': active_id}">
+                                            <tree editable="bottom">
+                                                <field name="full_name" string="Full Name"/>
+                                                <field name="identity_document" widget="binary" filename="identity_document_filename" string="Identity Document"/>
+                                                <field name="identity_document_filename" invisible="1"/>
+                                            </tree>
+                                        </field>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    
+                    <!-- Save & Done button at bottom - only visible when form is awaiting completion -->
+                    <div class="o_form_buttons_bottom" attrs="{'invisible': [('form_completion_status', '!=', 'awaiting_completion')]}">
+                        <button name="action_save_and_complete_form" string="Save &amp; Done" type="object" 
+                                class="btn-success o_form_button_save_done"
+                                confirm="Are you sure you want to complete this form and return to the trip management page?"/>
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>

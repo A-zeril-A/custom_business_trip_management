@@ -1,0 +1,863 @@
+/* 
+ * Modern Business Trip Form Styles
+ * Created by A_zeril_A, 2025-10-24
+ * Updated by A_zeril_A, 2025-10-25
+ * Professional, React-like form design with animations
+ */
+
+.o_business_trip_modern_form {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    min-height: 100vh;
+    overflow: visible !important;
+    height: auto !important;
+}
+
+
+/* Remove inner scroll - make single scroll for entire page */
+.o_business_trip_modern_form .o_content {
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+}
+
+/* Remove scroll from form view */
+.o_business_trip_modern_form .o_form_view {
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+}
+
+/* Remove scroll from sheet background */
+.o_business_trip_modern_form .o_form_sheet_bg {
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+}
+
+/* Full width form container - no max-width restriction */
+.o_business_trip_modern_form .o_form_sheet_bg {
+    max-width: none !important;
+    width: 100% !important;
+    padding: 0 !important;
+}
+
+.o_business_trip_modern_form .o_form_sheet {
+    max-width: none !important;
+    width: 100% !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+}
+
+/* Remove Odoo's default form width restrictions */
+.o_business_trip_modern_form.o_form_view .o_form_sheet_bg > .o_form_sheet {
+    max-width: none !important;
+}
+
+.o_trip_form_container {
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    padding: 30px 40px;
+    animation: fadeIn 0.6s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Header Card */
+.o_trip_header_card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 16px;
+    padding: 40px;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+    position: relative;
+    overflow: hidden;
+    animation: slideDown 0.8s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.o_trip_header_card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: rotate 20s linear infinite;
+}
+
+@keyframes rotate {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.o_trip_title {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+}
+
+.o_trip_title h1 {
+    color: white;
+    font-size: 32px !important;
+    font-weight: 700;
+    margin: 0;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    letter-spacing: -0.5px;
+    text-align: center;
+}
+
+.o_trip_name_field {
+    color: white !important;
+    font-size: 32px !important;
+    font-weight: 700 !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure trip title doesn't get affected by other font size rules */
+.o_trip_title h1 input,
+.o_trip_title h1 span,
+.o_trip_title h1 .o_field_widget {
+    font-size: 32px !important;
+}
+
+/* Section Cards - Full width responsive */
+.o_form_section_card {
+    background: white;
+    border-radius: 16px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: slideUp 0.6s ease-out backwards;
+    width: 100%;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.o_form_section_card:nth-child(2) { animation-delay: 0.1s; }
+.o_form_section_card:nth-child(3) { animation-delay: 0.2s; }
+.o_form_section_card:nth-child(4) { animation-delay: 0.3s; }
+.o_form_section_card:nth-child(5) { animation-delay: 0.4s; }
+
+.o_form_section_card:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    transform: translateY(-4px);
+}
+
+.o_section_header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 24px 30px;
+    border-bottom: 3px solid transparent;
+    border-image: linear-gradient(90deg, #667eea, #764ba2) 1;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    position: relative;
+    overflow: hidden;
+}
+
+.o_section_header::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(180deg, #667eea, #764ba2);
+}
+
+.o_section_icon {
+    font-size: 36px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* Convert emoji to monochrome and apply blue color */
+    filter: grayscale(100%) brightness(0) invert(42%) sepia(93%) saturate(1352%) hue-rotate(215deg) brightness(99%) contrast(97%);
+}
+
+.o_section_header h2 {
+    margin: 0;
+    font-size: 26px !important;
+    font-weight: 700;
+    color: #2c3e50;
+    letter-spacing: -0.3px;
+}
+
+.o_section_content {
+    padding: 30px;
+}
+
+/* Alert Boxes */
+.o_section_content .alert {
+    border-radius: 12px;
+    border: none;
+    border-left: 5px solid #0dcaf0;
+    background: linear-gradient(135deg, #e7f6fd 0%, #d1f0fc 100%);
+    color: #055160;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    box-shadow: 0 2px 8px rgba(13, 202, 240, 0.15);
+    animation: slideIn 0.5s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.o_section_content .alert::before {
+    content: 'ℹ️';
+    margin-right: 8px;
+    font-size: 14px;
+}
+
+/* Transport Detail Sections */
+.o_transport_detail_section {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 12px;
+    padding: 25px;
+    margin-top: 25px;
+    border-left: 5px solid #667eea;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    animation: expandIn 0.4s ease-out;
+}
+
+@keyframes expandIn {
+    from {
+        opacity: 0;
+        max-height: 0;
+        padding: 0 25px;
+    }
+    to {
+        opacity: 1;
+        max-height: 1000px;
+        padding: 25px;
+    }
+}
+
+.o_transport_detail_section:hover {
+    border-left-width: 8px;
+    box-shadow: 0 4px 16px rgba(102, 126, 234, 0.15);
+}
+
+.o_transport_detail_header {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.o_transport_detail_header h3 {
+    margin: 0;
+    font-size: 20px !important;
+    font-weight: 700;
+    color: #495057;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.o_transport_detail_header h3::before {
+    font-size: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 8px;
+    /* Convert emoji to monochrome and apply teal/cyan color */
+    filter: grayscale(100%) brightness(0) invert(50%) sepia(98%) saturate(2476%) hue-rotate(160deg) brightness(95%) contrast(101%);
+}
+
+/* Specific icons for each transport type - Using flat modern Unicode symbols */
+.o_transport_rental_car .o_transport_detail_header h3::before {
+    content: '🚘';  /* Oncoming automobile - flat style */
+}
+
+.o_transport_train .o_transport_detail_header h3::before {
+    content: '🚄';  /* High-speed train - flat style */
+}
+
+.o_transport_bus .o_transport_detail_header h3::before {
+    content: '🚍';  /* Oncoming bus - flat style */
+}
+
+.o_transport_airplane .o_transport_detail_header h3::before {
+    content: '✈';  /* Airplane without variation selector - flat style */
+}
+
+/* Accompanying Persons Section */
+.o_accompanying_persons_section {
+    background: linear-gradient(135deg, #fff5f5 0%, #ffe9e9 100%);
+    border-radius: 12px;
+    padding: 25px;
+    margin-top: 25px;
+    border-left: 5px solid #dc3545;
+    box-shadow: 0 2px 12px rgba(220, 53, 69, 0.1);
+}
+
+.o_accompanying_persons_section h3 {
+    margin: 0 0 20px 0;
+    font-size: 20px !important;
+    font-weight: 700;
+    color: #495057;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.o_accompanying_persons_section h3::before {
+    content: '👥';  /* Busts in silhouette - flat style */
+    font-size: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 8px;
+    /* Convert emoji to monochrome and apply coral/red color */
+    filter: grayscale(100%) brightness(0) invert(35%) sepia(95%) saturate(1789%) hue-rotate(338deg) brightness(95%) contrast(92%);
+}
+
+/* Form Groups */
+.o_business_trip_modern_form .o_group {
+    margin-bottom: 0;
+}
+
+.o_business_trip_modern_form .o_group > tbody > tr > td.o_td_label {
+    font-weight: 600;
+    color: #495057;
+    padding: 12px 16px;
+    font-size: 17px !important;
+}
+
+/* Make checkbox field label emojis monochrome with blue-gray color */
+.o_business_trip_modern_form .o_group > tbody > tr > td.o_td_label label {
+    filter: grayscale(100%) brightness(0) invert(45%) sepia(15%) saturate(1200%) hue-rotate(180deg) brightness(95%) contrast(90%);
+    font-size: 17px !important;
+}
+
+.o_business_trip_modern_form .o_group > tbody > tr > td {
+    padding: 12px 16px;
+    font-size: 16px !important;
+}
+
+/* Field values (readonly and editable) - بزرگتر کردن مقادیر فیلدها */
+.o_business_trip_modern_form .o_field_widget,
+.o_business_trip_modern_form .o_field_widget input,
+.o_business_trip_modern_form .o_field_widget span,
+.o_business_trip_modern_form .o_field_char span,
+.o_business_trip_modern_form .o_field_text span,
+.o_business_trip_modern_form .o_field_date span,
+.o_business_trip_modern_form .o_field_many2one span,
+.o_business_trip_modern_form .o_field_many2one input {
+    font-size: 16px !important;
+}
+
+/* Additional label selectors for better coverage */
+.o_business_trip_modern_form label.o_form_label,
+.o_business_trip_modern_form .o_td_label,
+.o_business_trip_modern_form td.o_td_label > label {
+    font-size: 17px !important;
+}
+
+/* ⭐ فاصله فیلدها (مثل Full Name) از حاشیه چپ کادر - اینجا تنظیم کن! */
+.o_business_trip_modern_form .o_group > tbody > tr > td:first-child {
+    padding-left: 30px !important;  /* 👈 این عدد را تغییر بده برای فاصله از چپ */
+}
+
+/* فاصله ستون دوم (مقادیر) از چپ */
+.o_business_trip_modern_form .o_group > tbody > tr > td:last-child {
+    padding-right: 30px !important;  /* 👈 این عدد را تغییر بده برای فاصله از راست */
+}
+
+/* Input Fields */
+.o_business_trip_modern_form input[type="text"],
+.o_business_trip_modern_form input[type="date"],
+.o_business_trip_modern_form input[type="number"],
+.o_business_trip_modern_form textarea,
+.o_business_trip_modern_form select {
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 11px 15px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 16px !important;
+    background: white;
+}
+
+.o_business_trip_modern_form input[type="text"]:hover,
+.o_business_trip_modern_form input[type="date"]:hover,
+.o_business_trip_modern_form input[type="number"]:hover,
+.o_business_trip_modern_form textarea:hover,
+.o_business_trip_modern_form select:hover {
+    border-color: #b8b8b8;
+}
+
+.o_business_trip_modern_form input[type="text"]:focus,
+.o_business_trip_modern_form input[type="date"]:focus,
+.o_business_trip_modern_form input[type="number"]:focus,
+.o_business_trip_modern_form textarea:focus,
+.o_business_trip_modern_form select:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+    outline: none;
+    transform: translateY(-1px);
+}
+
+/* Checkboxes */
+.o_business_trip_modern_form input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    accent-color: #667eea;
+    transition: transform 0.2s ease;
+}
+
+/* Checkbox labels - larger font */
+.o_business_trip_modern_form input[type="checkbox"] + label,
+.o_business_trip_modern_form .o_checkbox label {
+    font-size: 15px;
+}
+
+/* Make airplane icon (✈) bigger in checkbox labels */
+.o_business_trip_modern_form input[type="checkbox"][name*="airplane"] + label,
+.o_business_trip_modern_form .o_checkbox label:contains("✈") {
+    font-size: 20px;
+}
+
+.o_business_trip_modern_form input[type="checkbox"]:hover {
+    transform: scale(1.1);
+}
+
+.o_business_trip_modern_form input[type="checkbox"]:checked {
+    animation: checkPulse 0.3s ease;
+}
+
+@keyframes checkPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+}
+
+/* Radio Buttons */
+.o_business_trip_modern_form .o_radio_item {
+    margin-right: 25px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    transition: background 0.2s ease;
+}
+
+.o_business_trip_modern_form .o_radio_item:hover {
+    background: #f8f9fa;
+}
+
+.o_business_trip_modern_form input[type="radio"] {
+    accent-color: #667eea;
+    width: 20px;
+    height: 20px;
+}
+
+/* Radio button labels - larger font */
+.o_business_trip_modern_form input[type="radio"] + label,
+.o_business_trip_modern_form .o_radio_item label {
+    font-size: 15px;
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+}
+
+/* Radio buttons in one line with proper spacing */
+.o_business_trip_modern_form .o_radio_item {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 30px;
+    white-space: nowrap;
+}
+
+.o_business_trip_modern_form .o_field_radio {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 25px;
+}
+
+/* Extra spacing for radio button labels */
+.o_business_trip_modern_form input[type="radio"] + label {
+    margin-left: 8px;
+    margin-right: 15px;
+}
+
+/* Form Save & Done Button - Top and Bottom */
+.o_form_buttons_top,
+.o_form_buttons_bottom {
+    display: flex;
+    gap: 15px;
+    padding: 20px 0;
+    justify-content: flex-start;
+}
+
+.o_form_buttons_top {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.o_form_buttons_bottom {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 2px solid #e0e0e0;
+}
+
+/* Only Save & Done button styling */
+.o_form_button_save_done {
+    padding: 14px 40px;
+    font-size: 18px;
+    font-weight: 700;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.o_form_button_save_done::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.o_form_button_save_done:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.o_form_button_save_done:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.5);
+}
+
+.o_form_button_save_done:active {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(40, 167, 69, 0.4);
+}
+
+/* Buttons */
+.o_business_trip_modern_form button.oe_highlight {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 10px;
+    padding: 12px 28px;
+    font-weight: 700;
+    font-size: 15px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.o_business_trip_modern_form button.oe_highlight::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.o_business_trip_modern_form button.oe_highlight:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.o_business_trip_modern_form button.oe_highlight:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+}
+
+.o_business_trip_modern_form button.oe_highlight:active {
+    transform: translateY(-1px);
+}
+
+.o_business_trip_modern_form button.btn-danger {
+    border-radius: 10px;
+    padding: 12px 28px;
+    font-weight: 700;
+    font-size: 15px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+}
+
+.o_business_trip_modern_form button.btn-danger:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(220, 53, 69, 0.5);
+}
+
+/* Statusbar */
+.o_business_trip_modern_form .o_statusbar_status {
+    border-radius: 25px;
+    padding: 8px 20px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.o_business_trip_modern_form .o_statusbar_status button {
+    border-radius: 20px;
+    transition: all 0.3s ease;
+}
+
+.o_business_trip_modern_form .o_statusbar_status button:hover {
+    transform: scale(1.05);
+}
+
+/* Form Completion Statusbar Colors */
+/* Form Completed - Green color (only when active) */
+.o_business_trip_modern_form .o_statusbar_status button.o_arrow_button[data-value="form_completed"][aria-checked="true"] {
+    background-color: #28a745 !important;
+    color: white !important;
+    border-color: #28a745 !important;
+}
+
+.o_business_trip_modern_form .o_statusbar_status button.o_arrow_button[data-value="form_completed"]:hover {
+    background-color: #218838 !important;
+    color: white !important;
+    border-color: #1e7e34 !important;
+}
+
+/* Cancelled - Red color (only when active) */
+.o_business_trip_modern_form .o_statusbar_status button.o_arrow_button[data-value="cancelled"][aria-checked="true"] {
+    background-color: #dc3545 !important;
+    color: white !important;
+    border-color: #dc3545 !important;
+}
+
+.o_business_trip_modern_form .o_statusbar_status button.o_arrow_button[data-value="cancelled"]:hover {
+    background-color: #c82333 !important;
+    color: white !important;
+    border-color: #bd2130 !important;
+}
+
+/* Tree view in form */
+.o_business_trip_modern_form .o_list_table {
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.o_business_trip_modern_form .o_list_table thead {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.o_business_trip_modern_form .o_list_table thead th {
+    font-weight: 700;
+    color: #495057;
+    border-bottom: 3px solid #667eea;
+    padding: 15px;
+    font-size: 14px;
+}
+
+.o_business_trip_modern_form .o_list_table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.o_business_trip_modern_form .o_list_table tbody tr:hover {
+    background: #f8f9fa;
+    transform: scale(1.01);
+}
+
+/* Group String Labels */
+.o_business_trip_modern_form .o_horizontal_separator {
+    font-weight: 700;
+    color: #667eea;
+    font-size: 18px !important;
+    margin: 20px 0 15px 0;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #667eea;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.o_business_trip_modern_form .o_horizontal_separator::before {
+    content: '';
+    width: 4px;
+    height: 20px;
+    background: linear-gradient(180deg, #667eea, #764ba2);
+    border-radius: 2px;
+}
+
+/* Textarea */
+.o_business_trip_modern_form textarea {
+    min-height: 80px;
+    max-height: 300px;
+    resize: none;
+    font-family: inherit;
+    overflow-y: auto;
+}
+
+/* Purpose field specific styling - auto-grow */
+.o_business_trip_modern_form textarea[name="purpose"] {
+    min-height: 80px;
+    height: auto;
+}
+
+/* Loading Animation */
+@keyframes shimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .o_trip_form_container {
+        padding: 15px 10px;
+    }
+    
+    .o_trip_header_card {
+        padding: 25px 20px;
+        border-radius: 12px;
+    }
+    
+    .o_section_content {
+        padding: 20px 15px;
+    }
+    
+    .o_trip_title h1 {
+        font-size: 24px;
+    }
+    
+    .o_section_header h2 {
+        font-size: 18px;
+    }
+    
+    .o_form_section_card {
+        margin-bottom: 20px;
+    }
+    
+    .o_transport_detail_section,
+    .o_accompanying_persons_section {
+        padding: 20px 15px;
+    }
+}
+
+/* Smooth Scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Custom Scrollbar */
+.o_business_trip_modern_form::-webkit-scrollbar {
+    width: 10px;
+}
+
+.o_business_trip_modern_form::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.o_business_trip_modern_form::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #667eea, #764ba2);
+    border-radius: 10px;
+}
+
+.o_business_trip_modern_form::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #764ba2, #667eea);
+}
+
+/* ============================================================
+   Hide default Odoo Save/Discard buttons - ONLY for this form
+   This ensures default Odoo buttons in control panel are hidden
+   while keeping our custom Save & Save & Done buttons visible
+   ============================================================ */
+
+/* Target the control panel buttons when our form is active */
+body:has(.o_business_trip_modern_form) .o_control_panel .o_cp_buttons > button {
+    display: none !important;
+}
+
+/* Also hide them if they appear in the form view directly */
+body:has(.o_business_trip_modern_form) .o_form_view .o_form_buttons_edit,
+body:has(.o_business_trip_modern_form) .o_form_view .o_form_buttons_view {
+    display: none !important;
+}
+
+/* Specifically target Save/Discard buttons in control panel */
+body:has(.o_business_trip_modern_form) .o_control_panel button[data-hotkey="s"],
+body:has(.o_business_trip_modern_form) .o_control_panel button[data-hotkey="j"],
+body:has(.o_business_trip_modern_form) .o_control_panel button.o_form_button_save,
+body:has(.o_business_trip_modern_form) .o_control_panel button.o_form_button_cancel,
+body:has(.o_business_trip_modern_form) .o_control_panel button.o_form_button_edit,
+body:has(.o_business_trip_modern_form) .o_control_panel button.o_form_button_create {
+    display: none !important;
+}
+
+/* Fallback: Hide all buttons that are NOT our Save & Done button - ONLY in business trip form page */
+body:has(.o_business_trip_modern_form) .o_control_panel .o_cp_buttons button:not([name="action_save_and_complete_form"]) {
+    display: none !important;
+}
+
+/* Make sure our Save & Done button inside form sheet is always visible */
+.o_business_trip_modern_form .o_form_buttons_top button[name="action_save_and_complete_form"],
+.o_business_trip_modern_form .o_form_buttons_bottom button[name="action_save_and_complete_form"] {
+    display: inline-block !important;
+}

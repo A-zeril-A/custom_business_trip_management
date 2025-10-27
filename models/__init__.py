@@ -8,7 +8,6 @@ from . import mail_template_mixin
 from . import business_trip
 from . import business_trip_plan_line
 from . import business_trip_expense_line
-from . import formio_form_inherit
 from . import mail_message
 from . import planned_trip_details
 from . import res_company

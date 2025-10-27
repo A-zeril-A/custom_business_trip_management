@@ -8,16 +8,8 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
-# Import from formio base controller
-try:
-    from odoo.addons.formio.controllers.main import FormioController, FORM_STATE_COMPLETE
-except ImportError:
-    # Fallback if formio module is not available
-    from odoo import http
-    FormioController = http.Controller
-    FORM_STATE_COMPLETE = 'COMPLETE'
 
-class BusinessTripRedirect(FormioController):
+class BusinessTripController(http.Controller):
 
     @http.route('/business_trip/entry', type='http', auth='user')
     def redirect_user_by_role(self, **kwargs):
@@ -136,98 +128,54 @@ class BusinessTripRedirect(FormioController):
     @http.route('/business_trip/new/<int:sale_order_id>', type='http', auth='user')
     def create_new_trip_form(self, sale_order_id, **kwargs):
         """
-        Creates a new business trip for the given quotation (sale.order).
-        This will automatically create the associated formio.form and business.trip.data records.
+        Creates a new business trip for the given quotation (sale.order)
+        and redirects the user to the new form view to fill the details.
         """
-        # Fetch the target quotation
         sale_order = request.env['sale.order'].sudo().browse(sale_order_id)
         if not sale_order.exists():
             return request.not_found()
 
         try:
-            # Create the business.trip record - this will automatically create formio.form and business.trip.data
-            business_trip = request.env['business.trip'].sudo().create({
-                'user_id': request.env.user.id,
-                'sale_order_id': sale_order.id,
-            })
-            
-            # Get the automatically created form
-            form = business_trip.formio_form_id
-            if not form:
-                raise Exception("Form was not created automatically by business.trip")
-                
-            _logger.info(f"Created business trip {business_trip.id} with form {form.id}")
-            
-            # Set initial submission data with user information
             current_user = request.env.user
-            partner = current_user.partner_id
-            if partner:
-                # Split name into first and last name
+            travel_approver_id = request.env['res.users'].sudo().get_travel_approver_for_sale_order(current_user.id)
+
+            trip_vals = {
+                'user_id': current_user.id,
+                'sale_order_id': sale_order.id,
+                'manager_id': travel_approver_id,
+                'purpose': f"Business trip request based on Opportunity: {sale_order.name}",
+            }
+            
+            # The creation of business.trip.data is handled by the create method of business.trip
+            business_trip = request.env['business.trip'].sudo().create(trip_vals)
+            _logger.info(f"Created business trip {business_trip.id} for sale order {sale_order.id}")
+
+            # Pre-fill some data in business_trip_data
+            if business_trip.business_trip_data_id:
+                partner = current_user.partner_id
                 name_parts = partner.name.split(' ', 1) if partner.name else ['', '']
                 last_name_val = name_parts[0]
                 first_name_val = name_parts[1] if len(name_parts) > 1 else ''
-                
-                # Determine the Travel Approver for Sale Order related trips
-                travel_approver_id = request.env['res.users'].sudo().get_travel_approver_for_sale_order(current_user.id)
-                _logger.info(f"Selected Travel Approver for sale order: {travel_approver_id}")
 
-                # Get Travel Approver name for formio field
-                travel_approver_name = ""
-                if travel_approver_id:
-                    travel_approver_user = request.env['res.users'].sudo().browse(travel_approver_id)
-                    if travel_approver_user:
-                        travel_approver_name = travel_approver_user.name
-
-                        # Add user to Business Trip Manager group if not already a member
-                        manager_group = request.env.ref('custom_business_trip_management.group_business_trip_manager', raise_if_not_found=False)
-                        if manager_group and not travel_approver_user.has_group('custom_business_trip_management.group_business_trip_manager'):
-                            travel_approver_user.sudo().write({'groups_id': [(4, manager_group.id)]})
-
-                initial_data = {
-                    "first_name": first_name_val,
-                    "last_name": last_name_val,
-                    "trip_basis_text": f"Business trip request based on Opportunity: {sale_order.name}",
-                    "approving_colleague_name": travel_approver_name,
-                    "data": {}
-                }
-                
-                # Update form with initial submission data
-                form.sudo().write({
-                    'submission_data': json.dumps(initial_data)
+                business_trip.business_trip_data_id.sudo().write({
+                    'first_name': first_name_val,
+                    'last_name': last_name_val,
                 })
-                
-                # Process the initial data
-                form.sudo().after_submit()
-                _logger.info(f"Initialized form {form.id} with basic submission data")
-                
-                # Set the Travel Approver on the business trip record
-                if travel_approver_id:
-                    business_trip = request.env['business.trip'].sudo().search([('formio_form_id', '=', form.id)], limit=1)
-                    if business_trip:
-                        business_trip.sudo().write({'manager_id': travel_approver_id})
-                        _logger.info(f"Set Travel Approver {travel_approver_id} for business trip {business_trip.id}")
-                else:
-                    _logger.warning(f"No Travel Approver found for user {current_user.id}")
-            
+
         except Exception as e:
-            _logger.error(f"Error creating business trip: {e}")
-            return request.not_found()
+            _logger.error(f"Error creating business trip: {e}", exc_info=True)
+            return request.render('http_routing.http_error', {
+                'status_code': 500,
+                'status_message': 'Could not create the business trip request.'
+            })
 
         # Redirect to the newly created business.trip record's form view
         action = request.env.ref('custom_business_trip_management.action_view_my_business_trip_forms')
         menu_id = request.env.ref('custom_business_trip_management.menu_view_my_business_trip_forms').id
-        company_id = request.env.company.id
-        cids_param = f"&cids={company_id}" if company_id else ""
-
-        redirect_url = (
-            f"/web#action={action.id}"
-            f"&model=business.trip"
-            f"&view_type=form"
-            f"&id={business_trip.id}"
-            f"&menu_id={menu_id}{cids_param}"
+        
+        return werkzeug.utils.redirect(
+            f"/web#action={action.id}&model=business.trip&view_type=form&id={business_trip.id}&menu_id={menu_id}"
         )
-        return werkzeug.utils.redirect(redirect_url)
-
         
     @http.route('/business_trip/create_standalone', type='http', auth='user')
     def create_standalone_trip_form(self, **kwargs):
@@ -255,44 +203,6 @@ class BusinessTripRedirect(FormioController):
         except Exception as e:
             _logger.error(f"Error creating project selection wizard: {e}")
             return request.not_found()
-
-    @http.route('/formio/form/<string:uuid>/submit', type='json', auth="user", methods=['POST'], website=True, csrf=False)
-    def form_submit(self, uuid, **post):
-        """
-        Overrides the base formio controller's submission method.
-        This version is declared as type='json' to match the client-side request,
-        resolving the 'http' vs 'json' type mismatch error.
-
-        1. Calls the data-saving logic from the parent class.
-        2. Fetches the computed redirect URL from the form record.
-        3. Returns a Python dictionary, which Odoo automatically converts to a JSON response.
-        """
-        _logger.info(f"CUSTOM JSON form_submit: Intercepting submission for form UUID {uuid}.")
-
-        # The base controller's `form_submit` handles the data writing.
-        super(BusinessTripRedirect, self).form_submit(uuid, **post)
-        _logger.info("CUSTOM JSON form_submit: Original data submission logic executed.")
-
-        # Fetch the form again to get the computed redirect URL.
-        form = request.env['formio.form'].sudo().search([('uuid', '=', uuid)], limit=1)
-        if not form:
-            _logger.warning(f"CUSTOM JSON form_submit: Could not find form with UUID {uuid} after submission.")
-            return {'error': 'form_not_found'}
-
-        # Get the redirect URL from the computed field.
-        redirect_url = form.redirect_after_submit
-        _logger.info(f"CUSTOM JSON form_submit: Computed redirect URL is: {redirect_url}")
-
-        response_data = {}
-        if redirect_url:
-            response_data['redirect'] = redirect_url
-            _logger.info(f"CUSTOM JSON form_submit: Returning JSON response with redirect: {json.dumps(response_data)}")
-        else:
-            _logger.warning("CUSTOM JSON form_submit: No redirect URL found. Returning success status.")
-            response_data['status'] = 'OK'
-
-        # For a 'json' route, we simply return the dictionary.
-        return response_data
 
 
 class BusinessTripApi(http.Controller):
