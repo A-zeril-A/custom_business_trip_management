@@ -1291,12 +1291,31 @@ class BusinessTrip(models.Model):
         # Mark form as completed
         self.form_completion_status = 'form_completed'
         
-        # Post a message to chatter for tracking
-        self.message_post(
-            body=_('Form has been completed by %s.') % self.env.user.name,
-            message_type='notification',
-            subtype_xmlid='mail.mt_note',
-        )
+        # Post a styled submission summary message to chatter
+        # This uses the same templates as the old formio submission
+        try:
+            summary_body_html = self.env.ref('custom_business_trip_management.form_submission_summary')._render({
+                'record': self.business_trip_data_id,
+            }, engine='ir.qweb')
+
+            message_body = self.env.ref('custom_business_trip_management.chatter_message_card')._render({
+                'card_type': 'success',
+                'icon': '📄',
+                'title': 'Form Submission Summary',
+                'body_html': summary_body_html,
+                'submitted_by': self.env.user.name,
+            }, engine='ir.qweb')
+            
+            self.message_post(body=message_body, subtype_xmlid="mail.mt_note")
+            _logger.info(f"Successfully posted styled summary message to chatter for trip {self.id} after Save & Done.")
+        except Exception as e:
+            _logger.error(f"Failed to render or post summary message for trip {self.id}: {e}", exc_info=True)
+            # Fallback to simple message if template rendering fails
+            self.message_post(
+                body=_('Form has been completed by %s.') % self.env.user.name,
+                message_type='notification',
+                subtype_xmlid='mail.mt_note',
+            )
         
         # Return to the business trip management view (view_business_trip_form)
         # Using URL redirect to preserve breadcrumb navigation
