@@ -8,7 +8,6 @@ import pytz
 from markupsafe import Markup
 from odoo.tools import html_sanitize
 from datetime import timedelta
-from lxml import etree
 
 _logger = logging.getLogger(__name__)
 
@@ -17,17 +16,41 @@ class BusinessTrip(models.Model):
     _description = 'Business Trip Request'
     _inherit = ['mail.thread', 'mail.activity.mixin', 'mail.template.mixin']
 
-    # -------------------------------------------------------------------------
-    # The following fields were directly related to the 'formio' module and have been removed
-    # to eliminate the dependency. This includes the main link 'formio_form_id' and all
-    # fields that were related to it for displaying form data.
-    # -------------------------------------------------------------------------
+    # Link to the original Form.io submission.
+    # ondelete is 'set null' to prevent accidental data loss if the form is deleted.
+    formio_form_id = fields.Many2one('formio.form', string='Form.io Form', ondelete='set null', required=False, index=True)
+
+    # Add related fields for view compatibility
+    submission_data = fields.Text(related='formio_form_id.submission_data', string="Submission Data (JSON)", readonly=True)
+    form_data_json = fields.Text(related='formio_form_id.submission_data', string="Form Data (JSON)", readonly=True)
+
+    # Related fields from formio.form for view compatibility
+    formio_form_state = fields.Selection(related='formio_form_id.state', string='Form State', readonly=True, store=False)
+    formio_form_builder_id = fields.Many2one(related='formio_form_id.builder_id', string='Form Builder', readonly=True, store=False)
+    formio_form_submission_partner_id = fields.Many2one(related='formio_form_id.submission_partner_id', string='Submission Partner', readonly=True, store=False)
+    formio_form_uuid = fields.Char(related='formio_form_id.uuid', string='Form UUID', readonly=True, store=False)
+    formio_form_sequence = fields.Integer(related='formio_form_id.sequence', string='Form Sequence', readonly=True, store=False)
+    formio_form_portal_share = fields.Boolean(related='formio_form_id.portal_share', string='Portal Share', readonly=True, store=False)
+    formio_form_public_share = fields.Boolean(related='formio_form_id.public_share', string='Public Share', readonly=True, store=False)
+    formio_form_public_access = fields.Boolean(related='formio_form_id.public_access', string='Public Access', readonly=True, store=False)
+    formio_form_public_create = fields.Boolean(related='formio_form_id.public_create', string='Public Create', readonly=True, store=False)
+    formio_form_res_model_name = fields.Char(related='formio_form_id.res_model_name', string='Resource Model Name', readonly=True, store=False)
+    formio_form_initial_res_model_name = fields.Char(related='formio_form_id.initial_res_model_name', string='Initial Resource Model Name', readonly=True, store=False)
+    formio_form_res_name = fields.Char(related='formio_form_id.res_name', string='Resource Name', readonly=True, store=False)
+    formio_form_res_partner_id = fields.Many2one(related='formio_form_id.res_partner_id', string='Resource Partner', readonly=True, store=False)
+    
+    # Fields related to formio.form for view logic
+    allow_force_update_state = fields.Boolean(related='formio_form_id.allow_force_update_state', readonly=True)
+    allow_copy = fields.Boolean(related='formio_form_id.allow_copy', readonly=True)
+    copy_to_current = fields.Boolean(related='formio_form_id.copy_to_current', readonly=True)
+    
+    # Alias field for backward compatibility
+    res_name = fields.Char(related='formio_form_res_name', string='Resource Name (Alias)', readonly=True, store=False)
 
     # NEW related fields
     full_name = fields.Char(related='business_trip_data_id.full_name', readonly=True, store=True)
 
-    # Modified by A_zeril_A, 2025-10-24: Made field editable for new form
-    trip_duration_type = fields.Selection(related='business_trip_data_id.trip_duration_type', string='Trip Duration Type', readonly=False, store=True)
+    trip_duration_type = fields.Selection(related='business_trip_data_id.trip_duration_type', string='Trip Duration Type', readonly=True, store=True)
 
     # Direct link to the Business Trip Data model.
     # This was previously a problematic 'related' field. Now it's a direct, stored link.
@@ -54,22 +77,11 @@ class BusinessTrip(models.Model):
         ('completed', 'TRAVEL PROCESS COMPLETED'),
         ('cancelled', 'Cancelled')
     ], string='Trip Status', default='draft', tracking=True, copy=False)
-    
-    # Form completion status - separate from trip workflow status
-    form_completion_status = fields.Selection([
-        ('awaiting_completion', 'Awaiting Completion'),
-        ('form_completed', 'Form Completed'),
-        ('cancelled', 'Cancelled')
-    ], string='Form Completion Status', default='awaiting_completion', tracking=True, copy=False,
-       help="Status of the form filling process, independent of the trip approval workflow")
 
     # --- RELATIONAL & KEY FIELDS ---
     user_id = fields.Many2one('res.users', string='Employee', required=True, default=lambda self: self.env.user)
     sale_order_id = fields.Many2one('sale.order', string='Sales Order', readonly=True)
     display_quotation_ref = fields.Char(string='Linked Quotation', compute='_compute_display_quotation_ref', store=False)
-    # Added by A_zeril_A, 2025-10-24: Field for approving colleague name from formio form
-    approving_colleague_name = fields.Char(string='Name of Approving Colleague', tracking=True, 
-                                           help="Name of the colleague who approved this trip")
     manager_id = fields.Many2one('res.users', string='Travel Approver', tracking=True, help="Travel Approver who reviews the initial request and final plan.")
     organizer_id = fields.Many2one(
         'res.users',
@@ -92,40 +104,37 @@ class BusinessTrip(models.Model):
     expense_line_ids = fields.One2many('business.trip.expense.line', 'trip_id', string='Expense Items', copy=False)
 
     # --- TRIP DETAILS (from Data Model) ---
-    # Modified by A_zeril_A, 2025-10-24: Made fields editable (readonly=False) for new form
-    destination = fields.Char(related='business_trip_data_id.destination', string='Destination', readonly=False, store=True)
-    purpose = fields.Char(related='business_trip_data_id.purpose', string='Purpose', readonly=False, store=True)
-    travel_start_date = fields.Date(related='business_trip_data_id.travel_start_date', string='Travel Start Date', readonly=False, store=True)
-    travel_end_date = fields.Date(related='business_trip_data_id.travel_end_date', string='Travel End Date', readonly=False, store=True)
-    trip_type = fields.Selection(related='business_trip_data_id.trip_type', string='Trip Type', readonly=False, store=True)
+    destination = fields.Char(related='business_trip_data_id.destination', string='Destination', readonly=True, store=True)
+    purpose = fields.Char(related='business_trip_data_id.purpose', string='Purpose', readonly=True, store=True)
+    travel_start_date = fields.Date(related='business_trip_data_id.travel_start_date', string='Travel Start Date', readonly=True, store=True)
+    travel_end_date = fields.Date(related='business_trip_data_id.travel_end_date', string='Travel End Date', readonly=True, store=True)
+    trip_type = fields.Selection(related='business_trip_data_id.trip_type', string='Trip Type', readonly=True, store=True)
     
     # --- TRANSPORTATION & ACCOMMODATION (from Data Model) ---
-    # Modified by A_zeril_A, 2025-10-24: Made fields editable (readonly=False) for new form
-    accommodation_needed = fields.Selection(related='business_trip_data_id.accommodation_needed', string='Accommodation Needed', readonly=False, store=True)
-    use_airplane = fields.Boolean(related='business_trip_data_id.use_airplane', string='Use Airplane', readonly=False, store=True)
-    use_return_airplane = fields.Boolean(related='business_trip_data_id.use_return_airplane', string='Use Return Airplane', readonly=False, store=True)
-    use_rental_car = fields.Boolean(related='business_trip_data_id.use_rental_car', string='Use Rental Car', readonly=False, store=True)
-    use_return_rental_car = fields.Boolean(related='business_trip_data_id.use_return_rental_car', string='Use Return Rental Car', readonly=False, store=True)
-    use_train = fields.Boolean(related='business_trip_data_id.use_train', string='Use Train', readonly=False, store=True)
-    use_return_train = fields.Boolean(related='business_trip_data_id.use_return_train', string='Use Return Train', readonly=False, store=True)
-    use_bus = fields.Boolean(related='business_trip_data_id.use_bus', string='Use Bus', readonly=False, store=True)
-    use_return_bus = fields.Boolean(related='business_trip_data_id.use_return_bus', string='Use Return Bus', readonly=False, store=True)
-    use_company_car = fields.Boolean(related='business_trip_data_id.use_company_car', string='Use Company Car', readonly=False, store=True)
-    use_personal_car = fields.Boolean(related='business_trip_data_id.use_personal_car', string='Use Personal Car', readonly=False, store=True)
-    use_return_company_car = fields.Boolean(related='business_trip_data_id.use_return_company_car', string='Use Return Company Car', readonly=False, store=True)
-    use_return_personal_car = fields.Boolean(related='business_trip_data_id.use_return_personal_car', string='Use Return Personal Car', readonly=False, store=True)
+    accommodation_needed = fields.Selection(related='business_trip_data_id.accommodation_needed', string='Accommodation Needed', readonly=True, store=True)
+    use_airplane = fields.Boolean(related='business_trip_data_id.use_airplane', string='Use Airplane', readonly=True, store=True)
+    use_return_airplane = fields.Boolean(related='business_trip_data_id.use_return_airplane', string='Use Return Airplane', readonly=True, store=True)
+    use_rental_car = fields.Boolean(related='business_trip_data_id.use_rental_car', string='Use Rental Car', readonly=True, store=True)
+    use_return_rental_car = fields.Boolean(related='business_trip_data_id.use_return_rental_car', string='Use Return Rental Car', readonly=True, store=True)
+    use_train = fields.Boolean(related='business_trip_data_id.use_train', string='Use Train', readonly=True, store=True)
+    use_return_train = fields.Boolean(related='business_trip_data_id.use_return_train', string='Use Return Train', readonly=True, store=True)
+    use_bus = fields.Boolean(related='business_trip_data_id.use_bus', string='Use Bus', readonly=True, store=True)
+    use_return_bus = fields.Boolean(related='business_trip_data_id.use_return_bus', string='Use Return Bus', readonly=True, store=True)
+    use_company_car = fields.Boolean(related='business_trip_data_id.use_company_car', string='Use Company Car', readonly=True, store=True)
+    use_personal_car = fields.Boolean(related='business_trip_data_id.use_personal_car', string='Use Personal Car', readonly=True, store=True)
+    use_return_company_car = fields.Boolean(related='business_trip_data_id.use_return_company_car', string='Use Return Company Car', readonly=True, store=True)
+    use_return_personal_car = fields.Boolean(related='business_trip_data_id.use_return_personal_car', string='Use Return Personal Car', readonly=True, store=True)
 
     # --- DETAILED TRANSPORTATION & ACCOMMODATION (from Data Model) ---
     
     # Accommodation
-    # Modified by A_zeril_A, 2025-10-24: Made fields editable for new form
-    accommodation_residence_city = fields.Char(related='business_trip_data_id.accommodation_residence_city', readonly=False, store=True)
-    accommodation_check_in_date = fields.Date(related='business_trip_data_id.accommodation_check_in_date', readonly=False, store=True)
-    accommodation_check_out_date = fields.Date(related='business_trip_data_id.accommodation_check_out_date', readonly=False, store=True)
-    accommodation_number_of_people = fields.Integer(related='business_trip_data_id.accommodation_number_of_people', readonly=False, store=True)
-    accommodation_need_24h_reception = fields.Selection(related='business_trip_data_id.accommodation_need_24h_reception', readonly=False, store=True)
-    accommodation_points_of_interest = fields.Text(related='business_trip_data_id.accommodation_points_of_interest', readonly=False, store=True)
-    accompanying_person_ids = fields.One2many(related='business_trip_data_id.accompanying_person_ids', readonly=False)
+    accommodation_residence_city = fields.Char(related='business_trip_data_id.accommodation_residence_city', readonly=True, store=True)
+    accommodation_check_in_date = fields.Date(related='business_trip_data_id.accommodation_check_in_date', readonly=True, store=True)
+    accommodation_check_out_date = fields.Date(related='business_trip_data_id.accommodation_check_out_date', readonly=True, store=True)
+    accommodation_number_of_people = fields.Integer(related='business_trip_data_id.accommodation_number_of_people', readonly=True, store=True)
+    accommodation_need_24h_reception = fields.Selection(related='business_trip_data_id.accommodation_need_24h_reception', readonly=True, store=True)
+    accommodation_points_of_interest = fields.Text(related='business_trip_data_id.accommodation_points_of_interest', readonly=True, store=True)
+    accompanying_person_ids = fields.One2many(related='business_trip_data_id.accompanying_person_ids', readonly=True)
     
     # Computed fields for accompanying persons display (needed for UI compatibility)
     accommodation_accompanying_persons_display = fields.Text(string='Accompanying Persons (Display)', 
@@ -136,102 +145,94 @@ class BusinessTrip(models.Model):
                                                          help="JSON representation of accompanying persons for UI consumption.")
 
     # Rental Car
-    # Modified by A_zeril_A, 2025-10-24: Made fields editable for new form
-    rental_car_pickup_point = fields.Char(related='business_trip_data_id.rental_car_pickup_point', readonly=False, store=True)
-    rental_car_pickup_date = fields.Date(related='business_trip_data_id.rental_car_pickup_date', readonly=False, store=True)
-    rental_car_pickup_flexible = fields.Boolean(related='business_trip_data_id.rental_car_pickup_flexible', readonly=False, store=True)
-    rental_car_dropoff_point = fields.Char(related='business_trip_data_id.rental_car_dropoff_point', readonly=False, store=True)
-    rental_car_dropoff_date = fields.Date(related='business_trip_data_id.rental_car_dropoff_date', readonly=False, store=True)
-    rental_car_dropoff_flexible = fields.Boolean(related='business_trip_data_id.rental_car_dropoff_flexible', readonly=False, store=True)
-    rental_car_credit_card = fields.Selection(related='business_trip_data_id.rental_car_credit_card', readonly=False, store=True)
-    rental_car_type = fields.Selection(related='business_trip_data_id.rental_car_type', readonly=False, store=True)
-    rental_car_drivers_license = fields.Binary(related='business_trip_data_id.rental_car_drivers_license', readonly=False)
-    rental_car_drivers_license_filename = fields.Char(related='business_trip_data_id.rental_car_drivers_license_filename', readonly=False, store=True)
-    rental_car_drivers_license_attachment_id = fields.Many2one(related='business_trip_data_id.rental_car_drivers_license_attachment_id', readonly=False, store=True)
-    rental_car_drivers_license_download_url = fields.Char(related='business_trip_data_id.rental_car_drivers_license_download_url', readonly=False, string="Driver's License URL (Technical)")
-    rental_car_drivers_license_download_link_html = fields.Html(related='business_trip_data_id.rental_car_drivers_license_download_link_html', readonly=False, string="Driver's License")
-    rental_car_kilometer_limit = fields.Integer(related='business_trip_data_id.rental_car_kilometer_limit', readonly=False, store=True)
-    rental_car_unlimited_km = fields.Boolean(related='business_trip_data_id.rental_car_unlimited_km', readonly=False, store=True)
-    rental_car_preferences = fields.Text(related='business_trip_data_id.rental_car_preferences', readonly=False, store=True)
+    rental_car_pickup_point = fields.Char(related='business_trip_data_id.rental_car_pickup_point', readonly=True, store=True)
+    rental_car_pickup_date = fields.Date(related='business_trip_data_id.rental_car_pickup_date', readonly=True, store=True)
+    rental_car_pickup_flexible = fields.Boolean(related='business_trip_data_id.rental_car_pickup_flexible', readonly=True, store=True)
+    rental_car_dropoff_point = fields.Char(related='business_trip_data_id.rental_car_dropoff_point', readonly=True, store=True)
+    rental_car_dropoff_date = fields.Date(related='business_trip_data_id.rental_car_dropoff_date', readonly=True, store=True)
+    rental_car_dropoff_flexible = fields.Boolean(related='business_trip_data_id.rental_car_dropoff_flexible', readonly=True, store=True)
+    rental_car_credit_card = fields.Selection(related='business_trip_data_id.rental_car_credit_card', readonly=True, store=True)
+    rental_car_type = fields.Selection(related='business_trip_data_id.rental_car_type', readonly=True, store=True)
+    rental_car_drivers_license = fields.Binary(related='business_trip_data_id.rental_car_drivers_license', readonly=True)
+    rental_car_drivers_license_filename = fields.Char(related='business_trip_data_id.rental_car_drivers_license_filename', readonly=True, store=True)
+    rental_car_drivers_license_attachment_id = fields.Many2one(related='business_trip_data_id.rental_car_drivers_license_attachment_id', readonly=True, store=True)
+    rental_car_drivers_license_download_url = fields.Char(related='business_trip_data_id.rental_car_drivers_license_download_url', readonly=True, string="Driver's License URL (Technical)")
+    rental_car_drivers_license_download_link_html = fields.Html(related='business_trip_data_id.rental_car_drivers_license_download_link_html', readonly=True, string="Driver's License")
+    rental_car_kilometer_limit = fields.Integer(related='business_trip_data_id.rental_car_kilometer_limit', readonly=True, store=True)
+    rental_car_unlimited_km = fields.Boolean(related='business_trip_data_id.rental_car_unlimited_km', readonly=True, store=True)
+    rental_car_preferences = fields.Text(related='business_trip_data_id.rental_car_preferences', readonly=True, store=True)
 
     # Return Rental Car
-    # Modified by A_zeril_A, 2025-10-24: Made fields editable for new form
-    return_rental_car_pickup_point = fields.Char(related='business_trip_data_id.return_rental_car_pickup_point', readonly=False, store=True)
-    return_rental_car_pickup_date = fields.Date(related='business_trip_data_id.return_rental_car_pickup_date', readonly=False, store=True)
-    return_rental_car_pickup_flexible = fields.Boolean(related='business_trip_data_id.return_rental_car_pickup_flexible', readonly=False, store=True)
-    return_rental_car_dropoff_point = fields.Char(related='business_trip_data_id.return_rental_car_dropoff_point', readonly=False, store=True)
-    return_rental_car_dropoff_date = fields.Date(related='business_trip_data_id.return_rental_car_dropoff_date', readonly=False, store=True)
-    return_rental_car_dropoff_flexible = fields.Boolean(related='business_trip_data_id.return_rental_car_dropoff_flexible', readonly=False, store=True)
-    return_rental_car_credit_card = fields.Selection(related='business_trip_data_id.return_rental_car_credit_card', readonly=False, store=True)
-    return_rental_car_type = fields.Selection(related='business_trip_data_id.return_rental_car_type', readonly=False, store=True)
-    return_rental_car_drivers_license = fields.Binary(related='business_trip_data_id.return_rental_car_drivers_license', readonly=False)
-    return_rental_car_drivers_license_filename = fields.Char(related='business_trip_data_id.return_rental_car_drivers_license_filename', readonly=False, store=True)
-    return_rental_car_drivers_license_attachment_id = fields.Many2one(related='business_trip_data_id.return_rental_car_drivers_license_attachment_id', readonly=False, store=True)
-    return_rental_car_drivers_license_download_url = fields.Char(related='business_trip_data_id.return_rental_car_drivers_license_download_url', readonly=False, string="Return Driver's License URL (Technical)")
-    return_rental_car_drivers_license_download_link_html = fields.Html(related='business_trip_data_id.return_rental_car_drivers_license_download_link_html', readonly=False, string="Return Driver's License")
-    return_rental_car_kilometer_limit = fields.Integer(related='business_trip_data_id.return_rental_car_kilometer_limit', readonly=False, store=True)
-    return_rental_car_unlimited_km = fields.Boolean(related='business_trip_data_id.return_rental_car_unlimited_km', readonly=False, store=True)
-    return_rental_car_preferences = fields.Text(related='business_trip_data_id.return_rental_car_preferences', readonly=False, store=True)
+    return_rental_car_pickup_point = fields.Char(related='business_trip_data_id.return_rental_car_pickup_point', readonly=True, store=True)
+    return_rental_car_pickup_date = fields.Date(related='business_trip_data_id.return_rental_car_pickup_date', readonly=True, store=True)
+    return_rental_car_pickup_flexible = fields.Boolean(related='business_trip_data_id.return_rental_car_pickup_flexible', readonly=True, store=True)
+    return_rental_car_dropoff_point = fields.Char(related='business_trip_data_id.return_rental_car_dropoff_point', readonly=True, store=True)
+    return_rental_car_dropoff_date = fields.Date(related='business_trip_data_id.return_rental_car_dropoff_date', readonly=True, store=True)
+    return_rental_car_dropoff_flexible = fields.Boolean(related='business_trip_data_id.return_rental_car_dropoff_flexible', readonly=True, store=True)
+    return_rental_car_credit_card = fields.Selection(related='business_trip_data_id.return_rental_car_credit_card', readonly=True, store=True)
+    return_rental_car_type = fields.Selection(related='business_trip_data_id.return_rental_car_type', readonly=True, store=True)
+    return_rental_car_drivers_license = fields.Binary(related='business_trip_data_id.return_rental_car_drivers_license', readonly=True)
+    return_rental_car_drivers_license_filename = fields.Char(related='business_trip_data_id.return_rental_car_drivers_license_filename', readonly=True, store=True)
+    return_rental_car_drivers_license_attachment_id = fields.Many2one(related='business_trip_data_id.return_rental_car_drivers_license_attachment_id', readonly=True, store=True)
+    return_rental_car_drivers_license_download_url = fields.Char(related='business_trip_data_id.return_rental_car_drivers_license_download_url', readonly=True, string="Return Driver's License URL (Technical)")
+    return_rental_car_drivers_license_download_link_html = fields.Html(related='business_trip_data_id.return_rental_car_drivers_license_download_link_html', readonly=True, string="Return Driver's License")
+    return_rental_car_kilometer_limit = fields.Integer(related='business_trip_data_id.return_rental_car_kilometer_limit', readonly=True, store=True)
+    return_rental_car_unlimited_km = fields.Boolean(related='business_trip_data_id.return_rental_car_unlimited_km', readonly=True, store=True)
+    return_rental_car_preferences = fields.Text(related='business_trip_data_id.return_rental_car_preferences', readonly=True, store=True)
 
     # Train
-    # Modified by A_zeril_A, 2025-10-24: Made fields editable for new form
-    train_departure_city = fields.Char(related='business_trip_data_id.train_departure_city', readonly=False, store=True)
-    train_departure_station = fields.Char(related='business_trip_data_id.train_departure_station', readonly=False, store=True)
-    train_arrival_station = fields.Char(related='business_trip_data_id.train_arrival_station', readonly=False, store=True)
-    train_departure_date = fields.Date(related='business_trip_data_id.train_departure_date', readonly=False, store=True)
-    train_departure_flexible = fields.Boolean(related='business_trip_data_id.train_departure_flexible', readonly=False, store=True)
-    train_arrival_date = fields.Date(related='business_trip_data_id.train_arrival_date', readonly=False, store=True)
-    train_arrival_flexible = fields.Boolean(related='business_trip_data_id.train_arrival_flexible', readonly=False, store=True)
+    train_departure_city = fields.Char(related='business_trip_data_id.train_departure_city', readonly=True, store=True)
+    train_departure_station = fields.Char(related='business_trip_data_id.train_departure_station', readonly=True, store=True)
+    train_arrival_station = fields.Char(related='business_trip_data_id.train_arrival_station', readonly=True, store=True)
+    train_departure_date = fields.Date(related='business_trip_data_id.train_departure_date', readonly=True, store=True)
+    train_departure_flexible = fields.Boolean(related='business_trip_data_id.train_departure_flexible', readonly=True, store=True)
+    train_arrival_date = fields.Date(related='business_trip_data_id.train_arrival_date', readonly=True, store=True)
+    train_arrival_flexible = fields.Boolean(related='business_trip_data_id.train_arrival_flexible', readonly=True, store=True)
     
     # Return Train
-    # Modified by A_zeril_A, 2025-10-24: Made fields editable for new form
-    return_train_departure_city = fields.Char(related='business_trip_data_id.return_train_departure_city', readonly=False, store=True)
-    return_train_departure_station = fields.Char(related='business_trip_data_id.return_train_departure_station', readonly=False, store=True)
-    return_train_arrival_station = fields.Char(related='business_trip_data_id.return_train_arrival_station', readonly=False, store=True)
-    return_train_departure_date = fields.Date(related='business_trip_data_id.return_train_departure_date', readonly=False, store=True)
-    return_train_departure_flexible = fields.Boolean(related='business_trip_data_id.return_train_departure_flexible', readonly=False, store=True)
-    return_train_arrival_date = fields.Date(related='business_trip_data_id.return_train_arrival_date', readonly=False, store=True)
-    return_train_arrival_flexible = fields.Boolean(related='business_trip_data_id.return_train_arrival_flexible', readonly=False, store=True)
+    return_train_departure_city = fields.Char(related='business_trip_data_id.return_train_departure_city', readonly=True, store=True)
+    return_train_departure_station = fields.Char(related='business_trip_data_id.return_train_departure_station', readonly=True, store=True)
+    return_train_arrival_station = fields.Char(related='business_trip_data_id.return_train_arrival_station', readonly=True, store=True)
+    return_train_departure_date = fields.Date(related='business_trip_data_id.return_train_departure_date', readonly=True, store=True)
+    return_train_departure_flexible = fields.Boolean(related='business_trip_data_id.return_train_departure_flexible', readonly=True, store=True)
+    return_train_arrival_date = fields.Date(related='business_trip_data_id.return_train_arrival_date', readonly=True, store=True)
+    return_train_arrival_flexible = fields.Boolean(related='business_trip_data_id.return_train_arrival_flexible', readonly=True, store=True)
 
     # Airplane
-    # Modified by A_zeril_A, 2025-10-24: Made fields editable for new form
-    airplane_departure_airport = fields.Char(related='business_trip_data_id.airplane_departure_airport', readonly=False, store=True)
-    airplane_departure_date = fields.Date(related='business_trip_data_id.airplane_departure_date', readonly=False, store=True)
-    airplane_departure_flexible = fields.Boolean(related='business_trip_data_id.airplane_departure_flexible', readonly=False, store=True)
-    airplane_arrival_airport = fields.Char(related='business_trip_data_id.airplane_arrival_airport', readonly=False, store=True)
-    airplane_arrival_flexible = fields.Boolean(related='business_trip_data_id.airplane_arrival_flexible', readonly=False, store=True)
-    airplane_baggage_type = fields.Selection(related='business_trip_data_id.airplane_baggage_type', readonly=False, store=True)
-    airplane_preferences = fields.Text(related='business_trip_data_id.airplane_preferences', readonly=False, store=True)
+    airplane_departure_airport = fields.Char(related='business_trip_data_id.airplane_departure_airport', readonly=True, store=True)
+    airplane_departure_date = fields.Date(related='business_trip_data_id.airplane_departure_date', readonly=True, store=True)
+    airplane_departure_flexible = fields.Boolean(related='business_trip_data_id.airplane_departure_flexible', readonly=True, store=True)
+    airplane_arrival_airport = fields.Char(related='business_trip_data_id.airplane_arrival_airport', readonly=True, store=True)
+    airplane_arrival_flexible = fields.Boolean(related='business_trip_data_id.airplane_arrival_flexible', readonly=True, store=True)
+    airplane_baggage_type = fields.Selection(related='business_trip_data_id.airplane_baggage_type', readonly=True, store=True)
+    airplane_preferences = fields.Text(related='business_trip_data_id.airplane_preferences', readonly=True, store=True)
 
     # Return Airplane
-    # Modified by A_zeril_A, 2025-10-24: Made fields editable for new form
-    return_airplane_departure_airport = fields.Char(related='business_trip_data_id.return_airplane_departure_airport', readonly=False, store=True)
-    return_airplane_departure_date = fields.Date(related='business_trip_data_id.return_airplane_departure_date', readonly=False, store=True)
-    return_airplane_departure_flexible = fields.Boolean(related='business_trip_data_id.return_airplane_departure_flexible', readonly=False, store=True)
-    return_airplane_destination_airport = fields.Char(related='business_trip_data_id.return_airplane_destination_airport', readonly=False, store=True)
-    return_airplane_destination_flexible = fields.Boolean(related='business_trip_data_id.return_airplane_destination_flexible', readonly=False, store=True)
-    return_airplane_baggage_type = fields.Selection(related='business_trip_data_id.return_airplane_baggage_type', readonly=False, store=True)
-    return_airplane_preferences = fields.Text(related='business_trip_data_id.return_airplane_preferences', readonly=False, store=True)
+    return_airplane_departure_airport = fields.Char(related='business_trip_data_id.return_airplane_departure_airport', readonly=True, store=True)
+    return_airplane_departure_date = fields.Date(related='business_trip_data_id.return_airplane_departure_date', readonly=True, store=True)
+    return_airplane_departure_flexible = fields.Boolean(related='business_trip_data_id.return_airplane_departure_flexible', readonly=True, store=True)
+    return_airplane_destination_airport = fields.Char(related='business_trip_data_id.return_airplane_destination_airport', readonly=True, store=True)
+    return_airplane_destination_flexible = fields.Boolean(related='business_trip_data_id.return_airplane_destination_flexible', readonly=True, store=True)
+    return_airplane_baggage_type = fields.Selection(related='business_trip_data_id.return_airplane_baggage_type', readonly=True, store=True)
+    return_airplane_preferences = fields.Text(related='business_trip_data_id.return_airplane_preferences', readonly=True, store=True)
 
     # Bus
-    # Modified by A_zeril_A, 2025-10-24: Made fields editable for new form
-    bus_departure_city = fields.Char(related='business_trip_data_id.bus_departure_city', readonly=False, store=True)
-    bus_departure_terminal = fields.Char(related='business_trip_data_id.bus_departure_terminal', readonly=False, store=True)
-    bus_arrival_terminal = fields.Char(related='business_trip_data_id.bus_arrival_terminal', readonly=False, store=True)
-    bus_departure_date = fields.Date(related='business_trip_data_id.bus_departure_date', readonly=False, store=True)
-    bus_departure_flexible = fields.Boolean(related='business_trip_data_id.bus_departure_flexible', readonly=False, store=True)
-    bus_arrival_date = fields.Date(related='business_trip_data_id.bus_arrival_date', readonly=False, store=True)
-    bus_arrival_flexible = fields.Boolean(related='business_trip_data_id.bus_arrival_flexible', readonly=False, store=True)
+    bus_departure_city = fields.Char(related='business_trip_data_id.bus_departure_city', readonly=True, store=True)
+    bus_departure_terminal = fields.Char(related='business_trip_data_id.bus_departure_terminal', readonly=True, store=True)
+    bus_arrival_terminal = fields.Char(related='business_trip_data_id.bus_arrival_terminal', readonly=True, store=True)
+    bus_departure_date = fields.Date(related='business_trip_data_id.bus_departure_date', readonly=True, store=True)
+    bus_departure_flexible = fields.Boolean(related='business_trip_data_id.bus_departure_flexible', readonly=True, store=True)
+    bus_arrival_date = fields.Date(related='business_trip_data_id.bus_arrival_date', readonly=True, store=True)
+    bus_arrival_flexible = fields.Boolean(related='business_trip_data_id.bus_arrival_flexible', readonly=True, store=True)
     
     # Return Bus
-    # Modified by A_zeril_A, 2025-10-24: Made fields editable for new form
-    return_bus_departure_city = fields.Char(related='business_trip_data_id.return_bus_departure_city', readonly=False, store=True)
-    return_bus_departure_station = fields.Char(related='business_trip_data_id.return_bus_departure_station', readonly=False, store=True)
-    return_bus_arrival_station = fields.Char(related='business_trip_data_id.return_bus_arrival_station', readonly=False, store=True)
-    return_bus_departure_date = fields.Date(related='business_trip_data_id.return_bus_departure_date', readonly=False, store=True)
-    return_bus_departure_flexible = fields.Boolean(related='business_trip_data_id.return_bus_departure_flexible', readonly=False, store=True)
-    return_bus_arrival_date = fields.Date(related='business_trip_data_id.return_bus_arrival_date', readonly=False, store=True)
-    return_bus_arrival_flexible = fields.Boolean(related='business_trip_data_id.return_bus_arrival_flexible', readonly=False, store=True)
+    return_bus_departure_city = fields.Char(related='business_trip_data_id.return_bus_departure_city', readonly=True, store=True)
+    return_bus_departure_station = fields.Char(related='business_trip_data_id.return_bus_departure_station', readonly=True, store=True)
+    return_bus_arrival_station = fields.Char(related='business_trip_data_id.return_bus_arrival_station', readonly=True, store=True)
+    return_bus_departure_date = fields.Date(related='business_trip_data_id.return_bus_departure_date', readonly=True, store=True)
+    return_bus_departure_flexible = fields.Boolean(related='business_trip_data_id.return_bus_departure_flexible', readonly=True, store=True)
+    return_bus_arrival_date = fields.Date(related='business_trip_data_id.return_bus_arrival_date', readonly=True, store=True)
+    return_bus_arrival_flexible = fields.Boolean(related='business_trip_data_id.return_bus_arrival_flexible', readonly=True, store=True)
 
     # --- FINANCIAL FIELDS ---
     manager_max_budget = fields.Monetary(string='Travel Approver Maximum Budget', tracking=False, currency_field='currency_id')
@@ -450,7 +451,9 @@ class BusinessTrip(models.Model):
     # Accompanying persons HTML
     accompanying_persons_html = fields.Html(related='business_trip_data_id.accompanying_persons_html', readonly=True, string="Accompanying Persons")
     
-    # Modified by A_zeril_A, 2025-10-25: Removed duplicate use_train and train_departure_city fields (already defined above as editable)
+    # Train Information
+    use_train = fields.Boolean(related='business_trip_data_id.use_train', readonly=True, store=True)
+    train_departure_city = fields.Char(related='business_trip_data_id.train_departure_city', readonly=True, store=True)
 
     is_expense_returned = fields.Boolean(string='Is Expense Returned', compute='_compute_exceptional_statuses', store=False)
     
@@ -980,13 +983,12 @@ class BusinessTrip(models.Model):
 
         self.write({
             'trip_status': 'cancelled',
-            'form_completion_status': 'cancelled',
             'cancellation_date': fields.Datetime.now(),
             'cancelled_by': self.env.user.id,
         })
 
-        # if self.formio_form_id:
-        #     self.formio_form_id.write({'state': 'CANCEL'})
+        if self.formio_form_id:
+            self.formio_form_id.write({'state': 'CANCEL'})
 
         self.message_post(body=f"Request cancelled by {self.env.user.name}.")
 
@@ -1042,42 +1044,62 @@ class BusinessTrip(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         """
-        Overrides create to ensure a 'business.trip.data' record is created and linked
-        for every new business trip, removing the old dependency on formio.
+        Overrides the create method to orchestrate the creation of all related records:
+        1. Formio Form
+        2. Business Trip Data
+        3. Business Trip (self)
+        This revised order ensures that `form_id` is available when creating `business_trip_data`.
         """
-        trips_to_return = self.env['business.trip']
+        # Find the formio.builder once for all trips in the batch
+        builder = self.env['formio.builder'].search([
+            ('state', '=', 'CURRENT'),
+            ('res_model_id.model', '=', 'sale.order')
+        ], limit=1)
+        if not builder:
+            builder = self.env['formio.builder'].search([('name', '=', 'Business Trip Form')], limit=1)
+        if not builder:
+            raise UserError(_("No suitable Form.io Builder found. Please create a CURRENT builder for sale.order model or one named 'Business Trip Form'."))
+
+        trips = self.env['business.trip']
         for vals in vals_list:
-            # Get user_id from vals or use current user
-            user_id = vals.get('user_id') or self.env.user.id
-            user = self.env['res.users'].browse(user_id)
-            
-            # Prepare name data for business_trip_data
-            user_name = user.partner_id.name or user.name or ''
-            name_parts = user_name.strip().split()
-            
-            first_name = ''
-            last_name = ''
-            
-            if len(name_parts) == 1:
-                first_name = name_parts[0]
-            elif len(name_parts) >= 2:
-                first_name = name_parts[0]
-                last_name = ' '.join(name_parts[1:])
+            # Create the formio.form record first to get a valid form_id
+            form_vals = {
+                'builder_id': builder.id,
+                'user_id': vals.get('user_id', self.env.user.id),
+            }
+            if vals.get('sale_order_id'):
+                sale_order = self.env['sale.order'].browse(vals['sale_order_id'])
+                form_vals.update({
+                    'sale_order_id': sale_order.id,
+                    'res_model_id': self.env.ref('sale.model_sale_order').id,
+                    'res_id': sale_order.id,
+                    'title': f"Trip for SO {sale_order.name}"
+                })
             else:
-                first_name = 'N/A'
-            
-            # Create a corresponding business.trip.data record with requester's name
-            trip_data = self.env['business.trip.data'].create({
-                'first_name': first_name,
-                'last_name': last_name,
+                user = self.env['res.users'].browse(vals.get('user_id', self.env.user.id))
+                create_date_str = fields.Date.today().strftime('%Y-%m-%d')
+                form_vals['title'] = f"Trip for {user.name} on {create_date_str}"
+
+            form = self.env['formio.form'].create(form_vals)
+
+            # Now create the business_trip_data record with the required form_id
+            trip_data = self.env['business.trip.data'].create({'form_id': form.id})
+
+            # Prepare values for the business.trip record
+            trip_vals = vals.copy()
+            trip_vals.update({
+                'formio_form_id': form.id,
+                'business_trip_data_id': trip_data.id,
             })
-            vals['business_trip_data_id'] = trip_data.id
 
             # Create the business.trip record
-            new_trip = super(BusinessTrip, self.with_context(mail_create_nosubscribe=True)).create(vals)
+            trip = super(BusinessTrip, self).create([trip_vals])[0]
             
-            # Post a simple creation message. The complex message was tied to the formio form.
-            message_body = """
+            # Link the form back to the trip
+            form.business_trip_id = trip.id
+            
+            # Post the creation message to the new trip record's chatter
+            message_body = f"""
             <div style="background-color: #EBF5FF; border: 1px solid #B3D4FF; border-radius: 5px; padding: 15px; margin: 10px 0; font-family: sans-serif;">
                 <div style="font-size: 16px; font-weight: bold; margin-bottom: 12px; color: #00529B;">
                     📝 Business Trip Request Created
@@ -1085,12 +1107,19 @@ class BusinessTrip(models.Model):
                 <div style="color: #004085; font-size: 14px; line-height: 1.6; margin-bottom: 12px;">
                     A new business trip request has been initiated. Please fill out the form with the required details.
                 </div>
+                <div style="background-color: #DAE8FC; border-radius: 4px; padding: 10px; margin-top: 15px;">
+                    <strong>Next steps:</strong>
+                    <div style="font-size: 13px; margin-top: 5px;">
+                        Complete the submission form with all travel details.
+                    </div>
+                </div>
             </div>
             """
-            new_trip.message_post(body=message_body)
-            trips_to_return |= new_trip
+            trip.message_post(body=message_body)
 
-        return trips_to_return
+            trips |= trip
+
+        return trips
 
     @api.depends('sale_order_id', 'sale_order_id.name', 'selected_project_id', 'selected_project_id.name')
     def _compute_display_quotation_ref(self):
@@ -1113,6 +1142,88 @@ class BusinessTrip(models.Model):
                 trip_id = trip.id if isinstance(trip.id, int) else 'New'
                 trip.name = f"Standalone Trip for {trip.user_id.name} - #{trip_id}"
 
+    def process_form_submission(self, submission_data_str):
+        """
+        Processes form submission data, updates the related data record,
+        and posts a summary to the chatter.
+        It also ensures the direct link to business_trip_data_id is correctly set.
+        """
+        self.ensure_one()
+        _logger.info(f"Processing submission for Business Trip {self.id}...")
+
+        # Ensure the link from formio.form to business.trip.data is established
+        # and then copy that link to this record's direct Many2one field.
+        if self.formio_form_id.business_trip_data_id:
+            if not self.business_trip_data_id:
+                self.business_trip_data_id = self.formio_form_id.business_trip_data_id
+        else:
+            _logger.error(f"CRITICAL: Form {self.formio_form_id.id} does not have a linked business_trip_data record. Aborting submission processing.")
+            return False
+
+        if not self.business_trip_data_id:
+            _logger.error(f"CRITICAL: Business Trip {self.id} could not establish a link to business_trip_data. Aborting.")
+            return False
+
+        submission_content = None
+        if submission_data_str and isinstance(submission_data_str, str):
+            try:
+                submission_content = json.loads(submission_data_str)
+            except json.JSONDecodeError as e:
+                _logger.error(f"JSONDecodeError for form related to trip {self.id}: {e}. Raw data: {submission_data_str}")
+                return False
+        elif submission_data_str and isinstance(submission_data_str, dict):
+            submission_content = submission_data_str
+        
+        if not submission_content:
+            _logger.warning(f"No submission_content to process for trip {self.id}. Skipping data update.")
+            return False
+
+        # Delegate data processing to the data model
+        result_process = self.business_trip_data_id.process_submission_data(submission_content)
+
+        if result_process:
+            _logger.info(f"Successfully processed submission_data into business.trip.data record {self.business_trip_data_id.id}")
+
+            # A real user submission will contain at least one of these core trip detail fields.
+            # The initial creation might only have pre-filled user data from the controller.
+            is_real_submission = (
+                submission_content.get('trip_destination_portal_query_params') or
+                submission_content.get('trip_start_date') or
+                (isinstance(submission_content.get('data'), dict) and (
+                    submission_content['data'].get('trip_destination_portal_query_params') or
+                    submission_content['data'].get('trip_start_date')
+                ))
+            )
+
+            if is_real_submission:
+                try:
+                    summary_body_html = self.env.ref('custom_business_trip_management.form_submission_summary')._render({
+                        'record': self.business_trip_data_id,
+                    }, engine='ir.qweb')
+
+                    message_body = self.env.ref('custom_business_trip_management.chatter_message_card')._render({
+                        'card_type': 'success',
+                        'icon': '📄',
+                        'title': 'Form Submission Summary',
+                        'body_html': summary_body_html,
+                        'submitted_by': self.env.user.name,
+                    }, engine='ir.qweb')
+                    
+                    self.message_post(body=message_body, subtype_xmlid="mail.mt_note")
+                    _logger.info(f"Successfully posted styled summary message to chatter for trip {self.id} due to real submission.")
+                except Exception as e:
+                    _logger.error(f"Failed to render or post summary message for trip {self.id}: {e}", exc_info=True)
+        else:
+            _logger.error(f"Failed to process submission_data into business.trip.data record for trip {self.id}")
+        
+        return result_process
+
+    @api.depends(
+        'business_trip_data_id.destination',
+        'business_trip_data_id.purpose',
+        'business_trip_data_id.travel_start_date',
+        'business_trip_data_id.travel_end_date',
+    )
     def _compute_has_trip_details(self):
         """
         Checks if the essential details from the form have been filled in
@@ -1202,12 +1313,7 @@ class BusinessTrip(models.Model):
         """
         Extends the write method to automatically set organizer and Travel Approver
         confirmation dates when the trip status is updated.
-        Also, prevents editing of the form if it's already completed or cancelled.
         """
-        for trip in self:
-            if trip.form_completion_status in ['form_completed', 'cancelled']:
-                raise UserError(_("This trip request cannot be modified because it has already been completed or cancelled."))
-
         res = super(BusinessTrip, self).write(vals)
         if 'trip_status' in vals:
             for trip in self:
@@ -1224,115 +1330,6 @@ class BusinessTrip(models.Model):
                         trip.plan_approval_date = fields.Datetime.now()
         return res
 
-    def action_save_and_complete_form(self):
-        """
-        Save the form and mark it as completed. 
-        Returns to the main trip management view.
-        """
-        self.ensure_one()
-
-        # --- Server-Side Form Validation ---
-        required_fields = []
-        if not self.travel_start_date:
-            required_fields.append('Proposed Start Date')
-        if not self.travel_end_date:
-            required_fields.append('Proposed End Date')
-        if not self.approving_colleague_name:
-            required_fields.append('Name of Approving Colleague')
-        if not self.trip_duration_type:
-            required_fields.append('Trip Duration Type')
-        if not self.destination:
-            required_fields.append('Destination')
-
-        if self.accommodation_needed == 'yes':
-            if not self.accommodation_number_of_people:
-                required_fields.append('Number of People (Accommodation)')
-            if not self.accommodation_residence_city:
-                required_fields.append('City (Accommodation)')
-            if not self.accommodation_check_in_date:
-                required_fields.append('Check-in Date (Accommodation)')
-            if not self.accommodation_check_out_date:
-                required_fields.append('Check-out Date (Accommodation)')
-        
-        if self.use_rental_car and self.rental_car_type == 'self' and not self.rental_car_drivers_license:
-            required_fields.append("Driver's License (Departure)")
-
-        if required_fields:
-            raise UserError(_(
-                "Please fill in all required fields before completing the form:\n- %s"
-            ) % ("\n- ".join(required_fields)))
-        
-        # Ensure business_trip_data_id has the requester's name
-        if self.business_trip_data_id and self.user_id:
-            # Split user's name into first and last name for business_trip_data
-            user_name = self.user_id.partner_id.name or self.user_id.name or ''
-            name_parts = user_name.strip().split()
-            
-            # Update first_name and last_name in business_trip_data
-            if len(name_parts) == 1:
-                # Only one name provided
-                self.business_trip_data_id.write({
-                    'first_name': name_parts[0],
-                    'last_name': '',
-                })
-            elif len(name_parts) >= 2:
-                # Multiple names: first is first_name, rest is last_name
-                self.business_trip_data_id.write({
-                    'first_name': name_parts[0],
-                    'last_name': ' '.join(name_parts[1:]),
-                })
-            else:
-                # Empty name (edge case)
-                self.business_trip_data_id.write({
-                    'first_name': 'N/A',
-                    'last_name': '',
-                })
-        
-        # Mark form as completed
-        self.form_completion_status = 'form_completed'
-        
-        # Post a message to chatter for tracking
-        self.message_post(
-            body=_('Form has been completed by %s.') % self.env.user.name,
-            message_type='notification',
-            subtype_xmlid='mail.mt_note',
-        )
-        
-        # Return to the business trip management view (view_business_trip_form)
-        # Using URL redirect to preserve breadcrumb navigation
-        # This approach is inspired by formio_form_inherit.py's _compute_redirect_url method
-        
-        try:
-            action = self.env.ref('custom_business_trip_management.action_view_my_business_trip_forms')
-            menu = self.env.ref('custom_business_trip_management.menu_view_my_business_trip_forms')
-        except ValueError:
-            # Fallback if refs not found
-            return {'type': 'ir.actions.client', 'tag': 'reload'}
-        
-        # Build the complete URL with action and menu context
-        base_url = f"/web#id={self.id}&view_type=form&model=business.trip"
-        
-        params = {
-            'action': action.id,
-            'menu_id': menu.id,
-        }
-        
-        # Add company context
-        company_id = self.env.company.id
-        if company_id:
-            params['cids'] = company_id
-        
-        # Build final URL
-        url_params = '&'.join([f'{k}={v}' for k, v in params.items()])
-        redirect_url = f'{base_url}&{url_params}'
-        
-        # Return URL action to redirect with proper breadcrumb preservation
-        return {
-            'type': 'ir.actions.act_url',
-            'url': redirect_url,
-            'target': 'self',
-        }
-    
     def action_submit_to_manager(self):
         """Submit a completed trip request form to a Travel Approver for approval."""
         self.ensure_one()
@@ -1746,70 +1743,36 @@ class BusinessTrip(models.Model):
         )
 
         return True
-    
-    @api.model
-    def fields_view_get(self, view_id=None, view_type='form', toolbar=False, submenu=False):
-        """
-        Standard Odoo method to dynamically modify the view architecture from the server-side.
-        This is the most robust way to make a form conditionally readonly.
-        """
-        res = super(BusinessTrip, self).fields_view_get(
-            view_id=view_id, view_type=view_type, toolbar=toolbar, submenu=submenu
-        )
 
-        # We only apply this logic to our specific custom form view
-        view_ref_id = self.env.ref('custom_business_trip_management.view_business_trip_form_page').id
-        
-        if view_type == 'form' and res.get('view_id') == view_ref_id:
-            doc = etree.XML(res['arch'])
-            form_node = doc.xpath("//form")[0]
-            
-            # Determine which record we're dealing with
-            active_id = self.env.context.get('active_id') or (self.id if self else None)
-            
-            if not active_id:
-                # For new records, form should be editable by default
-                form_node.set('edit', 'true')
-            else:
-                # For existing records, check form completion status
-                trip = self.browse(active_id)
-                if trip.exists() and trip.form_completion_status == 'awaiting_completion':
-                    form_node.set('edit', 'true')
-                elif trip.exists() and trip.form_completion_status in ['form_completed', 'cancelled']:
-                    form_node.set('edit', 'false')
-                else:
-                    # Default to editable if status is unclear
-                    form_node.set('edit', 'true')
-
-            res['arch'] = etree.tostring(doc, encoding='unicode')
-        
-        return res
 
     def action_edit_trip_details(self):
-        """
-        Action to open the main business trip form for editing details.
-        It resets the form status to 'awaiting_completion' and opens the form in edit mode.
-        """
+        """Open wizard for editing trip details"""
         self.ensure_one()
-        
-        # Reset the status to allow editing
-        if self.form_completion_status == 'form_completed':
-            self.form_completion_status = 'awaiting_completion'
-        
-        # Return an action to open the form view directly in edit mode
+
+        allowed_statuses_for_owner_edit = ['draft', 'returned']
+        is_owner = self.user_id.id == self.env.user.id
+        # Travel Approver/Admin can edit when it's submitted to them, before assigning to organizer
+        can_manager_edit = (self.env.user.has_group('base.group_system') or
+                            (self.manager_id and self.env.user.id == self.manager_id.id)) and \
+                           self.trip_status == 'submitted'
+
+        if not (
+            (is_owner and self.trip_status in allowed_statuses_for_owner_edit) or
+            can_manager_edit
+        ):
+            raise ValidationError(f"You cannot edit this trip at its current stage ('{self.trip_status}') or you lack permissions.")
+
         return {
-            'name': _('Business Trip Request Form'),
+            'name': 'Edit Trip Details',
             'type': 'ir.actions.act_window',
-            'res_model': 'business.trip',
-            'res_id': self.id,
+            'res_model': 'business.trip.details.wizard',
             'view_mode': 'form',
-            'view_id': self.env.ref('custom_business_trip_management.view_business_trip_form_page').id,
-            'target': 'current',
-            'flags': {'mode': 'edit'},
+            'target': 'new',
+            'context': {'active_id': self.id, 'from_wizard': True}
         }
 
     def action_back_to_draft(self):
-        """Return a submitted form back to draft status and reset form completion status"""
+        """Return a submitted form back to draft status"""
         self.ensure_one()
 
         # Only the owner can return to draft and only if it's in submitted or returned status
@@ -1827,10 +1790,8 @@ class BusinessTrip(models.Model):
             raise ValidationError("This request has already been processed or actioned by management and cannot be returned to draft by the user.")
 
         # Clear related approval/estimation/return fields to make it a clean draft
-        # Also reset form_completion_status to allow editing
         self.write({
             'trip_status': 'draft',
-            'form_completion_status': 'awaiting_completion',  # Reset to allow editing
             'submission_date': False,
             'manager_id': False,
             'manager_approval_date': False,
@@ -1842,8 +1803,12 @@ class BusinessTrip(models.Model):
             'rejection_date': False,
         })
 
+        # Update the linked formio.form state if it exists
+        if self.formio_form_id:
+            self.formio_form_id.write({'state': 'DRAFT'})
+
         # Post a message to the chatter
-        self.message_post(body="Request returned to draft by the user. Form is now editable again.")
+        self.message_post(body="Request returned to draft by the user.")
 
         return {
             'type': 'ir.actions.client',
@@ -2761,41 +2726,40 @@ class BusinessTrip(models.Model):
             }
         }
 
-    # Modified by A_zeril_A, 2025-10-20: Commented out formio-related method after formio module removal
-    # def action_edit_returned_form(self):
-    #     """Open the formio form for editing when it's in returned status by temporarily changing state to DRAFT"""
-    #     self.ensure_one()
+    def action_edit_returned_form(self):
+        """Open the formio form for editing when it's in returned status by temporarily changing state to DRAFT"""
+        self.ensure_one()
 
-    #     # Check if the user is the owner of the form
-    #     if self.user_id.id != self.env.user.id:
-    #         raise ValidationError("Only the owner of this form can edit it.")
+        # Check if the user is the owner of the form
+        if self.user_id.id != self.env.user.id:
+            raise ValidationError("Only the owner of this form can edit it.")
 
-    #     # Check that the form is in returned status
-    #     if self.trip_status != 'returned':
-    #         raise ValidationError("This action is only available for forms in 'Returned to Employee' status.")
+        # Check that the form is in returned status
+        if self.trip_status != 'returned':
+            raise ValidationError("This action is only available for forms in 'Returned to Employee' status.")
 
-    #     # Ensure we have a linked formio form
-    #     if not self.formio_form_id:
-    #         raise ValidationError("No form linked to this business trip.")
+        # Ensure we have a linked formio form
+        if not self.formio_form_id:
+            raise ValidationError("No form linked to this business trip.")
 
-    #     # Temporarily change the state to DRAFT to allow editing
-    #     self.formio_form_id.with_context(system_edit=True).write({
-    #         'state': 'DRAFT'
-    #     })
+        # Temporarily change the state to DRAFT to allow editing
+        self.formio_form_id.with_context(system_edit=True).write({
+            'state': 'DRAFT'
+        })
         
-    #     # Mark this business trip as being edited in returned state
-    #     self.write({
-    #         'edit_in_returned_state': True
-    #     })
+        # Mark this business trip as being edited in returned state
+        self.write({
+            'edit_in_returned_state': True
+        })
 
-    #     # Return the action to open the form in edit mode
-    #     action = self.formio_form_id.action_view_formio()
-    #     action['context'] = dict(self.env.context)
-    #     action['context'].update({
-    #         'returned_form_edit': True  # Flag to know this is a special edit session
-    #     })
+        # Return the action to open the form in edit mode
+        action = self.formio_form_id.action_view_formio()
+        action['context'] = dict(self.env.context)
+        action['context'].update({
+            'returned_form_edit': True  # Flag to know this is a special edit session
+        })
 
-    #     return action
+        return action
 
     def action_view_business_trip_data(self):
         """View the linked business trip data record in a standard Odoo form."""
@@ -2809,58 +2773,16 @@ class BusinessTrip(models.Model):
             'target': 'current',
         }
 
-    # Modified by A_zeril_A, 2025-10-20: Commented out formio-related method after formio module removal
-    # Modified by A_zeril_A, 2025-10-24: Re-implemented action_view_formio to open the new custom form view instead of formio form.
     def action_view_formio(self):
         """
-        This action opens the custom business trip form page view.
-        This replaces the old Form.io form with a standard Odoo form.
+        This action opens the Form.io form render view for the related form.
+        It delegates the action to the formio.form model, ensuring we reuse
+        the core logic from the Form.io base module.
         """
         self.ensure_one()
-        
-        context = self.env.context.copy()
-        
-        # Determine the appropriate name and context based on status
-        if self.form_completion_status == 'awaiting_completion':
-            action_name = f'Edit - {self.name}'
-            context['form_view_initial_mode'] = 'edit'
-        else:
-            action_name = f'Review - {self.name}'
-        
-        return {
-            'type': 'ir.actions.act_window',
-            'name': action_name,
-            'res_model': 'business.trip',
-            'view_mode': 'form',
-            'res_id': self.id,
-            'target': 'current',
-            'views': [(self.env.ref('custom_business_trip_management.view_business_trip_form_page').id, 'form')],
-            'context': context,
-        }
-    
-    def action_edit_form(self):
-        """
-        Open the form in edit mode and change status back to awaiting_completion.
-        This allows editing a completed form.
-        """
-        self.ensure_one()
-        
-        # Change status back to awaiting_completion to allow editing
-        self.form_completion_status = 'awaiting_completion'
-        
-        return {
-            'type': 'ir.actions.act_window',
-            'name': f'Edit - {self.name}',
-            'res_model': 'business.trip',
-            'view_mode': 'form',
-            'res_id': self.id,
-            'view_id': self.env.ref('custom_business_trip_management.view_business_trip_form_page').id,
-            'target': 'current',
-            'flags': {
-                'mode': 'edit',  # Force edit mode
-                'hasActionMenus': False,  # Hide default action menus
-            },
-        }
+        if not self.formio_form_id:
+            raise UserError(_("This trip does not have a form associated with it."))
+        return self.formio_form_id.action_view_formio()
 
     def post_confidential_message(self, message, recipient_ids=None, attachment_ids=None):
         """Send confidential message in chatter that is only visible to specific recipients"""
@@ -3085,17 +3007,22 @@ class BusinessTrip(models.Model):
             try:
                 _logger.info(f"Processing trip {record.id} ('{record.name}').")
                 
-                # Modified by A_zeril_A, 2025-10-20: Updated to work without formio dependency
                 # Step 1: Ensure a business_trip_data record exists.
                 trip_data = record.business_trip_data_id
+                if not trip_data and record.formio_form_id:
+                    trip_data = self.env['business.trip.data'].search([('form_id', '=', record.formio_form_id.id)], limit=1)
                 if not trip_data:
                     _logger.warning(f"No business_trip_data record found for trip {record.id}. Cannot re-process.")
                     error_count += 1
                     continue
                 
-                # Step 2: Data extraction is no longer needed as formio is removed
-                # The business_trip_data record should already contain the necessary data
-                _logger.info(f"Business trip data record {trip_data.id} is already available for trip {record.id}.")
+                # Step 2: Re-run the data extraction from the raw submission JSON.
+                if record.formio_form_id and record.formio_form_id.submission_data:
+                    submission_data_dict = json.loads(record.formio_form_id.submission_data)
+                    trip_data.process_submission_data(submission_data_dict)
+                    _logger.info(f"Successfully ran process_submission_data for BTD {trip_data.id}.")
+                else:
+                    _logger.warning(f"No formio form or submission_data found for trip {record.id}. Skipping extraction.")
 
                 # Step 3: Display fields are now automatically computed via related fields.
                 # No manual computation needed - data flows automatically from business_trip_data_id.
@@ -3239,12 +3166,9 @@ class BusinessTrip(models.Model):
         _logger.info(f"Cron job for expense reminders running at {now}. Found {len(trips_to_remind)} trips to check.")
 
         for trip in trips_to_remind:
-            # Modified by A_zeril_A, 2025-10-20: Use write_date as a fallback if organization_done_date is missing to ensure reminders are still sent.
             if not trip.organization_done_date:
-                _logger.info(f"Trip {trip.id} is in 'completed_waiting_expense' state but has no 'organization_done_date'. Using write_date as a fallback.")
-                base_date = trip.write_date
-            else:
-                base_date = trip.organization_done_date
+                _logger.warning(f"Trip {trip.id} is in 'completed_waiting_expense' state but has no 'organization_done_date'. Skipping.")
+                continue
 
             # Get company settings for reminder interval
             company = trip.env.company
@@ -3258,7 +3182,7 @@ class BusinessTrip(models.Model):
                 delta = timedelta(days=reminder_interval)
             
             # Determine the timestamp to check against
-            last_event_timestamp = trip.last_expense_reminder_date or base_date
+            last_event_timestamp = trip.last_expense_reminder_date or trip.organization_done_date
             
             # Check if it's time to send a reminder
             if now >= (last_event_timestamp + delta):
@@ -3302,7 +3226,49 @@ class BusinessTrip(models.Model):
             else:
                 _logger.info(f"Skipping reminder for trip {trip.id}. Next reminder is due after {last_event_timestamp + delta}.")
 
-    # Duplicate method removed - using the one defined earlier in the file
+    def action_back_to_draft(self):
+        """Return a submitted form back to draft status"""
+        self.ensure_one()
+
+        # Only the owner can return to draft and only if it's in submitted or returned status
+        if self.user_id.id != self.env.user.id:
+            raise ValidationError("Only the owner of this trip request can return it to draft status.")
+
+        # Allow return to draft for submitted forms (and those already in draft or returned status)
+        if self.trip_status not in ['submitted', 'returned', 'draft']:
+            raise ValidationError("Only submitted forms, returned forms, or completed forms still in draft status can be returned to draft editing state.")
+
+        # Check if the request has already been processed by a manager if trip_status is 'submitted'
+        if self.trip_status == 'submitted' and \
+           (self.manager_approval_date or self.organizer_submission_date or self.organizer_id or \
+            self.trip_status in ['rejected']):
+            raise ValidationError("This request has already been processed or actioned by management and cannot be returned to draft by the user.")
+
+        # Clear related approval/estimation/return fields to make it a clean draft
+        self.write({
+            'trip_status': 'draft',
+            'submission_date': False,
+            'manager_id': False,
+            'manager_approval_date': False,
+            'manager_comments': False,
+            'expense_return_comments': False,
+            'rejection_reason': False,
+            'rejection_comment': False,
+            'rejected_by': False,
+            'rejection_date': False,
+        })
+
+        # Update the linked formio.form state if it exists
+        if self.formio_form_id:
+            self.formio_form_id.write({'state': 'DRAFT'})
+
+        # Post a message to the chatter
+        self.message_post(body="Request returned to draft by the user.")
+
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'reload',
+        }
         
     def read(self, fields=None, load='_classic_read'):
         """
@@ -3487,21 +3453,5 @@ class BusinessTrip(models.Model):
         copy=False
     )
     organizer_trip_plan_details = fields.Html('Trip Plan Details (Organizer)')
-
-    def get_formview_action(self, access_uid=None):
-        """
-        Overrides the default behavior to open the form directly in edit mode
-        if the form status is 'Awaiting Completion'.
-        """
-        action = super(BusinessTrip, self).get_formview_action(access_uid=access_uid)
-
-        # If we are opening a single record and its status is 'awaiting_completion',
-        # modify the action to open in edit mode using context.
-        if self and self.form_completion_status == 'awaiting_completion':
-            action.setdefault('context', {}).update({'form_view_initial_mode': 'edit'})
-            # Ensure it opens the correct form view
-            action['view_id'] = self.env.ref('custom_business_trip_management.view_business_trip_form_page').id
-
-        return action
         
         

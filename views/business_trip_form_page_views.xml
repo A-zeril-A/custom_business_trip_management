@@ -38,8 +38,7 @@
                     <!-- Save & Done button at top - only visible when form is awaiting completion -->
                     <div class="o_form_buttons_top" attrs="{'invisible': [('form_completion_status', '!=', 'awaiting_completion')]}">
                         <button name="action_save_and_complete_form" string="Save &amp; Done" type="object" 
-                                class="btn-success o_form_button_save_done"
-                                confirm="Are you sure you want to complete this form and return to the trip management page?"/>
+                                class="btn-success o_form_button_save_done"/>
                     </div>
                     <!-- Hidden fields for conditional logic -->
                     <!-- <field name="form_completion_status" invisible="1"/> REMOVED - Already defined in statusbar -->
@@ -406,8 +405,7 @@
                     <!-- Save & Done button at bottom - only visible when form is awaiting completion -->
                     <div class="o_form_buttons_bottom" attrs="{'invisible': [('form_completion_status', '!=', 'awaiting_completion')]}">
                         <button name="action_save_and_complete_form" string="Save &amp; Done" type="object" 
-                                class="btn-success o_form_button_save_done"
-                                confirm="Are you sure you want to complete this form and return to the trip management page?"/>
+                                class="btn-success o_form_button_save_done"/>
                     </div>
                 </sheet>
             </form>

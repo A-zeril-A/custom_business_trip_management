@@ -21,6 +21,7 @@ This module provides a dynamic redirection to business trip management views:
         'views/business_trip_form_page_views.xml',
         'views/business_trip_action.xml',
         'views/business_trip_menus.xml',
+        'views/business_trip_data_views.xml',
         'data/server_action.xml',
         'data/mail_data.xml',
         'data/cron_jobs.xml',

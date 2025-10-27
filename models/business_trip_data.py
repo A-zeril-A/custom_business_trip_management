@@ -13,14 +13,9 @@ class BusinessTripData(models.Model):
     _description = 'Business Trip Form Data'
     _rec_name = 'full_name'
     
-    @classmethod
-    def _valid_field_parameter(cls, field, name):
-        # Add support for tracking parameter
-        return name == 'tracking' or super()._valid_field_parameter(field, name)
-    
-    # These fields were related to the old formio model and are no longer needed.
-    # form_id = fields.Many2one('formio.form', string='Form', ondelete='cascade', required=True, index=True)
-    # form_title = fields.Char(string='Form Title', compute='_compute_form_title', store=True)
+    # Link back to the main business trip model
+    form_id = fields.Many2one('business.trip', string='Business Trip Form', ondelete='cascade', index=True)
+    form_title = fields.Char(string='Form Title', related='form_id.name', store=True, readonly=True)
     active = fields.Boolean(default=True)
     
     # Personal information fields
