@@ -36,6 +36,7 @@ This module provides a dynamic redirection to business trip management views:
         'web.assets_backend': [
             'custom_business_trip_management/static/src/js/custom_trip_redirect.js',
             'custom_business_trip_management/static/src/js/custom_trip_form_request.js',
+            'custom_business_trip_management/static/src/js/history_back_action.js',
             'custom_business_trip_management/static/src/js/expense_upload_tracker.js',
             'custom_business_trip_management/static/src/css/custom_status_colors.css',
             'custom_business_trip_management/static/src/css/business_trip_form.css',

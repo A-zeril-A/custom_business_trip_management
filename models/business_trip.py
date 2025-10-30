@@ -68,8 +68,15 @@ class BusinessTrip(models.Model):
     sale_order_id = fields.Many2one('sale.order', string='Sales Order', readonly=True)
     display_quotation_ref = fields.Char(string='Linked Quotation', compute='_compute_display_quotation_ref', store=False)
     # Added by A_zeril_A, 2025-10-24: Field for approving colleague name from formio form
-    approving_colleague_name = fields.Char(string='Name of Approving Colleague', tracking=True, 
-                                           help="Name of the colleague who approved this trip")
+    # Modified by A_zeril_A, 2025-10-28: Auto-populate with travel approver name but keep editable
+    approving_colleague_name = fields.Char(
+        string='Name of Approving Colleague', 
+        tracking=True,
+        compute='_compute_approving_colleague_name',
+        store=True,
+        readonly=False,
+        help="Name of the colleague who will approve this trip. Auto-filled with Travel Approver name but can be edited."
+    )
     manager_id = fields.Many2one('res.users', string='Travel Approver', tracking=True, help="Travel Approver who reviews the initial request and final plan.")
     organizer_id = fields.Many2one(
         'res.users',
@@ -149,7 +156,7 @@ class BusinessTrip(models.Model):
     rental_car_drivers_license_filename = fields.Char(related='business_trip_data_id.rental_car_drivers_license_filename', readonly=False, store=True)
     rental_car_drivers_license_attachment_id = fields.Many2one(related='business_trip_data_id.rental_car_drivers_license_attachment_id', readonly=False, store=True)
     rental_car_drivers_license_download_url = fields.Char(related='business_trip_data_id.rental_car_drivers_license_download_url', readonly=False, string="Driver's License URL (Technical)")
-    rental_car_drivers_license_download_link_html = fields.Html(related='business_trip_data_id.rental_car_drivers_license_download_link_html', readonly=False, string="Driver's License")
+    rental_car_drivers_license_download_link_html = fields.Html(related='business_trip_data_id.rental_car_drivers_license_download_link_html', readonly=False, string="Driver's License Download")
     rental_car_kilometer_limit = fields.Integer(related='business_trip_data_id.rental_car_kilometer_limit', readonly=False, store=True)
     rental_car_unlimited_km = fields.Boolean(related='business_trip_data_id.rental_car_unlimited_km', readonly=False, store=True)
     rental_car_preferences = fields.Text(related='business_trip_data_id.rental_car_preferences', readonly=False, store=True)
@@ -168,7 +175,7 @@ class BusinessTrip(models.Model):
     return_rental_car_drivers_license_filename = fields.Char(related='business_trip_data_id.return_rental_car_drivers_license_filename', readonly=False, store=True)
     return_rental_car_drivers_license_attachment_id = fields.Many2one(related='business_trip_data_id.return_rental_car_drivers_license_attachment_id', readonly=False, store=True)
     return_rental_car_drivers_license_download_url = fields.Char(related='business_trip_data_id.return_rental_car_drivers_license_download_url', readonly=False, string="Return Driver's License URL (Technical)")
-    return_rental_car_drivers_license_download_link_html = fields.Html(related='business_trip_data_id.return_rental_car_drivers_license_download_link_html', readonly=False, string="Return Driver's License")
+    return_rental_car_drivers_license_download_link_html = fields.Html(related='business_trip_data_id.return_rental_car_drivers_license_download_link_html', readonly=False, string="Return Driver's License Download")
     return_rental_car_kilometer_limit = fields.Integer(related='business_trip_data_id.return_rental_car_kilometer_limit', readonly=False, store=True)
     return_rental_car_unlimited_km = fields.Boolean(related='business_trip_data_id.return_rental_car_unlimited_km', readonly=False, store=True)
     return_rental_car_preferences = fields.Text(related='business_trip_data_id.return_rental_car_preferences', readonly=False, store=True)
@@ -444,11 +451,11 @@ class BusinessTrip(models.Model):
         help="A temporary budget set by the Travel Approver before final confirmation."
     )
 
-    return_rental_car_unlimited_km = fields.Boolean(related='business_trip_data_id.return_rental_car_unlimited_km', readonly=True, store=True)
-    return_rental_car_preferences = fields.Text(related='business_trip_data_id.return_rental_car_preferences', readonly=True, store=True)
-
+    # Modified by A_zeril_A, 2025-10-28: Removed duplicate return_rental_car fields (already defined above with readonly=False)
+    # These fields were causing the "Unlimited Kilometers" checkbox to be readonly in the form
+    
     # Accompanying persons HTML
-    accompanying_persons_html = fields.Html(related='business_trip_data_id.accompanying_persons_html', readonly=True, string="Accompanying Persons")
+    accompanying_persons_html = fields.Html(related='business_trip_data_id.accompanying_persons_html', readonly=True, string="Accompanying Persons List")
     
     # Modified by A_zeril_A, 2025-10-25: Removed duplicate use_train and train_departure_city fields (already defined above as editable)
 
@@ -592,13 +599,8 @@ class BusinessTrip(models.Model):
         for record in self:
             can_cancel = False
             # We rely on the pre-computed is_current_user_owner field
-            if record.is_current_user_owner and record.trip_status in ['draft', 'submitted']:
-                if record.trip_status == 'submitted':
-                    # If any approval has been made, cancellation is not allowed.
-                    if not record.manager_approval_date:
-                        can_cancel = True
-                else:  # 'draft' state
-                    can_cancel = True
+            if record.is_current_user_owner and record.trip_status in ['draft']:
+                can_cancel = True
             record.can_cancel_trip = can_cancel
 
     @api.depends('trip_status', 'expense_approval_date')
@@ -1102,7 +1104,30 @@ class BusinessTrip(models.Model):
             else:
                 record.display_quotation_ref = False
 
-    @api.depends('user_id', 'create_date', 'sale_order_id')
+    @api.depends('user_id', 'sale_order_id')
+    def _compute_approving_colleague_name(self):
+        """Auto-populate approving colleague name with Travel Approver, but allow editing"""
+        for trip in self:
+            # Skip if already manually set (don't override user's custom value)
+            if trip.approving_colleague_name:
+                continue
+            
+            # Determine Travel Approver based on trip type
+            travel_approver_id = None
+            if trip.sale_order_id:
+                # Sale Order related trip
+                travel_approver_id = self.env['res.users'].sudo().get_travel_approver_for_sale_order(trip.user_id.id)
+            else:
+                # Standalone trip
+                travel_approver_id = self.env['res.users'].sudo().get_travel_approver_for_standalone(trip.user_id.id)
+            
+            if travel_approver_id:
+                travel_approver = self.env['res.users'].sudo().browse(travel_approver_id)
+                trip.approving_colleague_name = travel_approver.name
+            else:
+                trip.approving_colleague_name = ""
+
+    @api.depends('user_id', 'sale_order_id')
     def _compute_name(self):
         for trip in self:
             if trip.sale_order_id:
@@ -1197,33 +1222,7 @@ class BusinessTrip(models.Model):
                 trip.actual_duration_display = ", ".join(p for p in parts if p) or "0 minutes"
             else:
                 trip.actual_duration_display = "Not yet calculated"
-
-    def write(self, vals):
-        """
-        Extends the write method to automatically set organizer and Travel Approver
-        confirmation dates when the trip status is updated.
-        Also, prevents editing of the form if it's already completed or cancelled.
-        """
-        for trip in self:
-            if trip.form_completion_status in ['form_completed', 'cancelled']:
-                raise UserError(_("This trip request cannot be modified because it has already been completed or cancelled."))
-
-        res = super(BusinessTrip, self).write(vals)
-        if 'trip_status' in vals:
-            for trip in self:
-                if vals['trip_status'] == 'pending_organization':
-                    # This status is set when the Travel Approver assigns the organizer.
-                    # The organizer_submission_date should be set when the organizer submits their plan.
-                    pass
-                elif vals['trip_status'] == 'completed_waiting_expense':
-                    # This status is set when the organizer confirms their plan.
-                    # We can consider this the "submission" and "approval" in one step for simplicity.
-                    if not trip.organizer_submission_date:
-                        trip.organizer_submission_date = fields.Datetime.now()
-                    if not trip.plan_approval_date:
-                        trip.plan_approval_date = fields.Datetime.now()
-        return res
-
+                
     def action_save_and_complete_form(self):
         """
         Save the form and mark it as completed. 
@@ -1317,39 +1316,14 @@ class BusinessTrip(models.Model):
                 subtype_xmlid='mail.mt_note',
             )
         
-        # Return to the business trip management view (view_business_trip_form)
-        # Using URL redirect to preserve breadcrumb navigation
-        # This approach is inspired by formio_form_inherit.py's _compute_redirect_url method
-        
-        try:
-            action = self.env.ref('custom_business_trip_management.action_view_my_business_trip_forms')
-            menu = self.env.ref('custom_business_trip_management.menu_view_my_business_trip_forms')
-        except ValueError:
-            # Fallback if refs not found
-            return {'type': 'ir.actions.client', 'tag': 'reload'}
-        
-        # Build the complete URL with action and menu context
-        base_url = f"/web#id={self.id}&view_type=form&model=business.trip"
-        
-        params = {
-            'action': action.id,
-            'menu_id': menu.id,
-        }
-        
-        # Add company context
-        company_id = self.env.company.id
-        if company_id:
-            params['cids'] = company_id
-        
-        # Build final URL
-        url_params = '&'.join([f'{k}={v}' for k, v in params.items()])
-        redirect_url = f'{base_url}&{url_params}'
-        
-        # Return URL action to redirect with proper breadcrumb preservation
+        # Return to the management form by going back in history
+        # This prevents adding a new layer to the breadcrumb stack
+        # When user clicks "Open Form" → a new state is pushed to history
+        # When user clicks "Save & Done" → we pop that state instead of pushing another one
+        # Result: Clean breadcrumb without duplication (Menu / Record instead of Menu / Record / Record)
         return {
-            'type': 'ir.actions.act_url',
-            'url': redirect_url,
-            'target': 'self',
+            'type': 'ir.actions.client',
+            'tag': 'history_back_action',
         }
     
     def action_submit_to_manager(self):

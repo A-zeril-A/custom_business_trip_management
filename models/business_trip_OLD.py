@@ -157,7 +157,7 @@ class BusinessTrip(models.Model):
     rental_car_drivers_license_filename = fields.Char(related='business_trip_data_id.rental_car_drivers_license_filename', readonly=True, store=True)
     rental_car_drivers_license_attachment_id = fields.Many2one(related='business_trip_data_id.rental_car_drivers_license_attachment_id', readonly=True, store=True)
     rental_car_drivers_license_download_url = fields.Char(related='business_trip_data_id.rental_car_drivers_license_download_url', readonly=True, string="Driver's License URL (Technical)")
-    rental_car_drivers_license_download_link_html = fields.Html(related='business_trip_data_id.rental_car_drivers_license_download_link_html', readonly=True, string="Driver's License")
+    rental_car_drivers_license_download_link_html = fields.Html(related='business_trip_data_id.rental_car_drivers_license_download_link_html', readonly=True, string="Driver's License Download")
     rental_car_kilometer_limit = fields.Integer(related='business_trip_data_id.rental_car_kilometer_limit', readonly=True, store=True)
     rental_car_unlimited_km = fields.Boolean(related='business_trip_data_id.rental_car_unlimited_km', readonly=True, store=True)
     rental_car_preferences = fields.Text(related='business_trip_data_id.rental_car_preferences', readonly=True, store=True)
@@ -175,7 +175,7 @@ class BusinessTrip(models.Model):
     return_rental_car_drivers_license_filename = fields.Char(related='business_trip_data_id.return_rental_car_drivers_license_filename', readonly=True, store=True)
     return_rental_car_drivers_license_attachment_id = fields.Many2one(related='business_trip_data_id.return_rental_car_drivers_license_attachment_id', readonly=True, store=True)
     return_rental_car_drivers_license_download_url = fields.Char(related='business_trip_data_id.return_rental_car_drivers_license_download_url', readonly=True, string="Return Driver's License URL (Technical)")
-    return_rental_car_drivers_license_download_link_html = fields.Html(related='business_trip_data_id.return_rental_car_drivers_license_download_link_html', readonly=True, string="Return Driver's License")
+    return_rental_car_drivers_license_download_link_html = fields.Html(related='business_trip_data_id.return_rental_car_drivers_license_download_link_html', readonly=True, string="Return Driver's License Download")
     return_rental_car_kilometer_limit = fields.Integer(related='business_trip_data_id.return_rental_car_kilometer_limit', readonly=True, store=True)
     return_rental_car_unlimited_km = fields.Boolean(related='business_trip_data_id.return_rental_car_unlimited_km', readonly=True, store=True)
     return_rental_car_preferences = fields.Text(related='business_trip_data_id.return_rental_car_preferences', readonly=True, store=True)
@@ -449,7 +449,7 @@ class BusinessTrip(models.Model):
     return_rental_car_preferences = fields.Text(related='business_trip_data_id.return_rental_car_preferences', readonly=True, store=True)
 
     # Accompanying persons HTML
-    accompanying_persons_html = fields.Html(related='business_trip_data_id.accompanying_persons_html', readonly=True, string="Accompanying Persons")
+    accompanying_persons_html = fields.Html(related='business_trip_data_id.accompanying_persons_html', readonly=True, string="Accompanying Persons List")
     
     # Train Information
     use_train = fields.Boolean(related='business_trip_data_id.use_train', readonly=True, store=True)

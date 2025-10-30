@@ -144,39 +144,32 @@
                        decoration-danger="form_completion_status == 'cancelled'"
                        readonly="1"/>
                 
-                <!-- To Draft button - visible only when form is COMPLETE and user is the owner -->
-                <button name="action_back_to_draft" type="object" string="Return to Draft"
-                        attrs="{'invisible': ['|', ('trip_status', '!=', 'completed'), ('is_current_user_owner', '=', False)]}"
-                        class="btn-warning"
-                        help="Return this form to draft status for further editing by owner."/>
-                
                 <!-- Open Form button - visible when form is awaiting completion -->
                 <button name="action_view_formio" type="object" string="Open Form"
-                        attrs="{'invisible': [('form_completion_status', '=', 'form_completed')]}"
+                        attrs="{'invisible': ['|', ('form_completion_status', '=', 'form_completed'), ('is_current_user_owner', '=', False)]}"
                         class="btn-primary"
                         help="Open form to complete data entry"/>
                         
+                <!-- Review Form button for managers and organizers - visible in all states -->
+                <button name="action_view_formio" type="object" string="Review Form"
+                        attrs="{'invisible': ['|', '&amp;', ('is_current_user_owner', '=', True), ('form_completion_status', '!=', 'form_completed'), '&amp;', '&amp;', ('is_manager', '=', False), ('is_organizer', '=', False), '|', ('is_current_user_owner', '=', False), ('form_completion_status', '!=', 'form_completed')]}"
+                        class="btn-info"
+                        help="Review employee's business trip form submission"/>
+                        
                 <!-- Edit Form button - visible when form is completed -->
                 <button name="action_edit_form" type="object" string="Edit Form" 
-                        attrs="{'invisible': [('form_completion_status', '!=', 'form_completed')]}"
+                        attrs="{'invisible': ['|', '|', '|', ('form_completion_status', '!=', 'form_completed'), ('is_current_user_owner', '=', False), ('trip_status', 'not in', ['draft', 'returned']), ('is_from_my_business_trip', '=', False)]}"
                         class="btn-warning"
                         help="Edit the completed form"/>
                         
-                <!-- Review Form button for managers and organizers - visible in all states -->
-                <button name="action_view_formio" type="object" string="Review Form"
-                        attrs="{'invisible': ['&amp;', ('is_manager', '=', False), ('is_organizer', '=', False)]}"
-                        class="btn-info"
-                        groups="custom_business_trip_management.group_business_trip_organizer,base.group_system"
-                        help="Review employee's business trip form submission"/>
-                        
                 <!-- Cancel button renamed to Cancel Request -->
                 <button name="action_cancel_trip" type="object" string="Cancel Request"
-                        attrs="{'invisible': ['|', ('can_cancel_trip', '=', False), ('is_current_user_owner', '=', False)]}"
+                        attrs="{'invisible': ['|', '|', ('can_cancel_trip', '=', False), ('is_current_user_owner', '=', False), ('trip_status', '!=', 'draft')]}"
                         class="btn-danger"
                         confirm="Are you sure you want to cancel this trip request? This action cannot be undone."
                         help="Cancel this business trip request permanently."/>
             </header>
-            <header attrs="{'invisible': ['|', ('form_completion_status', '!=', 'form_completed'), ('trip_status', 'in', ['cancelled', 'rejected'])]}"> <!-- Header 2: Trip Request & Organization Phase -->
+            <header attrs="{'invisible': ['|', '&amp;', ('form_completion_status', '!=', 'form_completed'), ('trip_status', '!=', 'returned'), ('trip_status', 'in', ['cancelled', 'rejected'])]}"> <!-- Header 2: Trip Request & Organization Phase -->
                 <field name="trip_status_phase1" widget="statusbar" 
                        statusbar_visible="draft,submitted,pending_organization,organization_done"
                        decoration-info="trip_status_phase1 == 'draft'" 
@@ -224,13 +217,20 @@
                 <!-- Resubmit button - available when details are complete and in returned status -->
                 <button name="action_submit_to_manager" type="object" string="Resubmit to Travel Approver"
                     class="oe_highlight"
-                    attrs="{'invisible': ['|', '|', '|', ('trip_status', '!=', 'returned'), ('is_current_user_owner', '=', False), ('has_trip_details', '=', False), ('is_from_my_business_trip', '=', False)]}"
+                    attrs="{'invisible': ['|', '|', '|', '|', ('trip_status', '!=', 'returned'), ('is_current_user_owner', '=', False), ('has_trip_details', '=', False), ('is_from_my_business_trip', '=', False), ('form_completion_status', '!=', 'form_completed')]}"
                     help="Resubmit this business trip request after making requested changes."/>
                 
-                <!-- Disabled Submit button - shown when details are incomplete -->
-                <button name="action_show_missing_details_warning" string="Submit(Fill Details First)" 
+                <!-- Disabled Resubmit button - shown when form is incomplete in returned status -->
+                <button name="action_show_missing_details_warning" string="Resubmit (Complete Form First)" 
                     type="object" 
-                    attrs="{'invisible': ['|', '|', '|', ('trip_status', 'not in', ['draft', 'returned']), ('is_current_user_owner', '=', False), ('has_trip_details', '=', True), ('is_from_my_business_trip', '=', False)]}"
+                    attrs="{'invisible': ['|', '|', '|', ('trip_status', '!=', 'returned'), ('is_current_user_owner', '=', False), ('form_completion_status', '=', 'form_completed'), ('is_from_my_business_trip', '=', False)]}"
+                    class="btn-secondary"
+                    help="You must complete the form before resubmitting. Use the 'Edit Form' or 'Open Form' button."/>
+                
+                <!-- Disabled Submit button - shown when details are incomplete -->
+                <button name="action_show_missing_details_warning" string="Submit (Fill Details First)" 
+                    type="object" 
+                    attrs="{'invisible': ['|', '|', '|', ('trip_status', '!=', 'draft'), ('is_current_user_owner', '=', False), ('has_trip_details', '=', True), ('is_from_my_business_trip', '=', False)]}"
                     class="btn-secondary"
                     help="You must complete all trip details before submitting. Use the 'Edit Trip Details' button."/>
                     
@@ -684,47 +684,6 @@
                     </group>
                 </page>
 
-                <page string="Expenses"
-                      attrs="{'invisible': [('trip_status', 'in', ['draft', 'submitted', 'returned', 'pending_organization'])]}">
-                    <group>
-                        <group string="Employee Expense Submission">
-                            <field name="expense_total"
-                                   readonly="1" force_save="1"/>
-                            <field name="expense_attachment_ids" widget="many2many_binary" force_save="1"/>
-                            <field name="actual_expense_submission_date" readonly="1"/>
-                        </group>
-                        <group string="Expense Approval by Organizer">
-                            <field name="expense_return_comments" readonly="1"
-                                   attrs="{'invisible': [('trip_status', '!=', 'expense_returned')]}"/>
-                            <field name="expense_approval_date" readonly="1" string="Approval Date"/>
-                            <field name="expense_approved_by" readonly="1"/>
-                        </group>
-                    </group>
-                </page>
-                
-                <page string="Trip Cost Analysis"
-                      attrs="{'invisible': ['|', ('trip_status', 'in', ['draft', 'submitted', 'returned', 'pending_organization']), '&amp;', ('is_organizer', '=', False), ('is_manager', '=', False)]}">
-                    <group>
-                        <group>
-                            <field name="manager_max_budget" readonly="1" string="Travel Approver Budget" attrs="{'invisible': [('manager_max_budget', '=', 0)]}"/>
-                            <field name="organizer_planned_cost" readonly="1" string="Planned Travel Costs"/>
-                            <field name="expense_total" readonly="1" string="Employee Expenditures"/>
-                            <field name="budget_difference" readonly="1" widget="monetary" options="{'currency_field': 'currency_id'}"
-                                   decoration-success="budget_difference &gt; 0"
-                                   decoration-danger="budget_difference &lt; 0"
-                                   decoration-info="budget_difference == 0"/>
-                            <field name="budget_status" readonly="1" widget="badge"
-                                   decoration-success="budget_status == 'under_budget'"
-                                   decoration-danger="budget_status == 'over_budget'"
-                                   decoration-info="budget_status == 'on_budget'"/>
-                            <field name="final_total_cost" readonly="1" widget="monetary" options="{'currency_field': 'currency_id'}"
-                                   string="Final Total Cost (Planned + Actual)"
-                                   attrs="{'invisible': [('trip_status', '!=', 'completed')]}"
-                                   help="Total cost to company: sum of planned costs (organized by company) plus actual expenses (paid by employee)"/>
-                        </group>
-                    </group>
-                </page>
-
                 <page string="Organizer's Plan" name="organizer_plan" attrs="{'invisible': [('trip_status', 'not in', ['organization_done', 'completed_waiting_expense', 'expense_submitted', 'expense_returned', 'completed'])]}">
                     
                     <!-- Hidden fields needed for conditional logic -->
@@ -843,6 +802,47 @@
                         <field name="organizer_comments_to_manager" readonly="1" nolabel="1" widget="text" placeholder="No comments from organizer to manager."/>
                     </group>
 
+                </page>
+
+                <page string="Expenses"
+                      attrs="{'invisible': [('trip_status', 'in', ['draft', 'submitted', 'returned', 'pending_organization'])]}">
+                    <group>
+                        <group string="Employee Expense Submission">
+                            <field name="expense_total"
+                                   readonly="1" force_save="1"/>
+                            <field name="expense_attachment_ids" widget="many2many_binary" force_save="1"/>
+                            <field name="actual_expense_submission_date" readonly="1"/>
+                        </group>
+                        <group string="Expense Approval by Organizer">
+                            <field name="expense_return_comments" readonly="1"
+                                   attrs="{'invisible': [('trip_status', '!=', 'expense_returned')]}"/>
+                            <field name="expense_approval_date" readonly="1" string="Approval Date"/>
+                            <field name="expense_approved_by" readonly="1"/>
+                        </group>
+                    </group>
+                </page>
+                
+                <page string="Trip Cost Analysis"
+                      attrs="{'invisible': ['|', ('trip_status', 'in', ['draft', 'submitted', 'returned', 'pending_organization']), '&amp;', ('is_organizer', '=', False), ('is_manager', '=', False)]}">
+                    <group>
+                        <group>
+                            <field name="manager_max_budget" readonly="1" string="Travel Approver Budget" attrs="{'invisible': [('manager_max_budget', '=', 0)]}"/>
+                            <field name="organizer_planned_cost" readonly="1" string="Planned Travel Costs"/>
+                            <field name="expense_total" readonly="1" string="Employee Expenditures"/>
+                            <field name="budget_difference" readonly="1" widget="monetary" options="{'currency_field': 'currency_id'}"
+                                   decoration-success="budget_difference &gt; 0"
+                                   decoration-danger="budget_difference &lt; 0"
+                                   decoration-info="budget_difference == 0"/>
+                            <field name="budget_status" readonly="1" widget="badge"
+                                   decoration-success="budget_status == 'under_budget'"
+                                   decoration-danger="budget_status == 'over_budget'"
+                                   decoration-info="budget_status == 'on_budget'"/>
+                            <field name="final_total_cost" readonly="1" widget="monetary" options="{'currency_field': 'currency_id'}"
+                                   string="Final Total Cost (Planned + Actual)"
+                                   attrs="{'invisible': [('trip_status', '!=', 'completed')]}"
+                                   help="Total cost to company: sum of planned costs (organized by company) plus actual expenses (paid by employee)"/>
+                        </group>
+                    </group>
                 </page>
 
                 <!-- Modified by A_zeril_A, 2025-10-24: Commented out Raw JSON Data tab as it was for formio submission data -->

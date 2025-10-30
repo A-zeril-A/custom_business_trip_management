@@ -54,10 +54,8 @@
                     <field name="use_return_train" invisible="1"/>
                     <field name="use_return_bus" invisible="1"/>
                     <field name="use_return_airplane" invisible="1"/>
-                    <field name="rental_car_unlimited_km" invisible="1"/>
-                    <field name="return_rental_car_unlimited_km" invisible="1"/>
-                    <field name="rental_car_type" invisible="1"/>
-                    <field name="return_rental_car_type" invisible="1"/>
+                    <!-- Removed: rental_car_unlimited_km and return_rental_car_unlimited_km - needed for attrs -->
+                    <!-- Removed: rental_car_type and return_rental_car_type - needed for attrs -->
                     
                     <!-- Modern Card-based Layout -->
                     <div class="o_trip_form_container">
@@ -78,34 +76,42 @@
                             <div class="o_section_content">
                                 <group>
                                     <group string="Personal Information">
-                                        <field name="full_name" string="Full Name" readonly="1"/>
-                                        <field name="user_id" string="Employee" readonly="1"/>
+                                        <field name="full_name" string="Full Name" readonly="1" 
+                                               help="Your full name as registered in the system"/>
                                     </group>
                                     <group string="Trip Dates">
-                                        <field name="travel_start_date" string="Proposed Start Date"/>
-                                        <field name="travel_end_date" string="Proposed End Date"/>
-                                        <field name="submission_date" string="Submission Date" readonly="1"/>
+                                        <field name="travel_start_date" string="Proposed Start Date" 
+                                               help="The date you plan to start your trip"/>
+                                        <field name="travel_end_date" string="Proposed End Date" 
+                                               help="The date you plan to return from your trip"/>
+                                        <field name="submission_date" string="Submission Date" readonly="1" 
+                                               help="The date this form was created"/>
                                     </group>
                                 </group>
                                 
                                 <group>
                                     <group string="Trip Details">
                                         <field name="approving_colleague_name" string="Name of Approving Colleague" 
-                                               placeholder="E.g., Emily Smith"/>
-                                        <field name="trip_duration_type" string="Trip Duration Type"/>
+                                               placeholder="E.g., Emily Smith"
+                                               help="Auto-filled with your Travel Approver's name, but you can change it if needed"/>
+                                        <field name="trip_duration_type" string="Trip Duration Type"
+                                               help="Select the duration type of your trip (full day, half day, etc.)"/>
                                         <field name="destination" string="Destination"
-                                               placeholder="Type to search for a destination city"/>
+                                               placeholder="Type to search for a destination city"
+                                               help="Enter the city or location you will be traveling to"/>
                                     </group>
                                     <group string="Trip Type">
                                         <field name="trip_type" string="One Way / Two Way" widget="radio" 
-                                               options="{'horizontal': true}" default="one_way"/>
+                                               options="{'horizontal': true}" default="one_way"
+                                               help="Select 'One Way' for single direction travel or 'Two Way' for round trip"/>
                                     </group>
                                 </group>
                                 
-                                <group>
+                                <group col="2" colspan="2">
                                     <field name="purpose" string="Purpose of Trip" widget="text" 
                                            placeholder="Describe the purpose of your trip" colspan="2"
-                                           options="{'resizable': false}"/>
+                                           options="{'resizable': false}"
+                                           help="Provide a detailed description of the purpose and objectives of this business trip"/>
                                 </group>
                             </div>
                         </div>
@@ -123,14 +129,20 @@
                                 
                                 <group>
                                     <group>
-                                        <field name="use_rental_car" string="🚘 Rental Car"/>
-                                        <field name="use_company_car" string="🚗 Company Car"/>
-                                        <field name="use_personal_car" string="🚙 Personal Car"/>
+                                        <field name="use_rental_car" string="🚘 Rental Car" 
+                                               help="Check if you need to rent a car for this trip"/>
+                                        <field name="use_company_car" string="🚗 Company Car" 
+                                               help="Check if you will use a company-owned vehicle"/>
+                                        <field name="use_personal_car" string="🚙 Personal Car" 
+                                               help="Check if you will use your personal vehicle"/>
                                     </group>
                                     <group>
-                                        <field name="use_train" string="🚄 Train"/>
-                                        <field name="use_airplane" string="✈ Airplane"/>
-                                        <field name="use_bus" string="🚍 Bus"/>
+                                        <field name="use_train" string="🚄 Train" 
+                                               help="Check if you will travel by train"/>
+                                        <field name="use_airplane" string="✈ Airplane" 
+                                               help="Check if you will travel by airplane"/>
+                                        <field name="use_bus" string="🚍 Bus" 
+                                               help="Check if you will travel by bus"/>
                                     </group>
                                 </group>
                                 
@@ -141,29 +153,41 @@
                                     </div>
                                     <group>
                                         <group>
-                                            <field name="rental_car_pickup_date" string="Pick-up Date"/>
-                                            <field name="rental_car_pickup_flexible" string="Flexible by 2 days"/>
+                                            <field name="rental_car_pickup_date" string="Pick-up Date"
+                                                   help="Date when you will pick up the rental car"/>
+                                            <field name="rental_car_pickup_flexible" string="Flexible by 2 days"
+                                                   help="Check if your pick-up date can be adjusted by ±2 days"/>
                                             <field name="rental_car_pickup_point" string="Pick-up Point" 
-                                                   placeholder="E.g., Rome Airport"/>
+                                                   placeholder="E.g., Rome Airport"
+                                                   help="Location where you will pick up the car"/>
                                             <field name="rental_car_dropoff_point" string="Drop-off Point" 
-                                                   placeholder="E.g., Milan Central Station"/>
-                                            <field name="rental_car_dropoff_date" string="Drop-off Date"/>
-                                            <field name="rental_car_dropoff_flexible" string="Flexible by 2 days"/>
+                                                   placeholder="E.g., Milan Central Station"
+                                                   help="Location where you will drop off the car"/>
+                                            <field name="rental_car_dropoff_date" string="Drop-off Date"
+                                                   help="Date when you will drop off the rental car"/>
+                                            <field name="rental_car_dropoff_flexible" string="Flexible by 2 days"
+                                                   help="Check if your drop-off date can be adjusted by ±2 days"/>
                                         </group>
                                         <group>
-                                            <field name="rental_car_credit_card" string="Can you use your credit card?"/>
-                                            <field name="rental_car_type" string="Rental Type"/>
+                                            <field name="rental_car_credit_card" string="Can you use your credit card?"
+                                                   help="Most car rentals require a credit card for deposit"/>
+                                            <field name="rental_car_type" string="Rental Type"
+                                                   help="Select who will drive the rental car"/>
                                             <field name="rental_car_drivers_license" string="Driver's License" widget="binary" 
                                                    filename="rental_car_drivers_license_filename"
-                                                   attrs="{'invisible': [('rental_car_type', '!=', 'self')]}"/>
-                                            <field name="rental_car_unlimited_km" string="Unlimited Kilometers"/>
+                                                   attrs="{'invisible': [('rental_car_type', '!=', 'self')]}"
+                                                   help="Upload a copy of your valid driver's license"/>
+                                            <field name="rental_car_unlimited_km" string="Unlimited Kilometers"
+                                                   help="Check if you need unlimited mileage"/>
                                             <field name="rental_car_kilometer_limit" string="Kilometer Limit" 
-                                                   attrs="{'invisible': [('rental_car_unlimited_km', '=', True)]}"/>
+                                                   attrs="{'invisible': [('rental_car_unlimited_km', '=', True)]}"
+                                                   help="Estimated kilometers you will drive"/>
                                         </group>
                                     </group>
                                     <group>
                                         <field name="rental_car_preferences" string="Additional Preferences" 
-                                               widget="text" placeholder="E.g., early morning pick-up, car model preferences" colspan="2"/>
+                                               widget="text" placeholder="E.g., early morning pick-up, car model preferences" colspan="2"
+                                               help="Any special requirements or preferences for your rental car"/>
                                     </group>
                                 </div>
                                 
@@ -174,17 +198,24 @@
                                     </div>
                                     <group>
                                         <group>
-                                            <field name="train_departure_city" string="Departure City" placeholder="E.g., Rome"/>
+                                            <field name="train_departure_city" string="Departure City" placeholder="E.g., Rome"
+                                                   help="City where you will board the train"/>
                                             <field name="train_departure_station" string="Departure Station" 
-                                                   placeholder="E.g., Roma Termini"/>
+                                                   placeholder="E.g., Roma Termini"
+                                                   help="Train station where you will depart from"/>
                                             <field name="train_arrival_station" string="Arrival Station" 
-                                                   placeholder="E.g., Milano Centrale"/>
+                                                   placeholder="E.g., Milano Centrale"
+                                                   help="Train station where you will arrive"/>
                                         </group>
                                         <group>
-                                            <field name="train_departure_date" string="Departure Date"/>
-                                            <field name="train_departure_flexible" string="Flexible by 2 days"/>
-                                            <field name="train_arrival_date" string="Arrival Date"/>
-                                            <field name="train_arrival_flexible" string="Flexible by 2 days"/>
+                                            <field name="train_departure_date" string="Departure Date"
+                                                   help="Date of your train departure"/>
+                                            <field name="train_departure_flexible" string="Flexible by 2 days"
+                                                   help="Check if your departure date can be adjusted by ±2 days"/>
+                                            <field name="train_arrival_date" string="Arrival Date"
+                                                   help="Expected date of arrival"/>
+                                            <field name="train_arrival_flexible" string="Flexible by 2 days"
+                                                   help="Check if your arrival date can be adjusted by ±2 days"/>
                                         </group>
                                     </group>
                                 </div>
@@ -196,17 +227,24 @@
                                     </div>
                                     <group>
                                         <group>
-                                            <field name="bus_departure_city" string="Departure City" placeholder="E.g., Rome"/>
+                                            <field name="bus_departure_city" string="Departure City" placeholder="E.g., Rome"
+                                                   help="City where you will board the bus"/>
                                             <field name="bus_departure_terminal" string="Departure Terminal" 
-                                                   placeholder="E.g., Roma Tiburtina"/>
+                                                   placeholder="E.g., Roma Tiburtina"
+                                                   help="Bus terminal where you will depart from"/>
                                             <field name="bus_arrival_terminal" string="Arrival Terminal" 
-                                                   placeholder="E.g., Milano Lampugnano"/>
+                                                   placeholder="E.g., Milano Lampugnano"
+                                                   help="Bus terminal where you will arrive"/>
                                         </group>
                                         <group>
-                                            <field name="bus_departure_date" string="Departure Date"/>
-                                            <field name="bus_departure_flexible" string="Flexible by 2 days"/>
-                                            <field name="bus_arrival_date" string="Arrival Date"/>
-                                            <field name="bus_arrival_flexible" string="Flexible by 2 days"/>
+                                            <field name="bus_departure_date" string="Departure Date"
+                                                   help="Date of your bus departure"/>
+                                            <field name="bus_departure_flexible" string="Flexible by 2 days"
+                                                   help="Check if your departure date can be adjusted by ±2 days"/>
+                                            <field name="bus_arrival_date" string="Arrival Date"
+                                                   help="Expected date of arrival"/>
+                                            <field name="bus_arrival_flexible" string="Flexible by 2 days"
+                                                   help="Check if your arrival date can be adjusted by ±2 days"/>
                                         </group>
                                     </group>
                                 </div>
@@ -219,20 +257,27 @@
                                     <group>
                                         <group>
                                             <field name="airplane_departure_airport" string="Departure Airport" 
-                                                   placeholder="E.g., Rome Fiumicino"/>
-                                            <field name="airplane_arrival_airport" string="Arrival Airport" 
-                                                   placeholder="E.g., Paris CDG"/>
-                                            <field name="airplane_baggage_type" string="Baggage"/>
+                                                   placeholder="E.g., Rome Fiumicino"
+                                                   help="Airport where your flight will depart from"/>
+                                            <field name="airplane_departure_date" string="Departure Date"
+                                                   help="Date of your flight departure"/>
+                                            <field name="airplane_departure_flexible" string="Flexible by 2 days (departure)"
+                                                   help="Check if your departure date can be adjusted by ±2 days"/>
                                         </group>
                                         <group>
-                                            <field name="airplane_departure_date" string="Departure Date"/>
-                                            <field name="airplane_departure_flexible" string="Flexible by 2 days"/>
-                                            <field name="airplane_arrival_flexible" string="Flexible by 2 days"/>
+                                            <field name="airplane_arrival_airport" string="Arrival Airport" 
+                                                   placeholder="E.g., Paris CDG"
+                                                   help="Airport where your flight will arrive"/>
+                                            <field name="airplane_arrival_flexible" string="Flexible by 2 days (arrival)"
+                                                   help="Check if your arrival date can be adjusted by ±2 days"/>
+                                            <field name="airplane_baggage_type" string="Baggage"
+                                                   help="Select your baggage requirements (carry-on only, checked baggage, etc.)"/>
                                         </group>
                                     </group>
                                     <group>
                                         <field name="airplane_preferences" string="Additional Preferences" 
-                                               widget="text" placeholder="E.g., seat preference, early flight" colspan="2"/>
+                                               widget="text" placeholder="E.g., seat preference, early flight" colspan="2"
+                                               help="Any special requirements or preferences for your flight"/>
                                     </group>
                                 </div>
                             </div>
@@ -251,14 +296,20 @@
                                 
                                 <group>
                                     <group>
-                                        <field name="use_return_rental_car" string="🚘 Rental Car"/>
-                                        <field name="use_return_company_car" string="🚗 Company Car"/>
-                                        <field name="use_return_personal_car" string="🚙 Personal Car"/>
+                                        <field name="use_return_rental_car" string="🚘 Rental Car"
+                                               help="Check if you need to rent a car for your return trip"/>
+                                        <field name="use_return_company_car" string="🚗 Company Car"
+                                               help="Check if you will use a company-owned vehicle for return"/>
+                                        <field name="use_return_personal_car" string="🚙 Personal Car"
+                                               help="Check if you will use your personal vehicle for return"/>
                                     </group>
                                     <group>
-                                        <field name="use_return_train" string="🚄 Train"/>
-                                        <field name="use_return_airplane" string="✈ Airplane"/>
-                                        <field name="use_return_bus" string="🚍 Bus"/>
+                                        <field name="use_return_train" string="🚄 Train"
+                                               help="Check if you will travel by train on return"/>
+                                        <field name="use_return_airplane" string="✈ Airplane"
+                                               help="Check if you will travel by airplane on return"/>
+                                        <field name="use_return_bus" string="🚍 Bus"
+                                               help="Check if you will travel by bus on return"/>
                                     </group>
                                 </group>
                                 
@@ -269,27 +320,41 @@
                                     </div>
                                     <group>
                                         <group>
-                                            <field name="return_rental_car_pickup_date" string="Pick-up Date"/>
-                                            <field name="return_rental_car_pickup_flexible" string="Flexible by 2 days"/>
-                                            <field name="return_rental_car_pickup_point" string="Pick-up Point"/>
-                                            <field name="return_rental_car_dropoff_point" string="Drop-off Point"/>
-                                            <field name="return_rental_car_dropoff_date" string="Drop-off Date"/>
-                                            <field name="return_rental_car_dropoff_flexible" string="Flexible by 2 days"/>
+                                            <field name="return_rental_car_pickup_date" string="Pick-up Date"
+                                                   help="Date when you will pick up the return rental car"/>
+                                            <field name="return_rental_car_pickup_flexible" string="Flexible by 2 days"
+                                                   help="Check if your pick-up date can be adjusted by ±2 days"/>
+                                            <field name="return_rental_car_pickup_point" string="Pick-up Point" 
+                                                   placeholder="E.g., Milan Central Station"
+                                                   help="Location where you will pick up the return car"/>
+                                            <field name="return_rental_car_dropoff_point" string="Drop-off Point" 
+                                                   placeholder="E.g., Rome Airport"
+                                                   help="Location where you will drop off the return car"/>
+                                            <field name="return_rental_car_dropoff_date" string="Drop-off Date"
+                                                   help="Date when you will drop off the return rental car"/>
+                                            <field name="return_rental_car_dropoff_flexible" string="Flexible by 2 days"
+                                                   help="Check if your drop-off date can be adjusted by ±2 days"/>
                                         </group>
                                         <group>
-                                            <field name="return_rental_car_credit_card" string="Can you use a credit card?"/>
-                                            <field name="return_rental_car_type" string="Rental Type"/>
+                                            <field name="return_rental_car_credit_card" string="Can you use your credit card?"
+                                                   help="Most car rentals require a credit card for deposit"/>
+                                            <field name="return_rental_car_type" string="Rental Type"
+                                                   help="Select who will drive the return rental car"/>
                                             <field name="return_rental_car_drivers_license" string="Driver's License" 
                                                    widget="binary" filename="return_rental_car_drivers_license_filename"
-                                                   attrs="{'invisible': [('return_rental_car_type', '!=', 'self')]}"/>
-                                            <field name="return_rental_car_unlimited_km" string="Unlimited Kilometers"/>
+                                                   attrs="{'invisible': [('return_rental_car_type', '!=', 'self')]}"
+                                                   help="Upload a copy of your valid driver's license"/>
+                                            <field name="return_rental_car_unlimited_km" string="Unlimited Kilometers"
+                                                   help="Check if you need unlimited mileage for return trip"/>
                                             <field name="return_rental_car_kilometer_limit" string="Kilometer Limit" 
-                                                   attrs="{'invisible': [('return_rental_car_unlimited_km', '=', True)]}"/>
+                                                   attrs="{'invisible': [('return_rental_car_unlimited_km', '=', True)]}"
+                                                   help="Estimated kilometers you will drive on return"/>
                                         </group>
                                     </group>
                                     <group>
                                         <field name="return_rental_car_preferences" string="Additional Preferences" 
-                                               widget="text" colspan="2"/>
+                                               widget="text" placeholder="E.g., late evening drop-off, car model preferences" colspan="2"
+                                               help="Any special requirements or preferences for your return rental car"/>
                                     </group>
                                 </div>
                                 
@@ -300,15 +365,24 @@
                                     </div>
                                     <group>
                                         <group>
-                                            <field name="return_train_departure_city" string="Departure City"/>
-                                            <field name="return_train_departure_station" string="Departure Station"/>
-                                            <field name="return_train_arrival_station" string="Arrival Station"/>
+                                            <field name="return_train_departure_city" string="Departure City" placeholder="E.g., Milan"
+                                                   help="City where you will board the return train"/>
+                                            <field name="return_train_departure_station" string="Departure Station" 
+                                                   placeholder="E.g., Milano Centrale"
+                                                   help="Train station where you will depart from on return"/>
+                                            <field name="return_train_arrival_station" string="Arrival Station" 
+                                                   placeholder="E.g., Roma Termini"
+                                                   help="Train station where you will arrive on return"/>
                                         </group>
                                         <group>
-                                            <field name="return_train_departure_date" string="Departure Date"/>
-                                            <field name="return_train_departure_flexible" string="Flexible by 2 days"/>
-                                            <field name="return_train_arrival_date" string="Arrival Date"/>
-                                            <field name="return_train_arrival_flexible" string="Flexible by 2 days"/>
+                                            <field name="return_train_departure_date" string="Departure Date"
+                                                   help="Date of your return train departure"/>
+                                            <field name="return_train_departure_flexible" string="Flexible by 2 days"
+                                                   help="Check if your departure date can be adjusted by ±2 days"/>
+                                            <field name="return_train_arrival_date" string="Arrival Date"
+                                                   help="Expected date of arrival on return"/>
+                                            <field name="return_train_arrival_flexible" string="Flexible by 2 days"
+                                                   help="Check if your arrival date can be adjusted by ±2 days"/>
                                         </group>
                                     </group>
                                 </div>
@@ -320,19 +394,28 @@
                                     </div>
                                     <group>
                                         <group>
-                                            <field name="return_airplane_departure_airport" string="Departure Airport"/>
-                                            <field name="return_airplane_destination_airport" string="Destination Airport"/>
-                                            <field name="return_airplane_baggage_type" string="Baggage"/>
+                                            <field name="return_airplane_departure_airport" string="Departure Airport" 
+                                                   placeholder="E.g., Paris CDG"
+                                                   help="Airport where your return flight will depart from"/>
+                                            <field name="return_airplane_departure_date" string="Departure Date"
+                                                   help="Date of your return flight departure"/>
+                                            <field name="return_airplane_departure_flexible" string="Flexible by 2 days (departure)"
+                                                   help="Check if your return departure date can be adjusted by ±2 days"/>
                                         </group>
                                         <group>
-                                            <field name="return_airplane_departure_date" string="Departure Date"/>
-                                            <field name="return_airplane_departure_flexible" string="Flexible by 2 days"/>
-                                            <field name="return_airplane_destination_flexible" string="Flexible by 2 days"/>
+                                            <field name="return_airplane_destination_airport" string="Arrival Airport" 
+                                                   placeholder="E.g., Rome Fiumicino"
+                                                   help="Airport where your return flight will arrive"/>
+                                            <field name="return_airplane_destination_flexible" string="Flexible by 2 days (arrival)"
+                                                   help="Check if your return arrival date can be adjusted by ±2 days"/>
+                                            <field name="return_airplane_baggage_type" string="Baggage"
+                                                   help="Select your baggage requirements for return flight"/>
                                         </group>
                                     </group>
                                     <group>
                                         <field name="return_airplane_preferences" string="Additional Preferences" 
-                                               widget="text" colspan="2"/>
+                                               widget="text" placeholder="E.g., seat preference, late evening flight" colspan="2"
+                                               help="Any special requirements or preferences for your return flight"/>
                                     </group>
                                 </div>
                                 
@@ -343,15 +426,24 @@
                                     </div>
                                     <group>
                                         <group>
-                                            <field name="return_bus_departure_city" string="Departure City"/>
-                                            <field name="return_bus_departure_station" string="Departure Station"/>
-                                            <field name="return_bus_arrival_station" string="Arrival Station"/>
+                                            <field name="return_bus_departure_city" string="Departure City" placeholder="E.g., Milan"
+                                                   help="City where you will board the return bus"/>
+                                            <field name="return_bus_departure_station" string="Departure Station" 
+                                                   placeholder="E.g., Milano Lampugnano"
+                                                   help="Bus terminal where you will depart from on return"/>
+                                            <field name="return_bus_arrival_station" string="Arrival Station" 
+                                                   placeholder="E.g., Roma Tiburtina"
+                                                   help="Bus terminal where you will arrive on return"/>
                                         </group>
                                         <group>
-                                            <field name="return_bus_departure_date" string="Departure Date"/>
-                                            <field name="return_bus_departure_flexible" string="Flexible by 2 days"/>
-                                            <field name="return_bus_arrival_date" string="Arrival Date"/>
-                                            <field name="return_bus_arrival_flexible" string="Flexible by 2 days"/>
+                                            <field name="return_bus_departure_date" string="Departure Date"
+                                                   help="Date of your return bus departure"/>
+                                            <field name="return_bus_departure_flexible" string="Flexible by 2 days"
+                                                   help="Check if your departure date can be adjusted by ±2 days"/>
+                                            <field name="return_bus_arrival_date" string="Arrival Date"
+                                                   help="Expected date of arrival on return"/>
+                                            <field name="return_bus_arrival_flexible" string="Flexible by 2 days"
+                                                   help="Check if your arrival date can be adjusted by ±2 days"/>
                                         </group>
                                     </group>
                                 </div>
@@ -367,28 +459,36 @@
                             <div class="o_section_content">
                                 <group>
                                     <field name="accommodation_needed" string="Do you need accommodation?" widget="radio" 
-                                           options="{'horizontal': true}"/>
+                                           options="{'horizontal': true}"
+                                           help="Select 'Yes' if you need accommodation booking during your trip"/>
                                 </group>
                                 
                                 <div attrs="{'invisible': [('accommodation_needed', '!=', 'yes')]}">
                                     <group>
                                         <group string="Accommodation Details">
-                                            <field name="accommodation_number_of_people" string="Number of People"/>
-                                            <field name="accommodation_residence_city" string="City" placeholder="E.g., Rome"/>
-                                            <field name="accommodation_check_in_date" string="Check-in Date"/>
-                                            <field name="accommodation_check_out_date" string="Check-out Date"/>
+                                            <field name="accommodation_number_of_people" string="Number of People"
+                                                   help="Total number of people requiring accommodation (including you)"/>
+                                            <field name="accommodation_residence_city" string="City" placeholder="E.g., Rome"
+                                                   help="City where you need accommodation"/>
+                                            <field name="accommodation_check_in_date" string="Check-in Date"
+                                                   help="Date you will check in to the accommodation"/>
+                                            <field name="accommodation_check_out_date" string="Check-out Date"
+                                                   help="Date you will check out from the accommodation"/>
                                         </group>
                                         <group string="Preferences">
                                             <field name="accommodation_points_of_interest" string="Points of Interest" 
-                                                   widget="text" placeholder="E.g., Close to university, near city center"/>
-                                            <field name="accommodation_need_24h_reception" string="Need 24-hour reception?"/>
+                                                   widget="text" placeholder="E.g., Close to university, near city center"
+                                                   help="Preferred location or proximity to specific points of interest"/>
+                                            <field name="accommodation_need_24h_reception" string="Need 24-hour reception?"
+                                                   help="Select if you require 24-hour reception service"/>
                                         </group>
                                     </group>
                                     
                                     <!-- Accompanying Person Details -->
                                     <div class="o_accompanying_persons_section">
                                         <h3>Accompanying Persons</h3>
-                                        <field name="accompanying_person_ids" nolabel="1" context="{'default_business_trip_id': active_id}">
+                                        <field name="accompanying_person_ids" nolabel="1" context="{'default_business_trip_id': active_id}"
+                                               help="Add details of any persons accompanying you on this trip">
                                             <tree editable="bottom">
                                                 <field name="full_name" string="Full Name"/>
                                                 <field name="identity_document" widget="binary" filename="identity_document_filename" string="Identity Document"/>

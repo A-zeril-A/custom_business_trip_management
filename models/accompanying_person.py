@@ -45,11 +45,44 @@ class AccompanyingPerson(models.Model):
     def create(self, vals_list):
         for vals in vals_list:
             _logger.info(f"[AccompanyingPerson_CREATE] Creating accompanying person with values: {vals.get('full_name', 'N/A')}")
-        return super().create(vals_list)
+        records = super().create(vals_list)
+        # Update attachment IDs after creation
+        for record in records:
+            record._update_attachment_id()
+        return records
 
     def write(self, vals):
-        _logger.info(f"[AccompanyingPerson_WRITE] Updating accompanying person {self.full_name} with values: {vals.get('full_name', 'N/A')}, Document changed: {'identity_document' in vals}")
-        return super().write(vals)
+        # Log for each record in the recordset
+        for record in self:
+            _logger.info(f"[AccompanyingPerson_WRITE] Updating accompanying person {record.full_name} with values: {vals.get('full_name', 'N/A')}, Document changed: {'identity_document' in vals}")
+        result = super().write(vals)
+        # Update attachment ID after write if document was changed
+        if 'identity_document' in vals:
+            self._update_attachment_id()
+        return result
+    
+    def _update_attachment_id(self):
+        """
+        Update identity_document_attachment_id by finding the attachment for the binary field.
+        This is needed because when a binary field with attachment=True is saved,
+        Odoo automatically creates an attachment, but we need to link it explicitly
+        to use it for download links.
+        """
+        for record in self:
+            if record.identity_document:
+                attachment = self.env['ir.attachment'].search([
+                    ('res_model', '=', 'accompanying.person'),
+                    ('res_id', '=', record.id),
+                    ('res_field', '=', 'identity_document')
+                ], limit=1, order='id desc')
+                current_attachment_id = record.identity_document_attachment_id.id if record.identity_document_attachment_id else False
+                if attachment and attachment.id != current_attachment_id:
+                    # Use sudo().write() to avoid triggering write method again
+                    record.sudo().write({
+                        'identity_document_attachment_id': attachment.id,
+                        'identity_document_filename': record.identity_document_filename or attachment.name
+                    })
+                    _logger.info(f"[AccompanyingPerson] Linked attachment {attachment.id} ({attachment.name}) to person {record.full_name}")
 
     def unlink(self):
         for record in self:

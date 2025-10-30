@@ -124,8 +124,8 @@ class BusinessTripData(models.Model):
     return_rental_car_drivers_license_download_url = fields.Char(string="Return Driver's License URL (Technical)", compute='_compute_download_urls')
     
     # HTML link for driver's licenses
-    rental_car_drivers_license_download_link_html = fields.Html(string="Driver's License", compute='_compute_download_link_html', sanitize=False)
-    return_rental_car_drivers_license_download_link_html = fields.Html(string="Return Driver's License", compute='_compute_download_link_html', sanitize=False)
+    rental_car_drivers_license_download_link_html = fields.Html(string="Driver's License Download", compute='_compute_download_link_html', sanitize=False)
+    return_rental_car_drivers_license_download_link_html = fields.Html(string="Return Driver's License Download", compute='_compute_download_link_html', sanitize=False)
 
     # HTML for accompanying persons
     accompanying_persons_html = fields.Html(string="Accompanying Persons List", compute='_compute_accompanying_persons_html', sanitize=False)
@@ -1027,9 +1027,54 @@ class BusinessTripData(models.Model):
         for vals in vals_list:
             self._cleanup_false_date_fields(vals)
         records = super(BusinessTripData, self).create(vals_list)
+        # Update attachment IDs after creation
+        for record in records:
+            record._update_attachment_ids()
         return records
 
     def write(self, vals):
         self._cleanup_false_date_fields(vals)
-        return super(BusinessTripData, self).write(vals)
+        result = super(BusinessTripData, self).write(vals)
+        # Update attachment IDs after write if binary fields were changed
+        if any(field in vals for field in ['rental_car_drivers_license', 'return_rental_car_drivers_license']):
+            self._update_attachment_ids()
+        return result
+    
+    def _update_attachment_ids(self):
+        """
+        Update attachment_id fields by finding the attachments for binary fields.
+        This is needed because when a binary field with attachment=True is saved,
+        Odoo automatically creates an attachment, but we need to link it explicitly
+        to use it for download links.
+        """
+        for record in self:
+            # Find attachment for rental car driver's license
+            if record.rental_car_drivers_license:
+                attachment = self.env['ir.attachment'].search([
+                    ('res_model', '=', 'business.trip.data'),
+                    ('res_id', '=', record.id),
+                    ('res_field', '=', 'rental_car_drivers_license')
+                ], limit=1, order='id desc')
+                current_attachment_id = record.rental_car_drivers_license_attachment_id.id if record.rental_car_drivers_license_attachment_id else False
+                if attachment and attachment.id != current_attachment_id:
+                    # Use sudo().write() to avoid triggering write method again
+                    record.sudo().write({
+                        'rental_car_drivers_license_attachment_id': attachment.id,
+                        'rental_car_drivers_license_filename': record.rental_car_drivers_license_filename or attachment.name
+                    })
+            
+            # Find attachment for return rental car driver's license
+            if record.return_rental_car_drivers_license:
+                attachment = self.env['ir.attachment'].search([
+                    ('res_model', '=', 'business.trip.data'),
+                    ('res_id', '=', record.id),
+                    ('res_field', '=', 'return_rental_car_drivers_license')
+                ], limit=1, order='id desc')
+                current_attachment_id = record.return_rental_car_drivers_license_attachment_id.id if record.return_rental_car_drivers_license_attachment_id else False
+                if attachment and attachment.id != current_attachment_id:
+                    # Use sudo().write() to avoid triggering write method again
+                    record.sudo().write({
+                        'return_rental_car_drivers_license_attachment_id': attachment.id,
+                        'return_rental_car_drivers_license_filename': record.return_rental_car_drivers_license_filename or attachment.name
+                    })
 

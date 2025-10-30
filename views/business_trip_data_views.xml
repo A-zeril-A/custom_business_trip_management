@@ -228,11 +228,4 @@
         </field>
     </record>
 
-    <!-- Menu Item -->
-    <menuitem id="menu_business_trip_data"
-              name="Trip Form Data"
-              parent="custom_business_trip_management.menu_business_trip_root"
-              action="action_business_trip_data"
-              sequence="15"
-              groups="base.group_system"/>
 </odoo> 
