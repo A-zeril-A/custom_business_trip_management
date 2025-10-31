@@ -2855,6 +2855,26 @@ class BusinessTrip(models.Model):
             },
         }
 
+    def action_view_sale_order(self):
+        """
+        Open the linked sale order/quotation.
+        Smart button action to view the related sales order.
+        """
+        self.ensure_one()
+        
+        if not self.sale_order_id:
+            raise UserError(_("There is no linked sales order for this business trip."))
+        
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Linked Quotation'),
+            'res_model': 'sale.order',
+            'view_mode': 'form',
+            'res_id': self.sale_order_id.id,
+            'target': 'current',
+            'context': self.env.context,
+        }
+
     def post_confidential_message(self, message, recipient_ids=None, attachment_ids=None):
         """Send confidential message in chatter that is only visible to specific recipients"""
         self.ensure_one()

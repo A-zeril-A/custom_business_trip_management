@@ -1,7 +1,7 @@
 # pyright: reportUnusedExpression=false
 {
     'name': 'Business Trip Management',
-    'version': '1.0.0',
+    'version': '4.0.4',
     'license': 'LGPL-3',
     'summary': 'Redirects users to different business trip views based on role',
     'description': """

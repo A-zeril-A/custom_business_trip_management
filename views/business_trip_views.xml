@@ -334,6 +334,19 @@
 
             <sheet>
               <div class="oe_button_box" name="button_box">
+                <!-- Smart Button for linked Sale Order -->
+                <button name="action_view_sale_order" 
+                        type="object" 
+                        class="oe_stat_button" 
+                        icon="fa-usd" 
+                        attrs="{'invisible': [('sale_order_id', '=', False)]}"
+                        help="View the linked sales order/quotation">
+                    <field name="sale_order_id" invisible="1"/>
+                    <div class="o_field_widget o_stat_info">
+                        <span class="o_stat_text">Sales Order</span>
+                    </div>
+                </button>
+                
                 <button name="action_view_formio" type="object" class="oe_stat_button" icon="fa-file-text-o" string="View Original Request"/>
               </div>
               <div class="oe_title">
