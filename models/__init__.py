@@ -4,6 +4,7 @@ from . import models
 from . import accompanying_person
 from . import business_trip_airport
 from . import business_trip_data
+from . import business_trip_destination
 from . import mail_template_mixin
 from . import business_trip
 from . import business_trip_plan_line

@@ -200,6 +200,12 @@ class BusinessTripData(models.Model):
     
     # Basic trip information fields
     destination = fields.Char(string='Destination')
+    destination_place_id = fields.Many2one(
+        "business.trip.destination",
+        string="Destination (Autocomplete)",
+        ondelete="set null",
+        help="Select a destination using native Odoo autocomplete (Geonames-backed).",
+    )
     purpose = fields.Char(string='Purpose of Trip') # Removed compute='_compute_purpose', store=True
     travel_start_date = fields.Date(string='Start Date')
     travel_end_date = fields.Date(string='End Date')
@@ -207,6 +213,28 @@ class BusinessTripData(models.Model):
     expected_cost = fields.Float(string='Expected Cost', help="Initial expected cost by employee")
     currency_id = fields.Many2one('res.currency', string='Currency', 
                                  default=lambda self: self.env.company.currency_id.id)
+
+    @api.onchange("destination_place_id")
+    def _onchange_destination_place_id(self):
+        for rec in self:
+            if rec.destination_place_id:
+                rec.destination = rec.destination_place_id.name
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get("destination_place_id") and not vals.get("destination"):
+                dest = self.env["business.trip.destination"].sudo().browse(vals["destination_place_id"])
+                if dest.exists():
+                    vals["destination"] = dest.name
+        return super().create(vals_list)
+
+    def write(self, vals):
+        if vals.get("destination_place_id") and "destination" not in vals:
+            dest = self.env["business.trip.destination"].sudo().browse(vals["destination_place_id"])
+            if dest.exists():
+                vals["destination"] = dest.name
+        return super().write(vals)
     
     @api.depends('rental_car_drivers_license_attachment_id', 'return_rental_car_drivers_license_attachment_id')
     def _compute_download_urls(self):

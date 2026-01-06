@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="custom_business_trip_management.DestinationAutocompleteField">
+        <div class="o_destination_autocomplete_container" style="position: relative;">
+            <!-- Input field -->
+            <t t-if="props.readonly">
+                <span t-esc="inputValue"/>
+            </t>
+            <t t-else="">
+                <input 
+                    type="text"
+                    class="o_input"
+                    t-ref="destinationInput"
+                    t-att-value="inputValue"
+                    t-att-placeholder="props.placeholder || 'Enter city name...'"
+                    t-on-input="onInput"
+                    t-on-focus="onFocus"
+                    t-on-blur="onBlur"
+                    autocomplete="off"
+                />
+                
+                <!-- Dropdown suggestions -->
+                <div t-if="state.showDropdown" 
+                     class="o_destination_dropdown"
+                     style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #dee2e6; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); max-height: 300px; overflow-y: auto; z-index: 1060; margin-top: 2px;">
+                    
+                    <!-- Loading state -->
+                    <t t-if="state.loading">
+                        <div style="padding: 12px; color: #6c757d; text-align: center;">
+                            <i class="fa fa-spinner fa-spin" style="margin-right: 8px;"></i>
+                            Searching cities...
+                        </div>
+                    </t>
+                    
+                    <!-- Error state -->
+                    <t t-elif="state.error">
+                        <div style="padding: 12px; color: #dc3545; text-align: center;">
+                            <i class="fa fa-exclamation-circle" style="margin-right: 8px;"></i>
+                            <t t-esc="state.error"/>
+                        </div>
+                    </t>
+                    
+                    <!-- No results -->
+                    <t t-elif="state.suggestions.length === 0">
+                        <div style="padding: 12px; color: #6c757d; text-align: center;">
+                            <i class="fa fa-info-circle" style="margin-right: 8px;"></i>
+                            No cities found
+                        </div>
+                    </t>
+                    
+                    <!-- Suggestions list -->
+                    <t t-else="">
+                        <t t-foreach="state.suggestions" t-as="suggestion" t-key="suggestion.value">
+                            <div class="o_destination_suggestion"
+                                 style="padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #f1f3f4; transition: background-color 0.15s;"
+                                 t-on-click="() => this.selectSuggestion(suggestion)"
+                                 t-on-mouseenter="(ev) => ev.target.style.backgroundColor = '#f8f9fa'"
+                                 t-on-mouseleave="(ev) => ev.target.style.backgroundColor = ''">
+                                <i class="fa fa-map-marker" style="color: #17a2b8; margin-right: 10px;"></i>
+                                <t t-esc="suggestion.label"/>
+                            </div>
+                        </t>
+                    </t>
+                </div>
+            </t>
+        </div>
+    </t>
+
+</templates>
+

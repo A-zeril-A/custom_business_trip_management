@@ -28,11 +28,11 @@
                            readonly="1"/>
                     -->
                     
-                    <!-- Submit for Approval Button - visible when form is completed and trip is in draft/returned status
+                    <!-- Submit for Approval Button - visible when form is completed and trip is in draft/returned status -->
                     <button name="action_submit_to_manager" type="object" string="Submit for Approval"
                         class="oe_highlight"
-                        invisible="form_completion_status != 'form_completed' or trip_status not in ('draft', 'returned') or is_current_user_owner == False"
-                        confirm="Are you sure you want to submit this trip request for approval?"/> -->
+                        invisible="form_completion_status != 'form_completed' or trip_status not in ['draft', 'returned'] or not is_current_user_owner"
+                        confirm="Are you sure you want to submit this trip request for approval?"/>
                 </header>
                 <sheet>
                     <!-- Save & Done button at top - only visible when form is awaiting completion -->
@@ -41,7 +41,8 @@
                                 class="btn-success o_form_button_save_done"/>
                     </div>
                     <!-- Hidden fields for conditional logic -->
-                    <!-- <field name="form_completion_status" invisible="1"/> REMOVED - Already defined in statusbar -->
+                    <!-- form_completion_status is used in attrs for readonly control -->
+                    <field name="form_completion_status" invisible="1"/>
                     <field name="trip_status" invisible="1"/>
                     <field name="is_current_user_owner" invisible="1"/>
                     <field name="trip_type" invisible="1"/>
@@ -81,8 +82,12 @@
                                     </group>
                                     <group string="Trip Dates">
                                         <field name="travel_start_date" string="Proposed Start Date" 
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
+                                               required="1"
                                                help="The date you plan to start your trip"/>
                                         <field name="travel_end_date" string="Proposed End Date" 
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
+                                               required="1"
                                                help="The date you plan to return from your trip"/>
                                         <field name="submission_date" string="Submission Date" readonly="1" 
                                                help="The date this form was created"/>
@@ -92,16 +97,26 @@
                                 <group>
                                     <group string="Trip Details">
                                         <field name="approving_colleague_name" string="Name of Approving Colleague" 
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
+                                               required="1"
                                                placeholder="E.g., Emily Smith"
                                                help="Auto-filled with your Travel Approver's name, but you can change it if needed"/>
                                         <field name="trip_duration_type" string="Trip Duration Type"
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
+                                               required="1"
                                                help="Select the duration type of your trip (full day, half day, etc.)"/>
-                                        <field name="destination" string="Destination"
-                                               placeholder="Type to search for a destination city"
-                                               help="Enter the city or location you will be traveling to"/>
+                                        <field name="destination_place_id" string="Destination"
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
+                                               required="1"
+                                               options="{'no_open': True, 'no_create_edit': True}"
+                                               placeholder="Type at least 1 letter (e.g. 'r' or 'ro')"
+                                               help="Start typing to search cities/countries (Geonames). Select one from the dropdown."/>
+                                        <!-- Keep the old char field for backward compatibility (emails, reports, existing logic) -->
+                                        <field name="destination" invisible="1"/>
                                     </group>
                                     <group string="Trip Type">
                                         <field name="trip_type" string="One Way / Two Way" widget="radio" 
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                options="{'horizontal': true}" default="one_way"
                                                help="Select 'One Way' for single direction travel or 'Two Way' for round trip"/>
                                     </group>
@@ -109,6 +124,8 @@
                                 
                                 <group col="2" colspan="2">
                                     <field name="purpose" string="Purpose of Trip" widget="text" 
+                                           readonly="form_completion_status in ['form_completed', 'cancelled']"
+                                           required="1"
                                            placeholder="Describe the purpose of your trip" colspan="2"
                                            options="{'resizable': false}"
                                            help="Provide a detailed description of the purpose and objectives of this business trip"/>
@@ -130,18 +147,24 @@
                                 <group>
                                     <group>
                                         <field name="use_rental_car" string="🚘 Rental Car" 
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                help="Check if you need to rent a car for this trip"/>
                                         <field name="use_company_car" string="🚗 Company Car" 
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                help="Check if you will use a company-owned vehicle"/>
                                         <field name="use_personal_car" string="🚙 Personal Car" 
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                help="Check if you will use your personal vehicle"/>
                                     </group>
                                     <group>
                                         <field name="use_train" string="🚄 Train" 
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                help="Check if you will travel by train"/>
                                         <field name="use_airplane" string="✈ Airplane" 
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                help="Check if you will travel by airplane"/>
                                         <field name="use_bus" string="🚍 Bus" 
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                help="Check if you will travel by bus"/>
                                     </group>
                                 </group>
@@ -154,38 +177,50 @@
                                     <group>
                                         <group>
                                             <field name="rental_car_pickup_date" string="Pick-up Date"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Date when you will pick up the rental car"/>
                                             <field name="rental_car_pickup_flexible" string="Flexible by 2 days"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Check if your pick-up date can be adjusted by ±2 days"/>
                                             <field name="rental_car_pickup_point" string="Pick-up Point" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    placeholder="E.g., Rome Airport"
                                                    help="Location where you will pick up the car"/>
                                             <field name="rental_car_dropoff_point" string="Drop-off Point" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    placeholder="E.g., Milan Central Station"
                                                    help="Location where you will drop off the car"/>
                                             <field name="rental_car_dropoff_date" string="Drop-off Date"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Date when you will drop off the rental car"/>
                                             <field name="rental_car_dropoff_flexible" string="Flexible by 2 days"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Check if your drop-off date can be adjusted by ±2 days"/>
                                         </group>
                                         <group>
                                             <field name="rental_car_credit_card" string="Can you use your credit card?"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Most car rentals require a credit card for deposit"/>
                                             <field name="rental_car_type" string="Rental Type"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Select who will drive the rental car"/>
                                             <field name="rental_car_drivers_license" string="Driver's License" widget="binary" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    filename="rental_car_drivers_license_filename"
                                                    invisible="rental_car_type != 'self'"
                                                    help="Upload a copy of your valid driver's license"/>
                                             <field name="rental_car_unlimited_km" string="Unlimited Kilometers"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Check if you need unlimited mileage"/>
                                             <field name="rental_car_kilometer_limit" string="Kilometer Limit" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    invisible="rental_car_unlimited_km == True"
                                                    help="Estimated kilometers you will drive"/>
                                         </group>
                                     </group>
                                     <group>
                                         <field name="rental_car_preferences" string="Additional Preferences" 
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                widget="text" placeholder="E.g., early morning pick-up, car model preferences" colspan="2"
                                                help="Any special requirements or preferences for your rental car"/>
                                     </group>
@@ -199,22 +234,29 @@
                                     <group>
                                         <group>
                                             <field name="train_departure_city" string="Departure City" placeholder="E.g., Rome"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="City where you will board the train"/>
                                             <field name="train_departure_station" string="Departure Station" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    placeholder="E.g., Roma Termini"
                                                    help="Train station where you will depart from"/>
                                             <field name="train_arrival_station" string="Arrival Station" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    placeholder="E.g., Milano Centrale"
                                                    help="Train station where you will arrive"/>
                                         </group>
                                         <group>
                                             <field name="train_departure_date" string="Departure Date"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Date of your train departure"/>
                                             <field name="train_departure_flexible" string="Flexible by 2 days"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Check if your departure date can be adjusted by ±2 days"/>
                                             <field name="train_arrival_date" string="Arrival Date"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Expected date of arrival"/>
                                             <field name="train_arrival_flexible" string="Flexible by 2 days"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Check if your arrival date can be adjusted by ±2 days"/>
                                         </group>
                                     </group>
@@ -228,22 +270,29 @@
                                     <group>
                                         <group>
                                             <field name="bus_departure_city" string="Departure City" placeholder="E.g., Rome"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="City where you will board the bus"/>
                                             <field name="bus_departure_terminal" string="Departure Terminal" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    placeholder="E.g., Roma Tiburtina"
                                                    help="Bus terminal where you will depart from"/>
                                             <field name="bus_arrival_terminal" string="Arrival Terminal" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    placeholder="E.g., Milano Lampugnano"
                                                    help="Bus terminal where you will arrive"/>
                                         </group>
                                         <group>
                                             <field name="bus_departure_date" string="Departure Date"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Date of your bus departure"/>
                                             <field name="bus_departure_flexible" string="Flexible by 2 days"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Check if your departure date can be adjusted by ±2 days"/>
                                             <field name="bus_arrival_date" string="Arrival Date"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Expected date of arrival"/>
                                             <field name="bus_arrival_flexible" string="Flexible by 2 days"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Check if your arrival date can be adjusted by ±2 days"/>
                                         </group>
                                     </group>
@@ -257,25 +306,32 @@
                                     <group>
                                         <group>
                                             <field name="airplane_departure_airport" string="Departure Airport" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    placeholder="E.g., Rome Fiumicino"
                                                    help="Airport where your flight will depart from"/>
                                             <field name="airplane_departure_date" string="Departure Date"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Date of your flight departure"/>
                                             <field name="airplane_departure_flexible" string="Flexible by 2 days (departure)"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Check if your departure date can be adjusted by ±2 days"/>
                                         </group>
                                         <group>
                                             <field name="airplane_arrival_airport" string="Arrival Airport" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    placeholder="E.g., Paris CDG"
                                                    help="Airport where your flight will arrive"/>
                                             <field name="airplane_arrival_flexible" string="Flexible by 2 days (arrival)"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Check if your arrival date can be adjusted by ±2 days"/>
                                             <field name="airplane_baggage_type" string="Baggage"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Select your baggage requirements (carry-on only, checked baggage, etc.)"/>
                                         </group>
                                     </group>
                                     <group>
                                         <field name="airplane_preferences" string="Additional Preferences" 
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                widget="text" placeholder="E.g., seat preference, early flight" colspan="2"
                                                help="Any special requirements or preferences for your flight"/>
                                     </group>
@@ -297,18 +353,24 @@
                                 <group>
                                     <group>
                                         <field name="use_return_rental_car" string="🚘 Rental Car"
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                help="Check if you need to rent a car for your return trip"/>
                                         <field name="use_return_company_car" string="🚗 Company Car"
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                help="Check if you will use a company-owned vehicle for return"/>
                                         <field name="use_return_personal_car" string="🚙 Personal Car"
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                help="Check if you will use your personal vehicle for return"/>
                                     </group>
                                     <group>
                                         <field name="use_return_train" string="🚄 Train"
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                help="Check if you will travel by train on return"/>
                                         <field name="use_return_airplane" string="✈ Airplane"
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                help="Check if you will travel by airplane on return"/>
                                         <field name="use_return_bus" string="🚍 Bus"
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                help="Check if you will travel by bus on return"/>
                                     </group>
                                 </group>
@@ -321,38 +383,50 @@
                                     <group>
                                         <group>
                                             <field name="return_rental_car_pickup_date" string="Pick-up Date"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Date when you will pick up the return rental car"/>
                                             <field name="return_rental_car_pickup_flexible" string="Flexible by 2 days"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Check if your pick-up date can be adjusted by ±2 days"/>
                                             <field name="return_rental_car_pickup_point" string="Pick-up Point" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    placeholder="E.g., Milan Central Station"
                                                    help="Location where you will pick up the return car"/>
                                             <field name="return_rental_car_dropoff_point" string="Drop-off Point" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    placeholder="E.g., Rome Airport"
                                                    help="Location where you will drop off the return car"/>
                                             <field name="return_rental_car_dropoff_date" string="Drop-off Date"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Date when you will drop off the return rental car"/>
                                             <field name="return_rental_car_dropoff_flexible" string="Flexible by 2 days"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Check if your drop-off date can be adjusted by ±2 days"/>
                                         </group>
                                         <group>
                                             <field name="return_rental_car_credit_card" string="Can you use your credit card?"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Most car rentals require a credit card for deposit"/>
                                             <field name="return_rental_car_type" string="Rental Type"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Select who will drive the return rental car"/>
                                             <field name="return_rental_car_drivers_license" string="Driver's License" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    widget="binary" filename="return_rental_car_drivers_license_filename"
                                                    invisible="return_rental_car_type != 'self'"
                                                    help="Upload a copy of your valid driver's license"/>
                                             <field name="return_rental_car_unlimited_km" string="Unlimited Kilometers"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Check if you need unlimited mileage for return trip"/>
                                             <field name="return_rental_car_kilometer_limit" string="Kilometer Limit" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    invisible="return_rental_car_unlimited_km == True"
                                                    help="Estimated kilometers you will drive on return"/>
                                         </group>
                                     </group>
                                     <group>
                                         <field name="return_rental_car_preferences" string="Additional Preferences" 
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                widget="text" placeholder="E.g., late evening drop-off, car model preferences" colspan="2"
                                                help="Any special requirements or preferences for your return rental car"/>
                                     </group>
@@ -366,22 +440,29 @@
                                     <group>
                                         <group>
                                             <field name="return_train_departure_city" string="Departure City" placeholder="E.g., Milan"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="City where you will board the return train"/>
                                             <field name="return_train_departure_station" string="Departure Station" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    placeholder="E.g., Milano Centrale"
                                                    help="Train station where you will depart from on return"/>
                                             <field name="return_train_arrival_station" string="Arrival Station" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    placeholder="E.g., Roma Termini"
                                                    help="Train station where you will arrive on return"/>
                                         </group>
                                         <group>
                                             <field name="return_train_departure_date" string="Departure Date"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Date of your return train departure"/>
                                             <field name="return_train_departure_flexible" string="Flexible by 2 days"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Check if your departure date can be adjusted by ±2 days"/>
                                             <field name="return_train_arrival_date" string="Arrival Date"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Expected date of arrival on return"/>
                                             <field name="return_train_arrival_flexible" string="Flexible by 2 days"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Check if your arrival date can be adjusted by ±2 days"/>
                                         </group>
                                     </group>
@@ -395,25 +476,32 @@
                                     <group>
                                         <group>
                                             <field name="return_airplane_departure_airport" string="Departure Airport" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    placeholder="E.g., Paris CDG"
                                                    help="Airport where your return flight will depart from"/>
                                             <field name="return_airplane_departure_date" string="Departure Date"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Date of your return flight departure"/>
                                             <field name="return_airplane_departure_flexible" string="Flexible by 2 days (departure)"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Check if your return departure date can be adjusted by ±2 days"/>
                                         </group>
                                         <group>
                                             <field name="return_airplane_destination_airport" string="Arrival Airport" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    placeholder="E.g., Rome Fiumicino"
                                                    help="Airport where your return flight will arrive"/>
                                             <field name="return_airplane_destination_flexible" string="Flexible by 2 days (arrival)"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Check if your return arrival date can be adjusted by ±2 days"/>
                                             <field name="return_airplane_baggage_type" string="Baggage"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Select your baggage requirements for return flight"/>
                                         </group>
                                     </group>
                                     <group>
                                         <field name="return_airplane_preferences" string="Additional Preferences" 
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                widget="text" placeholder="E.g., seat preference, late evening flight" colspan="2"
                                                help="Any special requirements or preferences for your return flight"/>
                                     </group>
@@ -427,22 +515,29 @@
                                     <group>
                                         <group>
                                             <field name="return_bus_departure_city" string="Departure City" placeholder="E.g., Milan"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="City where you will board the return bus"/>
                                             <field name="return_bus_departure_station" string="Departure Station" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    placeholder="E.g., Milano Lampugnano"
                                                    help="Bus terminal where you will depart from on return"/>
                                             <field name="return_bus_arrival_station" string="Arrival Station" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    placeholder="E.g., Roma Tiburtina"
                                                    help="Bus terminal where you will arrive on return"/>
                                         </group>
                                         <group>
                                             <field name="return_bus_departure_date" string="Departure Date"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Date of your return bus departure"/>
                                             <field name="return_bus_departure_flexible" string="Flexible by 2 days"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Check if your departure date can be adjusted by ±2 days"/>
                                             <field name="return_bus_arrival_date" string="Arrival Date"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Expected date of arrival on return"/>
                                             <field name="return_bus_arrival_flexible" string="Flexible by 2 days"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Check if your arrival date can be adjusted by ±2 days"/>
                                         </group>
                                     </group>
@@ -459,6 +554,7 @@
                             <div class="o_section_content">
                                 <group>
                                     <field name="accommodation_needed" string="Do you need accommodation?" widget="radio" 
+                                           readonly="form_completion_status in ['form_completed', 'cancelled']"
                                            options="{'horizontal': true}"
                                            help="Select 'Yes' if you need accommodation booking during your trip"/>
                                 </group>
@@ -467,19 +563,25 @@
                                     <group>
                                         <group string="Accommodation Details">
                                             <field name="accommodation_number_of_people" string="Number of People"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Total number of people requiring accommodation (including you)"/>
                                             <field name="accommodation_residence_city" string="City" placeholder="E.g., Rome"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="City where you need accommodation"/>
                                             <field name="accommodation_check_in_date" string="Check-in Date"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Date you will check in to the accommodation"/>
                                             <field name="accommodation_check_out_date" string="Check-out Date"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Date you will check out from the accommodation"/>
                                         </group>
                                         <group string="Preferences">
                                             <field name="accommodation_points_of_interest" string="Points of Interest" 
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    widget="text" placeholder="E.g., Close to university, near city center"
                                                    help="Preferred location or proximity to specific points of interest"/>
                                             <field name="accommodation_need_24h_reception" string="Need 24-hour reception?"
+                                                   readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                    help="Select if you require 24-hour reception service"/>
                                         </group>
                                     </group>
@@ -488,6 +590,7 @@
                                     <div class="o_accompanying_persons_section">
                                         <h3>Accompanying Persons</h3>
                                         <field name="accompanying_person_ids" nolabel="1" context="{'default_business_trip_id': id}"
+                                               readonly="form_completion_status in ['form_completed', 'cancelled']"
                                                help="Add details of any persons accompanying you on this trip">
                                             <list editable="bottom">
                                                 <field name="full_name" string="Full Name"/>

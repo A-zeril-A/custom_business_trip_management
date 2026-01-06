@@ -191,10 +191,11 @@ class BusinessTripController(http.Controller):
             company_id = request.env.company.id
             cids_param = f"&cids={company_id}" if company_id else ""
 
+            # In Odoo 18, use view_mode instead of view_type
             redirect_url = (
                 f"/web#action={action.id}"
                 f"&model=business.trip.project.selection.wizard"
-                f"&view_type=form" 
+                f"&view_mode=form" 
                 f"&id={wizard.id}"
                 f"&menu_id={menu_id}{cids_param}"
             )

@@ -35,3 +35,4 @@ access_planned_trip_accommodation_line,planned.trip.accommodation.line,model_pla
 access_planned_trip_transport_line,planned.trip.transport.line,model_planned_trip_transport_line,base.group_user,1,1,1,1
 access_business_trip_airport,business.trip.airport,model_business_trip_airport,base.group_user,1,1,1,1
 access_custom_business_trip_management_business_trip,custom_business_trip_management.business_trip,model_custom_business_trip_management_business_trip,base.group_user,1,1,1,1
+access_business_trip_destination_user,business.trip.destination user,model_business_trip_destination,base.group_user,1,0,0,0

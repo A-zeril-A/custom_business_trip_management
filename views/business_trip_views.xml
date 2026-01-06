@@ -170,9 +170,9 @@
                         confirm="Are you sure you want to cancel this trip request? This action cannot be undone."
                         help="Cancel this business trip request permanently."/>
             </header>
-            <header invisible="(form_completion_status != 'form_completed' and trip_status != 'returned') or trip_status in ['cancelled', 'rejected']"> <!-- Header 2: Trip Request & Organization Phase -->
+            <header invisible="(form_completion_status != 'form_completed' and trip_status != 'returned') or trip_status == 'cancelled'"> <!-- Header 2: Trip Request & Organization Phase -->
                 <field name="trip_status_phase1" widget="statusbar" 
-                       statusbar_visible="draft,submitted,pending_organization,organization_done"
+                       statusbar_visible="draft,submitted,pending_organization,organization_done,rejected"
                        decoration-info="trip_status_phase1 == 'draft'" 
                        decoration-warning="trip_status_phase1 in ('submitted', 'pending_organization')" 
                        decoration-orange="trip_status_phase1 == 'returned'"

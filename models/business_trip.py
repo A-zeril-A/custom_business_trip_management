@@ -101,10 +101,22 @@ class BusinessTrip(models.Model):
     # --- TRIP DETAILS (from Data Model) ---
     # Modified by A_zeril_A, 2025-10-24: Made fields editable (readonly=False) for new form
     destination = fields.Char(related='business_trip_data_id.destination', string='Destination', readonly=False, store=True)
+    destination_place_id = fields.Many2one(
+        related="business_trip_data_id.destination_place_id",
+        string="Destination (Autocomplete)",
+        readonly=False,
+        store=True,
+    )
     purpose = fields.Char(related='business_trip_data_id.purpose', string='Purpose', readonly=False, store=True)
     travel_start_date = fields.Date(related='business_trip_data_id.travel_start_date', string='Travel Start Date', readonly=False, store=True)
     travel_end_date = fields.Date(related='business_trip_data_id.travel_end_date', string='Travel End Date', readonly=False, store=True)
     trip_type = fields.Selection(related='business_trip_data_id.trip_type', string='Trip Type', readonly=False, store=True)
+
+    @api.onchange("destination_place_id")
+    def _onchange_destination_place_id(self):
+        for rec in self:
+            if rec.destination_place_id:
+                rec.destination = rec.destination_place_id.name
     
     # --- TRANSPORTATION & ACCOMMODATION (from Data Model) ---
     # Modified by A_zeril_A, 2025-10-24: Made fields editable (readonly=False) for new form
@@ -313,6 +325,8 @@ class BusinessTrip(models.Model):
     is_current_user_owner = fields.Boolean(string="Is Current User Owner", compute='_compute_is_current_user_owner', store=False)
     can_cancel_trip = fields.Boolean(string="Can Cancel Trip", compute='_compute_can_cancel_trip', store=False)
     can_undo_expense_approval_action = fields.Boolean(string="Can Undo Expense Approval", compute='_compute_can_undo_expense_approval_action', store=False)
+    is_form_fields_readonly = fields.Boolean(string="Form Fields Read-only", compute='_compute_is_form_fields_readonly', store=False,
+                                              help="True when form is completed or cancelled, making all fields read-only")
     is_from_assigned_to_me = fields.Boolean(string="Is From Assigned To Me", compute='_compute_is_from_assigned_to_me', store=False)
     is_from_my_business_trip = fields.Boolean(string="Is From My Business Trip", compute='_compute_is_from_my_business_trip', store=False)
 
@@ -603,6 +617,15 @@ class BusinessTrip(models.Model):
                 can_cancel = True
             record.can_cancel_trip = can_cancel
 
+    @api.depends('form_completion_status')
+    def _compute_is_form_fields_readonly(self):
+        """
+        Compute if form fields should be read-only.
+        Fields are read-only when form is completed or cancelled.
+        """
+        for record in self:
+            record.is_form_fields_readonly = record.form_completion_status in ['form_completed', 'cancelled']
+
     @api.depends('trip_status', 'expense_approval_date')
     def _compute_can_undo_expense_approval_action(self):
         # Get the setting from the environment's company once
@@ -807,8 +830,9 @@ class BusinessTrip(models.Model):
     </div>
 </div>
 """
+            # Odoo 18: Wrap HTML in Markup for proper rendering
             self.message_post(
-                body=employee_approval_msg,
+                body=Markup(employee_approval_msg),
                 partner_ids=[self.user_id.partner_id.id]
             )
 
@@ -924,8 +948,9 @@ class BusinessTrip(models.Model):
     <p style="margin: 0; color: #333; background-color: #fff; padding: 8px; border-radius: 3px;">{self.expense_return_comments}</p>
 </div>
 """
+            # Odoo 18: Wrap HTML in Markup for proper rendering
             self.message_post(
-                body=employee_return_msg,
+                body=Markup(employee_return_msg),
                 partner_ids=[self.user_id.partner_id.id]
             )
 
@@ -1089,7 +1114,8 @@ class BusinessTrip(models.Model):
                 </div>
             </div>
             """
-            new_trip.message_post(body=message_body)
+            # Odoo 18: Wrap HTML in Markup for proper rendering
+            new_trip.message_post(body=Markup(message_body))
             trips_to_return |= new_trip
 
         return trips_to_return
@@ -1240,8 +1266,10 @@ class BusinessTrip(models.Model):
             required_fields.append('Name of Approving Colleague')
         if not self.trip_duration_type:
             required_fields.append('Trip Duration Type')
-        if not self.destination:
+        if not self.destination_place_id and not self.destination:
             required_fields.append('Destination')
+        if not self.purpose:
+            required_fields.append('Purpose of Trip')
 
         if self.accommodation_needed == 'yes':
             if not self.accommodation_number_of_people:
@@ -1293,19 +1321,22 @@ class BusinessTrip(models.Model):
         # Post a styled submission summary message to chatter
         # This uses the same templates as the old formio submission
         try:
-            summary_body_html = self.env.ref('custom_business_trip_management.form_submission_summary')._render({
+            # Odoo 18: Use ir.qweb._render() instead of view._render()
+            summary_body_html = self.env['ir.qweb']._render('custom_business_trip_management.form_submission_summary', {
                 'record': self.business_trip_data_id,
-            }, engine='ir.qweb')
+            })
 
-            message_body = self.env.ref('custom_business_trip_management.chatter_message_card')._render({
+            message_body = self.env['ir.qweb']._render('custom_business_trip_management.chatter_message_card', {
                 'card_type': 'success',
                 'icon': '📄',
                 'title': 'Form Submission Summary',
                 'body_html': summary_body_html,
                 'submitted_by': self.env.user.name,
-            }, engine='ir.qweb')
+            })
             
-            self.message_post(body=message_body, subtype_xmlid="mail.mt_note")
+            # Odoo 18: Convert rendered HTML to Markup for proper rendering
+            message_body_markup = Markup(message_body.decode('utf-8') if isinstance(message_body, bytes) else message_body)
+            self.message_post(body=message_body_markup, subtype_xmlid="mail.mt_note")
             _logger.info(f"Successfully posted styled summary message to chatter for trip {self.id} after Save & Done.")
         except Exception as e:
             _logger.error(f"Failed to render or post summary message for trip {self.id}: {e}", exc_info=True)
@@ -1607,8 +1638,9 @@ class BusinessTrip(models.Model):
     </div>
 </div>
 """
+        # Odoo 18: Wrap HTML in Markup for proper rendering
         self.message_post(
-            body=employee_approval_msg,
+            body=Markup(employee_approval_msg),
             partner_ids=[self.user_id.partner_id.id]
         )
         
@@ -1710,8 +1742,9 @@ class BusinessTrip(models.Model):
     </div>
 </div>
 """
+        # Odoo 18: Wrap HTML in Markup for proper rendering
         self.message_post(
-            body=employee_message,
+            body=Markup(employee_message),
             partner_ids=[self.user_id.partner_id.id]
         )
 
@@ -2308,8 +2341,9 @@ class BusinessTrip(models.Model):
 """
 
         # Send message showing expense amount with improved styling
+        # Odoo 18: Wrap HTML in Markup for proper rendering
         self.message_post(
-            body=styled_message,
+            body=Markup(styled_message),
             subtype_xmlid='mail.mt_note'
         )
 
@@ -2367,8 +2401,9 @@ class BusinessTrip(models.Model):
 </div>
 """
 
+            # Odoo 18: Wrap HTML in Markup for proper rendering
             self.message_post(
-                body=styled_message,
+                body=Markup(styled_message),
                 partner_ids=[self.user_id.partner_id.id]
             )
 
@@ -2501,8 +2536,8 @@ class BusinessTrip(models.Model):
                 'final_total_cost': total_cost,
             })
             
-            # Refresh to get computed fields (budget_difference, budget_status) updated
-            self.refresh()
+            # Refresh to get computed fields (budget_difference, budget_status) updated (Odoo 18 compatible)
+            self.invalidate_recordset(['budget_difference', 'budget_status', 'final_total_cost'])
         else:
             # Has expenses - go to expense_submitted for review
             self.with_context(mail_notrack=True, system_edit=True).write({
@@ -2716,8 +2751,9 @@ class BusinessTrip(models.Model):
 """
 
             # Post public confirmation message to Employee
+            # Odoo 18: Wrap HTML in Markup for proper rendering
             self.message_post(
-                body=employee_message,
+                body=Markup(employee_message),
                 partner_ids=[self.user_id.partner_id.id]
             )
 
@@ -2810,6 +2846,14 @@ class BusinessTrip(models.Model):
         This replaces the old Form.io form with a standard Odoo form.
         """
         self.ensure_one()
+        _logger.info(f"ACTION_VIEW_FORMIO: Called for trip {self.id}, name={self.name}")
+        
+        try:
+            view_ref = self.env.ref('custom_business_trip_management.view_business_trip_form_page')
+            _logger.info(f"ACTION_VIEW_FORMIO: Found view ref with id={view_ref.id}")
+        except Exception as e:
+            _logger.error(f"ACTION_VIEW_FORMIO: Error finding view: {e}")
+            raise
         
         context = self.env.context.copy()
         
@@ -2820,16 +2864,18 @@ class BusinessTrip(models.Model):
         else:
             action_name = f'Review - {self.name}'
         
-        return {
+        action = {
             'type': 'ir.actions.act_window',
             'name': action_name,
             'res_model': 'business.trip',
             'view_mode': 'form',
             'res_id': self.id,
             'target': 'current',
-            'views': [(self.env.ref('custom_business_trip_management.view_business_trip_form_page').id, 'form')],
+            'views': [(view_ref.id, 'form')],
             'context': context,
         }
+        _logger.info(f"ACTION_VIEW_FORMIO: Returning action: {action}")
+        return action
     
     def action_edit_form(self):
         """
@@ -2941,6 +2987,9 @@ class BusinessTrip(models.Model):
                             f'<div style="margin-top: 10px;">{message}</div>' \
                             f'</div>'
 
+        # Odoo 18: Wrap HTML in Markup for proper rendering
+        formatted_message_markup = Markup(formatted_message)
+
         # Use internal note type (mail.mt_note) which is more restricted
         subtype_id = self.env.ref('mail.mt_note').id
 
@@ -2950,7 +2999,7 @@ class BusinessTrip(models.Model):
             mail_create_nosubscribe=True,
             mail_post_autofollow=False
         ).message_post(
-            body=formatted_message,
+            body=formatted_message_markup,
             message_type='comment',
             subtype_id=subtype_id,
             partner_ids=partner_ids,
@@ -2959,20 +3008,19 @@ class BusinessTrip(models.Model):
 
         # Set message as confidential
         if msg:
+            # Odoo 18: Use sudo() to modify protected fields, or only set confidential fields
+            # Since model and res_id are already set by message_post, we only need to set confidential fields
             self.env['mail.message'].browse(msg.id).write({
                 'confidential': True,
                 'confidential_recipients': [(6, 0, partner_ids)],
-                # Set model_name and res_id to restrict visibility
-                'model': self._name,
-                'res_id': self.id
             })
 
             # Add log for debugging
             _logger.info(f"Created confidential message ID: {msg.id} with recipients: {partner_ids}")
 
-            # Force clear caches to ensure proper filtering
-            self.env['mail.message'].invalidate_cache()
-            self.env['mail.notification'].invalidate_cache()
+            # Force clear caches to ensure proper filtering (Odoo 18 compatible)
+            self.env['mail.message'].invalidate_model()
+            self.env['mail.notification'].invalidate_model()
 
         return True
 
@@ -3304,8 +3352,9 @@ class BusinessTrip(models.Model):
                 # We use 'mail.mt_notification' as it's not a default subtype for followers,
                 # ensuring only partners in 'partner_ids' are notified.
                 subject = f"Reminder: Please Submit Your Trip Expenses for {trip.name}"
+                # Odoo 18: Wrap HTML in Markup for proper rendering
                 trip.message_post(
-                    body=reminder_message,
+                    body=Markup(reminder_message),
                     subject=subject,
                     email_from=trip.env.company.partner_id.email_formatted,
                     partner_ids=[trip.user_id.partner_id.id],

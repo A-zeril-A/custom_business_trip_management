@@ -24,7 +24,9 @@ class BusinessTripFormIOController(http.Controller):
             return []
 
         username = 'azerila' 
-        api_url = "http://api.geonames.org/search?"
+        # IMPORTANT: Geonames JSON endpoint is searchJSON (search returns XML by default)
+        # NOTE: Use HTTP because this environment fails TLS verification (hostname mismatch in cert).
+        api_url = "http://api.geonames.org/searchJSON"
         geonames_params = {
             'name_startsWith': search_term,
             'maxRows': 15,
@@ -39,8 +41,13 @@ class BusinessTripFormIOController(http.Controller):
             
             api_response = requests.get(api_url, params=geonames_params, timeout=10)
             api_response.raise_for_status()
-            
-            response_data = api_response.json()
+
+            try:
+                response_data = api_response.json()
+            except Exception:
+                snippet = (api_response.text or "")[:200].replace("\n", "\\n")
+                _logger.error(f"BTD_CONTROLLER_API: Non-JSON response from Geonames (status={api_response.status_code}): {snippet}")
+                return []
 
             if 'status' in response_data and response_data.get('geonames') is None:
                 error_message = response_data['status'].get('message', 'Unknown Geonames API error')

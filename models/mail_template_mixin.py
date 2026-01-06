@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from odoo import models
+from markupsafe import Markup
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -33,21 +34,28 @@ class MailTemplateMixin(models.AbstractModel):
         final_body_html = body_html
         if template_xml_id:
             try:
-                body_template = self.env.ref(template_xml_id)
-                final_body_html = body_template._render(render_context or {}, engine='ir.qweb')
+                # Odoo 18: Use ir.qweb._render() instead of view._render()
+                rendered = self.env['ir.qweb']._render(template_xml_id, render_context or {})
+                # Convert bytes to string if necessary and wrap in Markup for Odoo 18
+                final_body_html = Markup(rendered.decode('utf-8') if isinstance(rendered, bytes) else rendered)
             except Exception as e:
                 _logger.error(f"Failed to render QWeb template {template_xml_id}: {e}", exc_info=True)
-                final_body_html = f"<p>Error rendering template: {template_xml_id}</p>"
+                final_body_html = Markup(f"<p>Error rendering template: {template_xml_id}</p>")
+        elif body_html:
+            # Wrap plain HTML in Markup for Odoo 18
+            final_body_html = Markup(body_html)
 
-        card_template = self.env.ref('custom_business_trip_management.chatter_message_card')
-        
-        message_body = card_template._render({
+        # Odoo 18: Use ir.qweb._render() instead of view._render()
+        rendered_message = self.env['ir.qweb']._render('custom_business_trip_management.chatter_message_card', {
             'card_type': card_type,
             'icon': icon,
             'title': title,
             'body_html': final_body_html,
             'submitted_by': self.env.user.name
-        }, engine='ir.qweb')
+        })
+        
+        # Convert to Markup for safe HTML rendering in Odoo 18
+        message_body = Markup(rendered_message.decode('utf-8') if isinstance(rendered_message, bytes) else rendered_message)
 
         post_vals = {
             'body': message_body,

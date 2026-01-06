@@ -6,6 +6,7 @@ import logging
 from odoo import models, fields, api, _
 from odoo.exceptions import ValidationError, UserError
 from datetime import datetime, timedelta
+from markupsafe import Markup
 import uuid
 import re
 
@@ -817,15 +818,14 @@ class BusinessTripProjectSelectionWizard(models.TransientModel):
                 business_trip.sudo().write({'manager_id': travel_approver_id})
         
         # Redirect to the business trip form
-        action = self.env.ref('custom_business_trip_management.action_view_my_business_trip_forms')
-        menu_id = self.env.ref('custom_business_trip_management.menu_view_my_business_trip_forms').id
-        company_id = self.env.company.id
-        cids_param = f"&cids={company_id}" if company_id else ""
-
+        # In Odoo 18, use view_mode instead of view_type and standard action window
         return {
-            'type': 'ir.actions.act_url',
-            'url': f"/web#action={action.id}&model=business.trip&view_type=form&id={business_trip.id}&menu_id={menu_id}{cids_param}",
-            'target': 'self',
+            'type': 'ir.actions.act_window',
+            'res_model': 'business.trip',
+            'res_id': business_trip.id,
+            'view_mode': 'form',
+            'target': 'current',
+            'context': {'from_my_business_trip': True},
         }
 
 
@@ -1370,8 +1370,8 @@ class BusinessTripOrganizerPlanWizard(models.TransientModel):
         """Recreates wizard line items from existing business.trip.plan.line records."""
         _logger.info(f"_recreate_plan_items_from_form called for trip {trip.id}")
         
-        # Force refresh the record from database to ensure we have latest data
-        trip.invalidate_cache()
+        # Force refresh the record from database to ensure we have latest data (Odoo 18 compatible)
+        trip.invalidate_recordset()
         
         # Check if the field exists and is accessible
         try:
@@ -1519,9 +1519,8 @@ class BusinessTripOrganizerPlanWizard(models.TransientModel):
         self.env.cr.commit()
         _logger.info(f"Committed transaction for trip {trip.id}")
         
-        # Refresh the trip record to ensure we have the latest data
-        trip.invalidate_cache()
-        trip.refresh()
+        # Refresh the trip record to ensure we have the latest data (Odoo 18 compatible)
+        trip.invalidate_recordset()
         _logger.info(f"After save and commit, trip {trip.id} has {len(trip.plan_line_ids)} plan lines")
         
         # --- START: MODIFIED SECTION ---
@@ -1529,10 +1528,11 @@ class BusinessTripOrganizerPlanWizard(models.TransientModel):
         try:
             plan_details_structured = self._prepare_plan_details_structured(exclude_financials=False)
             
-            message_body = self.env.ref('custom_business_trip_management.organizer_plan_summary')._render({
+            # Odoo 18: Use ir.qweb._render() instead of view._render()
+            message_body = self.env['ir.qweb']._render('custom_business_trip_management.organizer_plan_summary', {
                 'plan_data': plan_details_structured,
                 'organizer_name': self.env.user.name,
-            }, engine='ir.qweb')
+            })
 
             if message_body:
                 # This call handles sending the message to the correct recipients (manager/organizer)
@@ -1629,14 +1629,18 @@ class BusinessTripOrganizerPlanWizard(models.TransientModel):
         if employee_partner:
             public_plan_data = self._prepare_plan_details_structured(exclude_financials=True)
 
-            message_body = self.env.ref('custom_business_trip_management.organizer_plan_summary')._render({
+            # Odoo 18: Use ir.qweb._render() instead of view._render()
+            message_body = self.env['ir.qweb']._render('custom_business_trip_management.organizer_plan_summary', {
                 'plan_data': public_plan_data,
                 'organizer_name': self.trip_id.organizer_id.name,
                 'title': "Your travel plan has been finalized. Please review the details and documents below."
-            }, engine='ir.qweb')
+            })
+            
+            # Odoo 18: Convert rendered HTML to Markup for proper rendering
+            message_body_markup = Markup(message_body.decode('utf-8') if isinstance(message_body, bytes) else message_body)
             
             self.trip_id.message_post(
-                body=message_body,
+                body=message_body_markup,
                 message_type='notification',
                 subtype_id=self.env.ref('mail.mt_note').id,
                 partner_ids=[employee_partner.id],
@@ -1648,11 +1652,12 @@ class BusinessTripOrganizerPlanWizard(models.TransientModel):
             plan_details_structured = self._prepare_plan_details_structured(exclude_financials=False)
             
             # Use the 'organizer_plan_summary' template with a custom title
-            message_body = self.env.ref('custom_business_trip_management.organizer_plan_summary')._render({
+            # Odoo 18: Use ir.qweb._render() instead of view._render()
+            message_body = self.env['ir.qweb']._render('custom_business_trip_management.organizer_plan_summary', {
                 'plan_data': plan_details_structured,
                 'organizer_name': self.env.user.name,
                 'title': f"The travel plan has been finalized and confirmed by {self.env.user.name}. Below are the details."
-            }, engine='ir.qweb')
+            })
 
             if message_body:
                 # Use the correct method to post a confidential message
@@ -2095,8 +2100,8 @@ class BusinessTripPlanLineItem(models.TransientModel):
             # Store any value, including empty strings
             data[key] = value
         self.set_item_data(data)
-        # Force the computed fields to update
-        self.invalidate_cache()
+        # Force the computed fields to update (Odoo 18 compatible)
+        self.invalidate_recordset()
             
     def get_item_data_value(self, key, default=None):
         """Get a value from the item data JSON"""

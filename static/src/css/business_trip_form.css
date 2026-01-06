@@ -267,21 +267,25 @@ body:has(.o_business_trip_modern_form) .o_form_statusbar {
     position: relative;
     z-index: 1;
     text-align: center;
+    /* Force a bigger base font for the whole title block (helps when Odoo wraps value in inner spans) */
+    font-size: clamp(32px, 2.6vw, 48px);
 }
 
 .o_trip_title h1 {
     color: white;
-    font-size: 32px !important;
+    /* Bigger, responsive title for both SO-based and standalone trips */
+    font-size: inherit !important;
     font-weight: 700;
     margin: 0;
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     letter-spacing: -0.5px;
     text-align: center;
+    line-height: 1.15;
 }
 
 .o_trip_name_field {
     color: white !important;
-    font-size: 32px !important;
+    font-size: inherit !important;
     font-weight: 700 !important;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -289,8 +293,10 @@ body:has(.o_business_trip_modern_form) .o_form_statusbar {
 /* Ensure trip title doesn't get affected by other font size rules */
 .o_trip_title h1 input,
 .o_trip_title h1 span,
-.o_trip_title h1 .o_field_widget {
-    font-size: 32px !important;
+.o_trip_title h1 .o_field_widget,
+.o_trip_title h1 .o_field_value {
+    font-size: inherit !important;
+    line-height: 1.15;
 }
 
 /* Section Cards - Full width responsive */
@@ -933,7 +939,7 @@ body:has(.o_business_trip_modern_form) .o_form_statusbar {
     }
     
     .o_trip_title h1 {
-        font-size: 24px;
+        font-size: clamp(24px, 5vw, 32px) !important;
     }
     
     .o_section_header h2 {
