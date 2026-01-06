@@ -8,9 +8,11 @@ class MailMessage(models.Model):
     confidential_recipients = fields.Many2many('res.partner', 'mail_message_res_partner_confidential_rel', string='Confidential Recipients', help="Partners who can view this confidential message.")
 
     @api.model
-    def _search(self, args, offset=0, limit=None, order=None, count=False, access_rights_uid=None):
+    def _search(self, domain, offset=0, limit=None, order=None):
         """
         Override the search method to filter out confidential messages for users who are not in the recipient list.
+        Note: In Odoo 18, the 'access_rights_uid' parameter was removed from _search method.
+        The filtering logic remains exactly the same as Odoo 17.
         """
         # If the user is a superuser or has admin/manager/organizer rights, bypass the confidential filter.
         # This ensures they can always see all messages for administrative purposes.
@@ -30,6 +32,6 @@ class MailMessage(models.Model):
                 ('confidential', '=', True),
                 ('confidential_recipients', 'in', [self.env.user.partner_id.id])
             ]
-            args = args + confidential_domain
+            domain = list(domain) + confidential_domain
 
-        return super(MailMessage, self)._search(args, offset=offset, limit=limit, order=order, count=count, access_rights_uid=access_rights_uid)
+        return super(MailMessage, self)._search(domain, offset=offset, limit=limit, order=order)

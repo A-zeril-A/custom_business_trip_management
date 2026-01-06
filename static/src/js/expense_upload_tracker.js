@@ -1,37 +1,43 @@
-odoo.define('custom_business_trip_management.expense_upload_tracker', function (require) {
-'use strict';
+/** @odoo-module **/
 
-var FormController = require('web.FormController');
-var BasicFields = require('web.basic_fields');
-var core = require('web.core');
-var _t = core._t;
+import { patch } from "@web/core/utils/patch";
+import { FormController } from "@web/views/form/form_controller";
+import { Many2ManyBinaryField } from "@web/views/fields/many2many_binary/many2many_binary_field";
+import { _t } from "@web/core/l10n/translation";
 
 /**
- * Enhanced FormController for expense submission wizard
+ * Patch FormController to track upload status for expense submission wizard.
+ * This enhances the form controller to manage upload state and button states
+ * specifically for the business trip expense submission wizard.
  */
-FormController.include({
-    init: function () {
-        this._super.apply(this, arguments);
-        this._isExpenseWizard = this.modelName === 'business.trip.expense.submission.wizard';
+patch(FormController.prototype, {
+    setup() {
+        super.setup();
+        this._isExpenseWizard = false;
         this._uploadCounter = 0;
     },
 
     /**
-     * Update upload status in the wizard
+     * Check if current form is the expense wizard
+     * @returns {boolean}
      */
-    _updateUploadStatus: function (isUploading) {
-        if (this._isExpenseWizard && this.model && this.model.localData) {
-            var record = this.model.localData[this.handle];
-            if (record) {
-                // Update the is_uploading field
-                this.model.notifyChanges(this.handle, {
-                    is_uploading: isUploading
-                }).then(() => {
-                    // Trigger onchange to recompute can_submit
-                    this.model.notifyChanges(this.handle, {}, {
-                        viewType: 'form'
-                    });
-                });
+    _checkIsExpenseWizard() {
+        return this.props.resModel === "business.trip.expense.submission.wizard";
+    },
+
+    /**
+     * Update upload status in the wizard
+     * @param {boolean} isUploading - Whether upload is in progress
+     */
+    async _updateUploadStatus(isUploading) {
+        if (!this._checkIsExpenseWizard()) return;
+        
+        const record = this.model.root;
+        if (record) {
+            try {
+                await record.update({ is_uploading: isUploading });
+            } catch (e) {
+                console.warn("Could not update upload status:", e);
             }
         }
     },
@@ -39,161 +45,88 @@ FormController.include({
     /**
      * Handle file upload start
      */
-    _onUploadStart: function () {
-        if (this._isExpenseWizard) {
+    _onUploadStart() {
+        if (this._checkIsExpenseWizard()) {
             this._uploadCounter++;
             this._updateUploadStatus(true);
-            console.log('Upload started, counter:', this._uploadCounter);
+            console.log("Upload started, counter:", this._uploadCounter);
         }
     },
 
     /**
      * Handle file upload complete
      */
-    _onUploadComplete: function () {
-        if (this._isExpenseWizard) {
+    _onUploadComplete() {
+        if (this._checkIsExpenseWizard()) {
             this._uploadCounter = Math.max(0, this._uploadCounter - 1);
             if (this._uploadCounter === 0) {
                 this._updateUploadStatus(false);
-                console.log('All uploads completed');
+                console.log("All uploads completed");
             }
         }
     },
-
-    /**
-     * Override renderButtons to disable submit during upload
-     */
-    renderButtons: function ($node) {
-        var result = this._super.apply(this, arguments);
-        if (this._isExpenseWizard) {
-            this._updateButtonStates();
-        }
-        return result;
-    },
-
-    /**
-     * Update button states - removed manual disabled control to let Odoo attrs handle it
-     */
-    _updateButtonStates: function () {
-        if (this.$buttons && this._isExpenseWizard) {
-            var $submitBtn = this.$buttons.find('.btn-primary');
-            var record = this.model.localData[this.handle];
-            
-            if (record && record.data) {
-                var isUploading = record.data.is_uploading;
-                
-                // Only update text, let Odoo attrs handle disabled state
-                if (isUploading) {
-                    $submitBtn.text(_t('Uploading...'));
-                } else {
-                    $submitBtn.text(_t('Submit Expenses'));
-                }
-            }
-        }
-    },
-
-    /**
-     * Override update to refresh button states
-     */
-    update: function () {
-        var result = this._super.apply(this, arguments);
-        if (this._isExpenseWizard) {
-            this._updateButtonStates();
-        }
-        return result;
-    }
 });
 
 /**
- * Enhanced Many2ManyBinaryUpload field with upload tracking
+ * Patch Many2ManyBinaryField to track uploads for expense wizard.
+ * This adds upload tracking callbacks to the file upload field
+ * used in the expense submission process.
  */
-var FieldMany2ManyBinaryUploadTracked = BasicFields.FieldMany2ManyBinaryUpload.extend({
-    
-    init: function () {
-        this._super.apply(this, arguments);
-        this._isExpenseWizard = this.model === 'business.trip.expense.submission.wizard';
+patch(Many2ManyBinaryField.prototype, {
+    /**
+     * Check if this field is in the expense wizard
+     * @returns {boolean}
+     */
+    _isExpenseWizardField() {
+        return this.props.record?.resModel === "business.trip.expense.submission.wizard";
     },
 
     /**
-     * Override _uploadFiles to add tracking
+     * Notify controller of upload start
      */
-    _uploadFiles: function (files) {
-        if (this._isExpenseWizard) {
-            // Notify upload start for each file
-            for (var i = 0; i < files.length; i++) {
-                this._notifyUploadStart();
+    _notifyUploadStart() {
+        // In OWL, we need to find the controller differently
+        // For now, we use a simple approach
+        if (this._isExpenseWizardField()) {
+            const controller = this.env?.config?.Controller;
+            if (controller && controller._onUploadStart) {
+                controller._onUploadStart();
             }
         }
-        
-        var result = this._super.apply(this, arguments);
-        
-        // Handle upload completion
-        if (this._isExpenseWizard && result && result.then) {
-            result.then((res) => {
-                // Notify upload complete for each file
-                for (var i = 0; i < files.length; i++) {
-                    this._notifyUploadComplete();
-                }
-                return res;
-            }).catch((err) => {
-                // Notify upload complete even on error
-                for (var i = 0; i < files.length; i++) {
-                    this._notifyUploadComplete();
-                }
-                throw err;
-            });
-        }
-        
-        return result;
     },
 
     /**
-     * Notify parent controller of upload start
+     * Notify controller of upload complete
      */
-    _notifyUploadStart: function () {
-        var controller = this.getParent();
-        while (controller && !controller._onUploadStart) {
-            controller = controller.getParent();
-        }
-        if (controller && controller._onUploadStart) {
-            controller._onUploadStart();
+    _notifyUploadComplete() {
+        if (this._isExpenseWizardField()) {
+            const controller = this.env?.config?.Controller;
+            if (controller && controller._onUploadComplete) {
+                controller._onUploadComplete();
+            }
         }
     },
 
     /**
-     * Notify parent controller of upload complete
+     * Override onFileUploaded to add tracking
+     * @param {Object} info - Upload info
      */
-    _notifyUploadComplete: function () {
-        var controller = this.getParent();
-        while (controller && !controller._onUploadComplete) {
-            controller = controller.getParent();
+    async onFileUploaded(info) {
+        if (this._isExpenseWizardField()) {
+            this._notifyUploadStart();
         }
-        if (controller && controller._onUploadComplete) {
-            controller._onUploadComplete();
+        
+        try {
+            const result = await super.onFileUploaded(info);
+            if (this._isExpenseWizardField()) {
+                this._notifyUploadComplete();
+            }
+            return result;
+        } catch (error) {
+            if (this._isExpenseWizardField()) {
+                this._notifyUploadComplete();
+            }
+            throw error;
         }
     },
-
-    /**
-     * Override file deletion to trigger recomputation
-     */
-    _onDeleteAttachment: function (ev) {
-        var result = this._super.apply(this, arguments);
-        
-        if (this._isExpenseWizard) {
-            // Trigger field change to recompute can_submit
-            this._setValue(this.value);
-        }
-        
-        return result;
-    }
 });
-
-// Register the enhanced field
-BasicFields.FieldMany2ManyBinaryUpload = FieldMany2ManyBinaryUploadTracked;
-
-return {
-    FormController: FormController,
-    FieldMany2ManyBinaryUploadTracked: FieldMany2ManyBinaryUploadTracked
-};
-
-}); 

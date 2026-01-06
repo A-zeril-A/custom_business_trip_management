@@ -1,27 +1,32 @@
-odoo.define('custom_business_trip_management.trip_redirect', function (require) {
-    'use strict';
+/** @odoo-module **/
 
-    const ListController = require('web.ListController');
-    const ListView = require('web.ListView');
-    const viewRegistry = require('web.view_registry');
+import { registry } from "@web/core/registry";
+import { listView } from "@web/views/list/list_view";
+import { ListController } from "@web/views/list/list_controller";
 
-    const CustomTripController = ListController.extend({
-        _onRowClicked: function (event) {
-            event.preventDefault();
-            event.stopPropagation();
-
-            const record = this._getRecord(event);
-            if (record && record.data && record.data.id) {
-                window.location.href = '/business_trip/start/' + record.data.id;
-            }
+/**
+ * Custom List Controller for Trip Redirect
+ * Redirects row clicks to the business trip start page
+ */
+export class CustomTripController extends ListController {
+    /**
+     * Override openRecord to redirect to business trip start page
+     * @param {Object} record - The record being opened
+     */
+    async openRecord(record) {
+        const recordId = record.resId;
+        if (recordId) {
+            window.location.href = "/business_trip/start/" + recordId;
         }
-    });
+    }
+}
 
-    const CustomTripListView = ListView.extend({
-        config: Object.assign({}, ListView.prototype.config, {
-            Controller: CustomTripController,
-        }),
-    });
+// Register the custom list view
+export const customTripRedirectListView = {
+    ...listView,
+    Controller: CustomTripController,
+};
 
-    viewRegistry.add('custom_trip_redirect', CustomTripListView);
-});
+// Note: This view uses the same key as custom_trip_redirect.js
+// If you need both, rename one of them
+registry.category("views").add("custom_trip_redirect_list", customTripRedirectListView);

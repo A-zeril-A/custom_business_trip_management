@@ -3,17 +3,41 @@
  * Created by A_zeril_A, 2025-10-24
  * Updated by A_zeril_A, 2025-10-25
  * Updated by A_zeril_A, 2025-10-28: Fixed width and scale issues
+ * Updated by A_zeril_A, 2026-01-06: Fixed scroll issue after migration to Odoo 18
  * Professional, React-like form design with animations
  */
 
 /* ==================================================
-   FIX: Remove ALL Odoo default width restrictions
-   This fixes the white space and small scale issue
+   CRITICAL FIX for Odoo 18: Enable Page Scrolling
+   This is the main fix for the scroll issue
    ==================================================*/
 
-/* Target body and main wrapper */
+/* Force all parent containers to allow scrolling */
+.o_web_client:has(.o_business_trip_modern_form),
+.o_action_manager:has(.o_business_trip_modern_form),
+.o_action:has(.o_business_trip_modern_form) {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: 100% !important;
+}
+
+/* Ensure form view container is scrollable */
+.o_form_view:has(.o_business_trip_modern_form) {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+}
+
+/* ==================================================
+   FIX: Enable scrolling and remove width restrictions
+   This fixes the scroll issue in Odoo 18
+   ==================================================*/
+
+/* Target body and main wrapper - allow vertical scroll */
 body:has(.o_business_trip_modern_form) {
     overflow-x: hidden !important;
+    overflow-y: auto !important;
 }
 
 /* Remove all width restrictions from Odoo action manager */
@@ -22,54 +46,68 @@ body:has(.o_business_trip_modern_form) .o_action_manager {
     width: 100% !important;
     padding: 0 !important;
     margin: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
 }
 
-/* Target the main action container to be full width */
+/* Target the main action container to be full width with scroll */
 body:has(.o_business_trip_modern_form) .o_action_manager .o_action {
     max-width: none !important;
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: 100% !important;
 }
 
-/* Remove Odoo's default container max-width (usually 1140px or 1320px) */
+/* Remove Odoo's default container max-width - enable scroll */
 body:has(.o_business_trip_modern_form) .o_action_manager .o_action > .o_content,
 body:has(.o_business_trip_modern_form) .o_action_manager .o_action > div {
     max-width: none !important;
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
 }
 
-/* Remove width restrictions from form controller */
+/* Enable scroll in form view */
 body:has(.o_business_trip_modern_form) .o_form_view {
     max-width: none !important;
     width: 100% !important;
     margin: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: 100% !important;
 }
 
-/* Target form renderer */
+/* Target form renderer - enable scroll */
 body:has(.o_business_trip_modern_form) .o_form_renderer {
     max-width: none !important;
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
 }
 
-/* Main form class */
+/* Main form class - enable scroll */
 .o_business_trip_modern_form {
     background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     min-height: 100vh;
-    overflow: visible !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
     height: auto !important;
     max-width: none !important;
     width: 100% !important;
     margin: 0 !important;
 }
 
-/* Remove inner scroll - make single scroll for entire page */
+/* Enable scroll in content area */
 .o_business_trip_modern_form .o_content {
-    overflow: visible !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
     max-height: none !important;
     height: auto !important;
     max-width: none !important;
@@ -78,18 +116,20 @@ body:has(.o_business_trip_modern_form) .o_form_renderer {
     padding: 0 !important;
 }
 
-/* Remove scroll from form view */
+/* Enable scroll in form view */
 .o_business_trip_modern_form .o_form_view {
-    overflow: visible !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
     max-height: none !important;
     height: auto !important;
     max-width: none !important;
     width: 100% !important;
 }
 
-/* Remove scroll from sheet background */
+/* Enable scroll in sheet background */
 .o_business_trip_modern_form .o_form_sheet_bg {
-    overflow: visible !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
     max-height: none !important;
     height: auto !important;
     max-width: none !important;
@@ -105,6 +145,7 @@ body:has(.o_business_trip_modern_form) .o_form_renderer {
     padding: 0 !important;
     margin: 0 !important;
     box-shadow: none !important;
+    overflow-y: visible !important;
 }
 
 /* Remove Odoo's default form width restrictions - Multiple selectors for safety */
@@ -126,12 +167,14 @@ body:has(.o_business_trip_modern_form) .o_action_manager {
     padding: 0 !important;
 }
 
-/* Remove padding from content area */
+/* Remove padding from content area - enable scroll */
 body:has(.o_business_trip_modern_form) .o_content {
     padding: 0 !important;
     margin: 0 !important;
     max-width: none !important;
     width: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
 }
 
 /* Fix statusbar container width */
@@ -912,22 +955,50 @@ html {
     scroll-behavior: smooth;
 }
 
+/* CRITICAL FIX for Odoo 18: Force scroll on main containers */
+body:has(.o_business_trip_modern_form) .o_action_manager,
+body:has(.o_business_trip_modern_form) .o_action_manager .o_action,
+body:has(.o_business_trip_modern_form) .o_action_manager .o_action .o_content,
+body:has(.o_business_trip_modern_form) .o_form_view,
+body:has(.o_business_trip_modern_form) .o_form_renderer,
+body:has(.o_business_trip_modern_form) .o_form_sheet_bg {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    max-height: none !important;
+    height: auto !important;
+}
+
+/* Ensure the main form container is scrollable */
+.o_form_view:has(.o_business_trip_modern_form) {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    height: 100vh !important;
+}
+
 /* Custom Scrollbar */
-.o_business_trip_modern_form::-webkit-scrollbar {
+.o_business_trip_modern_form::-webkit-scrollbar,
+body:has(.o_business_trip_modern_form) .o_action_manager::-webkit-scrollbar,
+body:has(.o_business_trip_modern_form) .o_form_view::-webkit-scrollbar {
     width: 10px;
 }
 
-.o_business_trip_modern_form::-webkit-scrollbar-track {
+.o_business_trip_modern_form::-webkit-scrollbar-track,
+body:has(.o_business_trip_modern_form) .o_action_manager::-webkit-scrollbar-track,
+body:has(.o_business_trip_modern_form) .o_form_view::-webkit-scrollbar-track {
     background: #f1f1f1;
     border-radius: 10px;
 }
 
-.o_business_trip_modern_form::-webkit-scrollbar-thumb {
+.o_business_trip_modern_form::-webkit-scrollbar-thumb,
+body:has(.o_business_trip_modern_form) .o_action_manager::-webkit-scrollbar-thumb,
+body:has(.o_business_trip_modern_form) .o_form_view::-webkit-scrollbar-thumb {
     background: linear-gradient(180deg, #667eea, #764ba2);
     border-radius: 10px;
 }
 
-.o_business_trip_modern_form::-webkit-scrollbar-thumb:hover {
+.o_business_trip_modern_form::-webkit-scrollbar-thumb:hover,
+body:has(.o_business_trip_modern_form) .o_action_manager::-webkit-scrollbar-thumb:hover,
+body:has(.o_business_trip_modern_form) .o_form_view::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(180deg, #764ba2, #667eea);
 }
 

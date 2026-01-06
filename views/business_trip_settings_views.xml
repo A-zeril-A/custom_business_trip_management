@@ -7,7 +7,8 @@
         <field name="priority" eval="70"/>
         <field name="inherit_id" ref="base.res_config_settings_view_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//div[hasclass('settings')]" position="inside">
+            <!-- In Odoo 17, settings blocks are added directly to the form -->
+            <xpath expr="//form" position="inside">
                 <div class="app_settings_block" data-string="Business Trip" string="Business Trip" data-key="custom_business_trip_management">
                     <h2>Approval Process</h2>
                     <div class="row mt16 o_settings_container">

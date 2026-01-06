@@ -29,7 +29,7 @@
                         </group>
                     </group>
                     <notebook>
-                        <page string="Accommodation" attrs="{'invisible': [('accommodation_needed', '!=', 'yes')]}">
+                        <page string="Accommodation" invisible="accommodation_needed != 'yes'">
                             <group>
                                 <field name="accommodation_needed" invisible="0"/>
                                 <field name="accommodation_number_of_people"/>
@@ -41,10 +41,10 @@
                             </group>
                             <group string="Accompanying Persons">
                                 <field name="accompanying_person_ids" nolabel="1">
-                                    <tree editable="bottom">
+                                    <list editable="bottom">
                                         <field name="full_name"/>
                                         <field name="identity_document_filename"/>
-                                    </tree>
+                                    </list>
                                     <form>
                                         <group>
                                             <field name="full_name"/>
@@ -67,7 +67,7 @@
                                     <field name="use_bus"/>
                                 </group>
                             </group>
-                            <group string="Return Transport" attrs="{'invisible': [('trip_type', '!=', 'two_way')]}">
+                            <group string="Return Transport" invisible="trip_type != 'two_way'">
                                 <group>
                                     <field name="return_transport_means_json" invisible="1"/>
                                     <field name="use_return_rental_car"/>
@@ -79,7 +79,7 @@
                                 </group>
                             </group>
                             <notebook>
-                                <page string="Rental Car Details" attrs="{'invisible': [('use_rental_car', '=', False)]}">
+                                <page string="Rental Car Details" invisible="use_rental_car == False">
                                     <group>
                                         <field name="rental_car_pickup_date"/>
                                         <field name="rental_car_pickup_flexible"/>
@@ -94,7 +94,7 @@
                                         <field name="rental_car_preferences"/>
                                     </group>
                                 </page>
-                                <page string="Train Details" attrs="{'invisible': [('use_train', '=', False)]}">
+                                <page string="Train Details" invisible="use_train == False">
                                     <group>
                                         <field name="train_departure_city"/>
                                         <field name="train_departure_station"/>
@@ -105,7 +105,7 @@
                                         <field name="train_arrival_flexible"/>
                                     </group>
                                 </page>
-                                <page string="Airplane Details" attrs="{'invisible': [('use_airplane', '=', False)]}">
+                                <page string="Airplane Details" invisible="use_airplane == False">
                                     <group>
                                         <field name="airplane_departure_airport"/>
                                         <field name="airplane_departure_date"/>
@@ -116,7 +116,7 @@
                                         <field name="airplane_preferences"/>
                                     </group>
                                 </page>
-                                <page string="Bus Details" attrs="{'invisible': [('use_bus', '=', False)]}">
+                                <page string="Bus Details" invisible="use_bus == False">
                                     <group>
                                         <field name="bus_departure_city"/>
                                         <field name="bus_departure_terminal"/>
@@ -127,7 +127,7 @@
                                         <field name="bus_arrival_flexible"/>
                                     </group>
                                 </page>
-                                <page string="Return Train Details" attrs="{'invisible': [('use_return_train', '=', False)]}">
+                                <page string="Return Train Details" invisible="use_return_train == False">
                                     <group>
                                         <field name="return_train_departure_city"/>
                                         <field name="return_train_departure_station"/>
@@ -138,7 +138,7 @@
                                         <field name="return_train_arrival_flexible"/>
                                     </group>
                                 </page>
-                                <page string="Return Airplane Details" attrs="{'invisible': [('use_return_airplane', '=', False)]}">
+                                <page string="Return Airplane Details" invisible="use_return_airplane == False">
                                     <group>
                                         <field name="return_airplane_departure_airport"/>
                                         <field name="return_airplane_departure_date"/>
@@ -149,7 +149,7 @@
                                         <field name="return_airplane_preferences"/>
                                     </group>
                                 </page>
-                                <page string="Return Bus Details" attrs="{'invisible': [('use_return_bus', '=', False)]}">
+                                <page string="Return Bus Details" invisible="use_return_bus == False">
                                     <group>
                                         <field name="return_bus_departure_city"/>
                                         <field name="return_bus_departure_station"/>
@@ -173,7 +173,7 @@
         <field name="name">business.trip.data.tree</field>
         <field name="model">business.trip.data</field>
         <field name="arch" type="xml">
-            <tree string="Business Trip Data">
+            <list string="Business Trip Data">
                 <field name="form_id"/>
                 <field name="form_title" string="Form Title"/>
                 <field name="full_name"/>
@@ -183,7 +183,7 @@
                 <field name="trip_type"/>
                 <field name="expected_cost"/>
                 <field name="currency_id"/>
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -215,7 +215,7 @@
     <record id="action_business_trip_data" model="ir.actions.act_window">
         <field name="name">Business Trip Data</field>
         <field name="res_model">business.trip.data</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
         <field name="view_id" ref="view_business_trip_data_tree"/>
         <field name="search_view_id" ref="view_business_trip_data_search"/>
         <field name="help" type="html">
@@ -228,4 +228,4 @@
         </field>
     </record>
 
-</odoo> 
+</odoo>

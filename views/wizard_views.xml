@@ -15,11 +15,11 @@
                     </group>
                     
                     <group>
-                        <group string="Trip Dates" attrs="{'invisible': [('is_hourly_trip', '=', True)]}">
+                        <group string="Trip Dates" invisible="is_hourly_trip == True">
                             <field name="travel_start_date" required="1"/>
-                            <field name="travel_end_date" required="1" attrs="{'readonly': [('is_hourly_trip', '=', True)]}"/>
+                            <field name="travel_end_date" required="1" readonly="is_hourly_trip == True"/>
                         </group>
-                        <group string="Same Day Trip" attrs="{'invisible': [('is_hourly_trip', '=', False)]}">
+                        <group string="Same Day Trip" invisible="is_hourly_trip == False">
                             <field name="travel_start_date" required="1" string="Date"/>
                             <field name="travel_start_time" widget="float_time"/>
                             <field name="travel_end_time" widget="float_time"/>
@@ -69,19 +69,19 @@
                     </div>
                     
                     <!-- Upload requirement notice for resubmissions -->
-                    <div class="alert alert-warning alert-link" attrs="{'invisible': ['|', ('requires_new_attachments', '=', False), ('expense_attachment_ids', '!=', [])]}">
+                    <div class="alert alert-warning alert-link" invisible="requires_new_attachments == False or expense_attachment_ids != []">
                         <i class="fa fa-exclamation-triangle mr-2" title="Warning"></i>
                         <span><strong>Required:</strong> You must upload new receipt attachments before submitting. Comments alone are not sufficient for resubmissions.</span>
                     </div>
                     
                     <!-- Upload in progress notice -->
-                    <div class="alert alert-info alert-link" attrs="{'invisible': [('is_uploading', '=', False)]}">
+                    <div class="alert alert-info alert-link" invisible="is_uploading == False">
                         <i class="fa fa-spinner fa-spin mr-2" title="Uploading"></i>
                         <span><strong>Uploading files...</strong> Please wait for the upload to complete before submitting.</span>
                     </div>
                     
                     <!-- Validation status indicator for first-time submissions -->
-                    <div class="alert alert-warning alert-link" attrs="{'invisible': ['|', '|', ('can_submit', '=', True), ('has_no_expenses', '=', True), ('is_resubmission', '=', True)]}">
+                    <div class="alert alert-warning alert-link" invisible="can_submit == True or has_no_expenses == True or is_resubmission == True">
                         <i class="fa fa-exclamation-triangle mr-2" title="Validation"></i>
                         <span>Please attach receipts or add comments to explain your expenses before submitting.</span>
                     </div>
@@ -93,21 +93,21 @@
                         <field name="is_resubmission" invisible="1"/>
                         <field name="requires_new_attachments" invisible="1"/>
                         <field name="has_no_expenses" />
-                        <field name="expense_total" required="1" attrs="{'readonly': [('has_no_expenses', '=', True)]}"/>
+                        <field name="expense_total" required="1" readonly="has_no_expenses == True"/>
                         <field name="currency_id" readonly="1" force_save="1"/>
                         <field name="expense_comments" placeholder="Enter any comments regarding the travel expenses (especially if you don't have receipts)..."/>
                         <field name="expense_attachment_ids" widget="many2many_binary" string="Attach Receipts" 
-                               attrs="{'required': [('expense_total', '>', 0)]}" 
+                               required="expense_total > 0" 
                                help="Upload your receipts here. Multiple files are supported."/>
                     </group>
                 </sheet>
                 <footer>
                     <button name="action_apply" string="Submit" type="object" 
                             class="btn-primary" data-hotkey="q"
-                            attrs="{'invisible': [('can_submit', '=', False)]}"/>
+                            invisible="can_submit == False"/>
                     <button name="dummy_disabled_button" string="Submit (Complete Required Fields)" type="button" 
                             class="btn-secondary" disabled="1"
-                            attrs="{'invisible': [('can_submit', '=', True)]}"/>
+                            invisible="can_submit == True"/>
                     <button string="Cancel" class="btn-secondary" special="cancel" data-hotkey="z"/>
                 </footer>
             </form>
@@ -207,7 +207,7 @@
     <record id="attachment_action" model="ir.actions.act_window">
         <field name="name">Attachments</field>
         <field name="res_model">ir.attachment</field>
-        <field name="view_mode">kanban,tree,form</field>
+        <field name="view_mode">kanban,list,form</field>
         <field name="domain">[('res_model', '=', 'business.trip.plan.line.item'), ('res_id', '=', active_id)]</field>
         <field name="context">{'default_res_model': 'business.trip.plan.line.item', 'default_res_id': active_id}</field>
         <field name="help" type="html">
@@ -307,7 +307,7 @@
                                 <label for="manual_cost_entry">Enter Total Cost Manually</label>
                             </div>
                         </div>
-                        <div class="col-md-4" attrs="{'invisible': [('manual_cost_entry', '=', False)]}">
+                        <div class="col-md-4" invisible="manual_cost_entry == False">
                             <div class="mt-2">
                                 <label for="manual_planned_cost" class="mr-2">Manual Total Cost:</label>
                                 <field name="manual_planned_cost" widget="monetary" options="{'currency_field': 'currency_id'}" class="oe_inline"/>
@@ -362,45 +362,46 @@
                             </div>
                             
                             <field name="plan_item_ids" context="{'default_item_date': context.get('default_item_date')}" editable="bottom">
-                                <tree editable="bottom" create="1" delete="1" decoration-info="cost_status=='estimated'" decoration-success="cost_status=='confirmed'" decoration-muted="cost_status=='to_reimburse'">
+                                <list editable="bottom" create="1" delete="1" decoration-info="cost_status=='estimated'" decoration-success="cost_status=='confirmed'" decoration-muted="cost_status=='to_reimburse'">
                                     <control>
                                         <create string="Add a new item"/>
                                         <field name="item_type" invisible="1"/>
                                     </control>
                                     <field name="item_type" widget="selection" required="1"/>
-                                    <field name="custom_type" attrs="{'invisible': [('item_type', '!=', 'custom')], 'required': [('item_type', '=', 'custom')]}"/>
+                                    <field name="custom_type" column_invisible="True" invisible="item_type != 'custom'" required="item_type == 'custom'"/>
                                     <field name="description" required="1"/>
                                     <field name="item_date" required="1"/>
                                     <field name="direction" widget="selection" 
-                                           attrs="{'column_invisible': [('parent.plan_item_ids', '=', [])], 'invisible': [('item_type', 'not in', ['transport_air', 'transport_train', 'transport_bus', 'transport_car', 'transport_taxi', 'transport_other'])]}"/>
+                                           column_invisible="parent.plan_item_ids == []" invisible="item_type not in ('transport_air', 'transport_train', 'transport_bus', 'transport_car', 'transport_taxi', 'transport_other')"/>
                                     <field name="from_location" 
-                                           attrs="{'column_invisible': [('parent.plan_item_ids', '=', [])], 'invisible': [('item_type', 'not in', ['transport_air', 'transport_train', 'transport_bus', 'transport_taxi', 'transport_other'])],
-                                                  'required': [('item_type', 'in', ['transport_air', 'transport_train', 'transport_bus'])]}"/>
+                                           column_invisible="parent.plan_item_ids == []" invisible="item_type not in ('transport_air', 'transport_train', 'transport_bus', 'transport_taxi', 'transport_other')"
+                                           required="item_type in ('transport_air', 'transport_train', 'transport_bus')"/>
                                     <field name="to_location" 
-                                           attrs="{'column_invisible': [('parent.plan_item_ids', '=', [])], 'invisible': [('item_type', 'not in', ['transport_air', 'transport_train', 'transport_bus', 'transport_taxi', 'transport_other'])],
-                                                  'required': [('item_type', 'in', ['transport_air', 'transport_train', 'transport_bus'])]}"/>
+                                           column_invisible="parent.plan_item_ids == []" invisible="item_type not in ('transport_air', 'transport_train', 'transport_bus', 'transport_taxi', 'transport_other')"
+                                           required="item_type in ('transport_air', 'transport_train', 'transport_bus')"/>
                                     <field name="accommodation_type" 
-                                           attrs="{'column_invisible': [('parent.plan_item_ids', '=', [])], 'invisible': [('item_type', 'not in', ['accommodation', 'accommodation_airbnb'])],
-                                                  'required': [('item_type', 'in', ['accommodation', 'accommodation_airbnb'])]}"/>
+                                           column_invisible="parent.plan_item_ids == []" invisible="item_type not in ('accommodation', 'accommodation_airbnb')"
+                                           required="item_type in ('accommodation', 'accommodation_airbnb')"/>
                                     <field name="nights" 
-                                           attrs="{'column_invisible': [('parent.plan_item_ids', '=', [])], 'invisible': [('item_type', 'not in', ['accommodation', 'accommodation_airbnb'])],
-                                                  'required': [('item_type', 'in', ['accommodation', 'accommodation_airbnb'])]}"/>
+                                           column_invisible="parent.plan_item_ids == []" invisible="item_type not in ('accommodation', 'accommodation_airbnb')"
+                                           required="item_type in ('accommodation', 'accommodation_airbnb')"/>
                                     <field name="carrier" 
-                                           attrs="{'column_invisible': [('parent.plan_item_ids', '=', [])], 'invisible': [('item_type', 'not in', ['transport_air', 'transport_train', 'transport_bus'])]}"/>
+                                           column_invisible="parent.plan_item_ids == []" invisible="item_type not in ('transport_air', 'transport_train', 'transport_bus')"/>
                                     <field name="reference_number" 
-                                           attrs="{'column_invisible': [('parent.plan_item_ids', '=', [])], 'invisible': [('item_type', 'not in', ['transport_air', 'transport_train', 'transport_bus', 'accommodation', 'accommodation_airbnb'])]}"/>
+                                           column_invisible="parent.plan_item_ids == []" invisible="item_type not in ('transport_air', 'transport_train', 'transport_bus', 'accommodation', 'accommodation_airbnb')"/>
                                     <field name="cost" sum="Total"/>
-                                    <field name="payment_method" attrs="{'column_invisible': [('parent.plan_item_ids', '=', [])]}"/>
-                                    <field name="cost_status" attrs="{'column_invisible': [('parent.plan_item_ids', '=', [])]}"/>
+                                    <field name="payment_method" column_invisible="parent.plan_item_ids == []"/>
+                                    <field name="cost_status" column_invisible="parent.plan_item_ids == []"/>
                                     <field name="currency_id" invisible="1"/>
                                     <button name="%(attachment_action)d" type="action" 
                                             icon="fa-paperclip" 
+                                            title="Attachments"
                                             context="{'default_res_model': 'business.trip.plan.line.item', 'default_res_id': id}"
-                                            attrs="{'invisible': [('id', '=', False)]}"/>
+                                            invisible="id == False"/>
                                     <button name="edit_item" string="Edit Details" type="object" class="btn btn-sm btn-link" 
-                                            attrs="{'invisible': [('id', '=', False)]}" 
+                                            invisible="id == False" 
                                             icon="fa-edit"/>
-                                </tree>
+                                </list>
                                 <form>
                                     <sheet>
                                         <div class="oe_title">
@@ -413,14 +414,14 @@
                                         <div class="alert alert-info alert-link">
                                             <strong>Item Type:</strong> 
                                             <field name="item_type" widget="radio" options="{'horizontal': true}" style="margin-left: 10px;"/>
-                                            <field name="custom_type" attrs="{'invisible': [('item_type', '!=', 'custom')], 'required': [('item_type', '=', 'custom')]}" placeholder="Specify custom type..." style="margin-left: 10px;"/>
+                                            <field name="custom_type" invisible="item_type != 'custom'" required="item_type == 'custom'" placeholder="Specify custom type..." style="margin-left: 10px;"/>
                                         </div>
                                         
                                         <group>
                                             <group>
                                                 <field name="item_date" required="1"/>
                                                 <!-- Show direction prominently for transport types -->
-                                                <field name="direction" widget="selection" attrs="{'invisible': [('item_type', 'not in', ['transport_air', 'transport_train', 'transport_bus', 'transport_taxi', 'transport_other'])], 'required': [('item_type', 'in', ['transport_air', 'transport_train', 'transport_bus', 'transport_taxi'])]}"/>
+                                                <field name="direction" widget="selection" invisible="item_type not in ('transport_air', 'transport_train', 'transport_bus', 'transport_taxi', 'transport_other')" required="item_type in ('transport_air', 'transport_train', 'transport_bus', 'transport_taxi')"/>
                                             </group>
                                             <group>
                                                 <field name="cost"/>
@@ -433,19 +434,19 @@
                                         <!-- Type-specific detail sections with better organization -->
                                         
                                         <!-- Transport common fields (only visible for transport types) -->
-                                        <group string="Transport Details" attrs="{'invisible': [('item_type', 'not in', ['transport_air', 'transport_train', 'transport_bus', 'transport_car', 'transport_taxi', 'transport_other'])]}">
+                                        <group string="Transport Details" invisible="item_type not in ('transport_air', 'transport_train', 'transport_bus', 'transport_car', 'transport_taxi', 'transport_other')">
                                             <group>
-                                                <field name="from_location" placeholder="Origin location" attrs="{'required': [('item_type', 'in', ['transport_air', 'transport_train', 'transport_bus'])]}"/>
-                                                <field name="to_location" placeholder="Destination location" attrs="{'required': [('item_type', 'in', ['transport_air', 'transport_train', 'transport_bus'])]}"/>
+                                                <field name="from_location" placeholder="Origin location" required="item_type in ('transport_air', 'transport_train', 'transport_bus')"/>
+                                                <field name="to_location" placeholder="Destination location" required="item_type in ('transport_air', 'transport_train', 'transport_bus')"/>
                                             </group>
                                             <group>
-                                                <field name="carrier" placeholder="e.g. Airline, Train Company" attrs="{'invisible': [('item_type', 'not in', ['transport_air', 'transport_train', 'transport_bus', 'transport_car'])]}"/>
-                                                <field name="reference_number" placeholder="Booking reference, ticket number" attrs="{'invisible': [('item_type', 'not in', ['transport_air', 'transport_train', 'transport_bus', 'transport_car', 'accommodation', 'accommodation_airbnb'])]}"/>
+                                                <field name="carrier" placeholder="e.g. Airline, Train Company" invisible="item_type not in ('transport_air', 'transport_train', 'transport_bus', 'transport_car')"/>
+                                                <field name="reference_number" placeholder="Booking reference, ticket number" invisible="item_type not in ('transport_air', 'transport_train', 'transport_bus', 'transport_car', 'accommodation', 'accommodation_airbnb')"/>
                                             </group>
                                         </group>
                                         
                                         <!-- Flight specific fields -->
-                                        <group string="Flight Specific Details" attrs="{'invisible': [('item_type', '!=', 'transport_air')]}">
+                                        <group string="Flight Specific Details" invisible="item_type != 'transport_air'">
                                             <group>
                                                 <label for="departure_time" string="Flight Times"/>
                                                 <div class="o_row">
@@ -463,7 +464,7 @@
                                         </group>
                                         
                                         <!-- Train/Bus specific fields -->
-                                        <group string="Train/Bus Specific Details" attrs="{'invisible': [('item_type', 'not in', ['transport_train', 'transport_bus'])]}">
+                                        <group string="Train/Bus Specific Details" invisible="item_type not in ('transport_train', 'transport_bus')">
                                             <group>
                                                 <label for="departure_time" string="Departure/Arrival Times"/>
                                                 <div class="o_row">
@@ -479,7 +480,7 @@
                                         </group>
                                         
                                         <!-- Accommodation fields -->
-                                        <group string="Accommodation Details" attrs="{'invisible': [('item_type', 'not in', ['accommodation', 'accommodation_airbnb'])]}">
+                                        <group string="Accommodation Details" invisible="item_type not in ('accommodation', 'accommodation_airbnb')">
                                             <group>
                                                 <field name="accommodation_type" widget="selection" required="1"/>
                                                 <field name="nights" required="1"/>
@@ -493,10 +494,10 @@
                                         </group>
                                         
                                         <!-- Meals fields -->
-                                        <group string="Meals Details" attrs="{'invisible': [('item_type', 'not in', ['meals', 'meals_per_diem'])]}">
+                                        <group string="Meals Details" invisible="item_type not in ('meals', 'meals_per_diem')">
                                             <group>
                                                 <field name="meal_type_widget" string="Meal Type" placeholder="e.g. Breakfast, Lunch, Dinner"/>
-                                                <field name="allowance_rate_widget" string="Per Diem Rate" attrs="{'invisible': [('item_type', '!=', 'meals_per_diem')]}" placeholder="Daily rate amount"/>
+                                                <field name="allowance_rate_widget" string="Per Diem Rate" invisible="item_type != 'meals_per_diem'" placeholder="Daily rate amount"/>
                                             </group>
                                             <group>
                                                 <field name="is_reimbursable"/>
@@ -504,7 +505,7 @@
                                         </group>
                                         
                                         <!-- Conference fields -->
-                                        <group string="Conference/Event Details" attrs="{'invisible': [('item_type', '!=', 'conference')]}">
+                                        <group string="Conference/Event Details" invisible="item_type != 'conference'">
                                             <group>
                                                 <field name="event_name_widget" string="Event Name" placeholder="Conference/Event name"/>
                                                 <field name="location_widget" string="Location" placeholder="Conference venue and location"/>
@@ -516,7 +517,7 @@
                                         </group>
                                         
                                         <!-- Other expenses fields -->
-                                        <group string="Other Expense Details" attrs="{'invisible': [('item_type', 'not in', ['visa_fee', 'parking', 'insurance', 'internet', 'translation', 'entertainment', 'shopping', 'currency_exchange', 'other', 'custom'])]}">
+                                        <group string="Other Expense Details" invisible="item_type not in ('visa_fee', 'parking', 'insurance', 'internet', 'translation', 'entertainment', 'shopping', 'currency_exchange', 'other', 'custom')">
                                             <group>
                                                 <field name="is_reimbursable"/>
                                             </group>
@@ -540,7 +541,7 @@
                             
                             <group class="oe_subtotal_footer oe_right" colspan="2" name="cost_summary">
                                 <field name="organizer_planned_cost" widget="monetary" options="{'currency_field': 'currency_id'}" 
-                                       class="oe_subtotal_footer_separator" attrs="{'readonly': [('manual_cost_entry', '=', True)]}"/>
+                                       class="oe_subtotal_footer_separator" readonly="manual_cost_entry == True"/>
                             </group>
                         </page>
                         <page string="Additional Notes">
@@ -577,4 +578,4 @@
         <field name="view_mode">form</field>
         <field name="target">new</field>
     </record> -->
-</odoo> 
+</odoo>

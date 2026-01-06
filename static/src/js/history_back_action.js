@@ -1,23 +1,16 @@
-odoo.define('custom_business_trip_management.HistoryBackAction', function (require) {
-    "use strict";
+/** @odoo-module **/
 
-    var AbstractAction = require('web.AbstractAction');
-    var core = require('web.core');
+import { registry } from "@web/core/registry";
 
-    /**
-     * Custom client action to navigate back in browser history
-     * This is used after "Save & Done" to prevent breadcrumb duplication
-     */
-    var HistoryBackAction = AbstractAction.extend({
-        start: function () {
-            // Navigate back in browser history
-            window.history.back();
-            return this._super.apply(this, arguments);
-        },
-    });
+/**
+ * History Back Action
+ * Custom client action to navigate back in browser history.
+ * This is used after "Save & Done" to prevent breadcrumb duplication.
+ */
+async function historyBackAction(env, action) {
+    window.history.back();
+    return true;
+}
 
-    core.action_registry.add('history_back_action', HistoryBackAction);
-
-    return HistoryBackAction;
-});
-
+// Register the client action
+registry.category("actions").add("history_back_action", historyBackAction);

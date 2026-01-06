@@ -1,34 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
-    <t t-name="BusinessTripFormSelectionDialog">
-        <div class="modal fade" role="dialog">
-            <div class="modal-dialog" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h4 class="modal-title">Business Trip Form Selection</h4>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            <span aria-hidden="true">&amp;times;</span>
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="form-group">
-                            <label>Selected Quotation:</label>
-                            <p><strong><t t-esc="sale_order.name or ''"/></strong></p>
-                            <p>Customer: <t t-esc="sale_order.partner_id[1] or ''"/></p>
-                            <p>Total Amount: <t t-esc="sale_order.amount_total or 0.0"/></p>
-                        </div>
-                        
-                        <div class="form-group">
-                            <p>A new business trip request will be created for this quotation.</p>
-                            <p>Do you want to proceed?</p>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary o_cancel" data-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-primary o_confirm">Confirm</button>
-                    </div>
+    <!-- Business Trip Form Selection Dialog - OWL Component Template -->
+    <t t-name="custom_business_trip_management.BusinessTripFormSelectionDialog">
+        <Dialog title="'Business Trip Form Selection'" size="'md'">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Selected Quotation:</label>
+                    <p><strong><t t-esc="props.saleOrder.name or ''"/></strong></p>
+                    <p>Customer: <t t-esc="props.saleOrder.partner_id[1] or ''"/></p>
+                    <p>Total Amount: <t t-esc="props.saleOrder.amount_total or 0.0"/></p>
+                </div>
+                
+                <div class="form-group">
+                    <p>A new business trip request will be created for this quotation.</p>
+                    <p>Do you want to proceed?</p>
                 </div>
             </div>
-        </div>
+            <t t-set-slot="footer">
+                <button type="button" class="btn btn-secondary" t-on-click="onCancel">Cancel</button>
+                <button type="button" class="btn btn-primary" t-on-click="onConfirm">Confirm</button>
+            </t>
+        </Dialog>
     </t>
-</templates> 
+</templates>

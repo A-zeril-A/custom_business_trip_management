@@ -1,115 +1,136 @@
-odoo.define('custom_business_trip_management.custom_trip_redirect', function (require) {
-    "use strict";
+/** @odoo-module **/
 
-    const ListController = require('web.ListController');
-    const ListView = require('web.ListView');
-    const viewRegistry = require('web.view_registry');
-    const core = require('web.core');
-    const session = require('web.session');
-    const ajax = require('web.ajax');
-    const rpc = require('web.rpc');
-    const Dialog = require('web.Dialog');
-    const AbstractAction = require('web.AbstractAction');
+import { registry } from "@web/core/registry";
+import { listView } from "@web/views/list/list_view";
+import { ListController } from "@web/views/list/list_controller";
+import { useService } from "@web/core/utils/hooks";
+import { Component, useState, onWillStart } from "@odoo/owl";
+import { Dialog } from "@web/core/dialog/dialog";
+import { _t } from "@web/core/l10n/translation";
 
-    const CustomTripListController = ListController.extend({
-        events: _.extend({}, ListController.prototype.events, {
-            'click .o_list_view tbody tr': '_onRowClicked',
-        }),
+/**
+ * Dialog component for Business Trip Form Selection
+ */
+export class BusinessTripFormSelectionDialog extends Component {
+    static template = "custom_business_trip_management.BusinessTripFormSelectionDialog";
+    static components = { Dialog };
+    static props = {
+        close: Function,
+        saleOrder: Object,
+        onConfirm: Function,
+    };
 
-        _onRowClicked: function (event) {
-            event.preventDefault();
-            event.stopPropagation();
+    onConfirm() {
+        this.props.onConfirm();
+        this.props.close();
+    }
 
-            const record = this.model.get(event.currentTarget.dataset.id);
-            if (!record || !record.data || !record.data.id) {
-                return;
-            }
+    onCancel() {
+        this.props.close();
+    }
+}
 
-            const self = this;
-            this._rpc({
-                model: 'sale.order',
-                method: 'read',
-                args: [[record.data.id], ['name', 'partner_id', 'amount_total']],
-            }).then(function (saleResult) {
-                if (saleResult && saleResult.length > 0) {
-                    // RPC call to fetch existing forms is removed.
-                    // Show selection popup (now more of a confirmation popup)
-                    var $dialog = $(core.qweb.render('BusinessTripFormSelectionDialog', {
-                        sale_order: {
-                            name: saleResult[0].name || '',
-                            partner_id: saleResult[0].partner_id || [0, ''],
-                            amount_total: saleResult[0].amount_total || 0.0
-                        },
-                        // 'forms' array is no longer passed
-                    }));
+/**
+ * Custom List Controller for Business Trip Redirect
+ * Handles row click events to show a dialog and redirect to create new trip form
+ */
+export class CustomTripListController extends ListController {
+    setup() {
+        super.setup();
+        this.orm = useService("orm");
+        this.dialogService = useService("dialog");
+        this.actionService = useService("action");
+    }
 
-                    $dialog.appendTo('body').modal();
-
-                    // Set popup events
-                    $dialog.find('.o_confirm').click(function () {
-                        $dialog.modal('hide');
-                        // Always redirect to create a new form
-                        window.location.href = '/business_trip/new/' + record.data.id;
-                    });
-
-                    $dialog.find('.o_cancel').click(function () {
-                        $dialog.modal('hide');
-                    });
-                }
-            });
-        },
-    });
-
-    const CustomTripListView = ListView.extend({
-        config: _.extend({}, ListView.prototype.config, {
-            Controller: CustomTripListController,
-        }),
-    });
-
-    viewRegistry.add('custom_trip_redirect', CustomTripListView);
-
-    var BusinessTripRedirect = AbstractAction.extend({
-        template: 'BusinessTripRedirect',
-        
-        init: function (parent, action) {
-            this._super.apply(this, arguments);
-            this.action = action;
-        },
-
-        start: function () {
-            var self = this;
-            return this._super.apply(this, arguments).then(function () {
-                self._redirectBasedOnRole();
-            });
-        },
-
-        _redirectBasedOnRole: function () {
-            var self = this;
-            
-            // Check user role and redirect accordingly
-            rpc.query({
-                model: 'res.users',
-                method: 'has_group',
-                args: ['hr.group_hr_manager']
-            }).then(function (is_manager) {
-                if (is_manager) {
-                    // Redirect managers to admin dashboard
-                    self.do_action('custom_business_trip_management.action_business_trip_dashboard');
-                } else {
-                    // Redirect employees to business trip form
-                    self._redirectToBusinessTripForm();
-                }
-            });
-        },
-
-        _redirectToBusinessTripForm: function () {
-            var self = this;
-            // For employees, redirect to the form view
-            this.do_action('custom_business_trip_management.action_business_trip_form_request');
+    /**
+     * Handle row click event
+     * @param {Object} record - The clicked record
+     */
+    async onRecordClick(record) {
+        const recordId = record.resId;
+        if (!recordId) {
+            return;
         }
-    });
 
-    core.action_registry.add('business_trip_redirect', BusinessTripRedirect);
+        // Fetch sale order data
+        const saleResult = await this.orm.read("sale.order", [recordId], [
+            "name",
+            "partner_id",
+            "amount_total",
+        ]);
 
-    return BusinessTripRedirect;
-});
+        if (saleResult && saleResult.length > 0) {
+            const saleOrder = {
+                name: saleResult[0].name || "",
+                partner_id: saleResult[0].partner_id || [0, ""],
+                amount_total: saleResult[0].amount_total || 0.0,
+            };
+
+            // Show dialog
+            this.dialogService.add(BusinessTripFormSelectionDialog, {
+                saleOrder: saleOrder,
+                onConfirm: () => {
+                    // Redirect to create a new form
+                    window.location.href = "/business_trip/new/" + recordId;
+                },
+            });
+        }
+    }
+
+    /**
+     * Override openRecord to intercept row clicks
+     * @param {Object} record - The record being opened
+     */
+    async openRecord(record) {
+        await this.onRecordClick(record);
+    }
+}
+
+// Register the custom list view
+export const customTripRedirectView = {
+    ...listView,
+    Controller: CustomTripListController,
+};
+
+registry.category("views").add("custom_trip_redirect", customTripRedirectView);
+
+/**
+ * Business Trip Redirect Action
+ * Redirects users to different views based on their role
+ */
+async function businessTripRedirectAction(env, action) {
+    const orm = env.services.orm;
+    const actionService = env.services.action;
+
+    try {
+        // Check if user is HR manager
+        const isManager = await orm.call("res.users", "has_group", [
+            "hr.group_hr_manager",
+        ]);
+
+        if (isManager) {
+            // Redirect managers to admin dashboard
+            await actionService.doAction(
+                "custom_business_trip_management.action_business_trip_dashboard"
+            );
+        } else {
+            // Redirect employees to business trip form request
+            await actionService.doAction(
+                "custom_business_trip_management.action_business_trip_form_request"
+            );
+        }
+    } catch (error) {
+        console.error("Error in business trip redirect:", error);
+        // Fallback to form request action
+        await actionService.doAction(
+            "custom_business_trip_management.action_business_trip_form_request"
+        );
+    }
+
+    return true;
+}
+
+// Register the client action
+registry
+    .category("actions")
+    .add("business_trip_redirect", businessTripRedirectAction);

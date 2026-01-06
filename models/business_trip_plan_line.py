@@ -117,10 +117,10 @@ class BusinessTripPlanLine(models.Model):
     # JSON field for storing type-specific details
     item_data_json = fields.Text(string='Item Details (JSON)', help="Internal: Stores item-specific details.")
     
-    @api.model
-    def create(self, vals):
+    @api.model_create_multi
+    def create(self, vals_list):
         """Override create to handle any special creation logic"""
-        return super(BusinessTripPlanLine, self).create(vals)
+        return super(BusinessTripPlanLine, self).create(vals_list)
         
     def write(self, vals):
         """Override write to handle any special update logic"""

@@ -103,17 +103,18 @@ class ResUsers(models.Model):
         
         return super(ResUsers, self).write(vals)
 
-    @api.model
-    def create(self, vals):
-        user = super().create(vals)
+    @api.model_create_multi
+    def create(self, vals_list):
+        users = super().create(vals_list)
         requester_group = self.env.ref('custom_business_trip_management.group_business_trip_requester', raise_if_not_found=False)
         if requester_group:
-            # Check if the new user belongs to the 'Internal User' group
-            if user.has_group('base.group_user'):
-                # Add the 'Business Trip Requester' group if not already assigned
-                if requester_group not in user.groups_id:
-                    user.write({'groups_id': [(4, requester_group.id)]})
-        return user
+            for user in users:
+                # Check if the new user belongs to the 'Internal User' group
+                if user.has_group('base.group_user'):
+                    # Add the 'Business Trip Requester' group if not already assigned
+                    if requester_group not in user.groups_id:
+                        user.write({'groups_id': [(4, requester_group.id)]})
+        return users
 
     @api.model
     def get_default_travel_approver_sale_order(self):

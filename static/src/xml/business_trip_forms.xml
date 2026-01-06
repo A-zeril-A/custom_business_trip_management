@@ -1,48 +1,42 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
-    <!-- Template for the "Create New Request" button -->
-    <t t-name="FormioMyFormsList.buttons">
-        <div class="o_list_buttons">
-            <button type="button" class="btn btn-primary o_list_button_create_request">
+    <!-- Buttons template for My Business Trip Forms List View -->
+    <t t-name="custom_business_trip_management.MyBusinessTripFormsButtons" t-inherit="web.ListView.Buttons" t-inherit-mode="primary">
+        <xpath expr="//div[hasclass('o_list_buttons')]" position="inside">
+            <button type="button" class="btn btn-primary o_list_button_create_request" t-on-click="() => this.showRequestTypeDialog()">
                 Create New Request
             </button>
-        </div>
+        </xpath>
     </t>
-    
-    <!-- Template for the Request Type Selection Dialog -->
-    <t t-name="BusinessTripRequestTypeDialog">
-        <div class="modal fade" role="dialog">
-            <div class="modal-dialog" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h4 class="modal-title">Create New Business Trip Request</h4>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                            <span aria-hidden="true">&amp;times;</span>
+
+    <!-- Template for the List View (for controller reference) -->
+    <t t-name="custom_business_trip_management.MyBusinessTripFormsListView" t-inherit="web.ListView" t-inherit-mode="primary">
+    </t>
+
+    <!-- Business Trip Request Type Dialog - OWL Component Template -->
+    <t t-name="custom_business_trip_management.BusinessTripRequestTypeDialog">
+        <Dialog title="'Create New Business Trip Request'" size="'lg'">
+            <div class="modal-body">
+                <p>Please select the type of business trip request you want to create:</p>
+                
+                <div class="row mt-4">
+                    <div class="col-md-6 text-center">
+                        <button class="btn btn-info btn-lg py-4 px-4 w-100" t-on-click="onWithQuotation">
+                            <i class="fa fa-link fa-2x mb-2"></i>
+                            <div>Related to a Quotation</div>
                         </button>
                     </div>
-                    <div class="modal-body">
-                        <p>Please select the type of business trip request you want to create:</p>
-                        
-                        <div class="row mt-4">
-                            <div class="col-md-6 text-center">
-                                <button class="btn btn-info btn-with-quotation btn-lg py-4 px-4 w-100">
-                                    <i class="fa fa-link fa-2x mb-2"></i>
-                                    <div>Related to a Quotation</div>
-                                </button>
-                            </div>
-                            <div class="col-md-6 text-center">
-                                <button class="btn btn-success btn-standalone btn-lg py-4 px-4 w-100">
-                                    <i class="fa fa-file-o fa-2x mb-2"></i>
-                                    <div>Standalone Request</div>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <div class="col-md-6 text-center">
+                        <button class="btn btn-success btn-lg py-4 px-4 w-100" t-on-click="onStandalone">
+                            <i class="fa fa-file-o fa-2x mb-2"></i>
+                            <div>Standalone Request</div>
+                        </button>
                     </div>
                 </div>
             </div>
-        </div>
+            <t t-set-slot="footer">
+                <button type="button" class="btn btn-secondary" t-on-click="onCancel">Cancel</button>
+            </t>
+        </Dialog>
     </t>
-</templates> 
+</templates>

@@ -1,7 +1,7 @@
 # pyright: reportUnusedExpression=false
 {
     'name': 'Business Trip Management',
-    'version': '4.0.4',
+    'version': '18.0.1.0.0',
     'license': 'LGPL-3',
     'summary': 'Redirects users to different business trip views based on role',
     'description': """
@@ -36,16 +36,14 @@ This module provides a dynamic redirection to business trip management views:
         'web.assets_backend': [
             'custom_business_trip_management/static/src/js/custom_trip_redirect.js',
             'custom_business_trip_management/static/src/js/custom_trip_form_request.js',
+            'custom_business_trip_management/static/src/js/trip_redirect.js',
             'custom_business_trip_management/static/src/js/history_back_action.js',
             'custom_business_trip_management/static/src/js/expense_upload_tracker.js',
             'custom_business_trip_management/static/src/css/custom_status_colors.css',
             'custom_business_trip_management/static/src/css/business_trip_form.css',
             'custom_business_trip_management/static/src/xml/business_trip_dialog.xml',
-        ],
-        'web.assets_qweb': [
-            'custom_business_trip_management/static/src/xml/business_trip_dialog.xml',
             'custom_business_trip_management/static/src/xml/business_trip_forms.xml',
-        ],        
+        ],
     },    
     'installable': True,
     'application': True,

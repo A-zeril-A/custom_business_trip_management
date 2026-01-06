@@ -24,19 +24,19 @@
                     <!--
                     <field name="trip_status" widget="statusbar" 
                            statusbar_visible="draft,submitted,pending_organization,organization_done,completed_waiting_expense,completed"
-                           attrs="{'invisible': [('form_completion_status', '!=', 'form_completed')]}"
+                           invisible="form_completion_status != 'form_completed'"
                            readonly="1"/>
                     -->
                     
                     <!-- Submit for Approval Button - visible when form is completed and trip is in draft/returned status
                     <button name="action_submit_to_manager" type="object" string="Submit for Approval"
                         class="oe_highlight"
-                        attrs="{'invisible': ['|', '|', ('form_completion_status', '!=', 'form_completed'), ('trip_status', 'not in', ['draft', 'returned']), ('is_current_user_owner', '=', False)]}"
+                        invisible="form_completion_status != 'form_completed' or trip_status not in ('draft', 'returned') or is_current_user_owner == False"
                         confirm="Are you sure you want to submit this trip request for approval?"/> -->
                 </header>
                 <sheet>
                     <!-- Save & Done button at top - only visible when form is awaiting completion -->
-                    <div class="o_form_buttons_top" attrs="{'invisible': [('form_completion_status', '!=', 'awaiting_completion')]}">
+                    <div class="o_form_buttons_top" invisible="form_completion_status != 'awaiting_completion'">
                         <button name="action_save_and_complete_form" string="Save &amp; Done" type="object" 
                                 class="btn-success o_form_button_save_done"/>
                     </div>
@@ -54,8 +54,8 @@
                     <field name="use_return_train" invisible="1"/>
                     <field name="use_return_bus" invisible="1"/>
                     <field name="use_return_airplane" invisible="1"/>
-                    <!-- Removed: rental_car_unlimited_km and return_rental_car_unlimited_km - needed for attrs -->
-                    <!-- Removed: rental_car_type and return_rental_car_type - needed for attrs -->
+                    <!-- Removed: rental_car_unlimited_km and return_rental_car_unlimited_km - needed for invisible conditions -->
+                    <!-- Removed: rental_car_type and return_rental_car_type - needed for invisible conditions -->
                     
                     <!-- Modern Card-based Layout -->
                     <div class="o_trip_form_container">
@@ -147,7 +147,7 @@
                                 </group>
                                 
                                 <!-- Rental Car Details -->
-                                <div class="o_transport_detail_section o_transport_rental_car" attrs="{'invisible': [('use_rental_car', '=', False)]}">
+                                <div class="o_transport_detail_section o_transport_rental_car" invisible="use_rental_car == False">
                                     <div class="o_transport_detail_header">
                                         <h3>Rental Car Details</h3>
                                     </div>
@@ -175,12 +175,12 @@
                                                    help="Select who will drive the rental car"/>
                                             <field name="rental_car_drivers_license" string="Driver's License" widget="binary" 
                                                    filename="rental_car_drivers_license_filename"
-                                                   attrs="{'invisible': [('rental_car_type', '!=', 'self')]}"
+                                                   invisible="rental_car_type != 'self'"
                                                    help="Upload a copy of your valid driver's license"/>
                                             <field name="rental_car_unlimited_km" string="Unlimited Kilometers"
                                                    help="Check if you need unlimited mileage"/>
                                             <field name="rental_car_kilometer_limit" string="Kilometer Limit" 
-                                                   attrs="{'invisible': [('rental_car_unlimited_km', '=', True)]}"
+                                                   invisible="rental_car_unlimited_km == True"
                                                    help="Estimated kilometers you will drive"/>
                                         </group>
                                     </group>
@@ -192,7 +192,7 @@
                                 </div>
                                 
                                 <!-- Train Details -->
-                                <div class="o_transport_detail_section o_transport_train" attrs="{'invisible': [('use_train', '=', False)]}">
+                                <div class="o_transport_detail_section o_transport_train" invisible="use_train == False">
                                     <div class="o_transport_detail_header">
                                         <h3>Train Details</h3>
                                     </div>
@@ -221,7 +221,7 @@
                                 </div>
                                 
                                 <!-- Bus Details -->
-                                <div class="o_transport_detail_section o_transport_bus" attrs="{'invisible': [('use_bus', '=', False)]}">
+                                <div class="o_transport_detail_section o_transport_bus" invisible="use_bus == False">
                                     <div class="o_transport_detail_header">
                                         <h3>Bus Details</h3>
                                     </div>
@@ -250,7 +250,7 @@
                                 </div>
                                 
                                 <!-- Airplane Details -->
-                                <div class="o_transport_detail_section o_transport_airplane" attrs="{'invisible': [('use_airplane', '=', False)]}">
+                                <div class="o_transport_detail_section o_transport_airplane" invisible="use_airplane == False">
                                     <div class="o_transport_detail_header">
                                         <h3>Airplane Details</h3>
                                     </div>
@@ -284,7 +284,7 @@
                         </div>
                         
                         <!-- Section 3: Return Transportation (conditional on trip_type) -->
-                        <div class="o_form_section_card" attrs="{'invisible': [('trip_type', '!=', 'twoWay')]}">
+                        <div class="o_form_section_card" invisible="trip_type != 'twoWay'">
                             <div class="o_section_header">
                                 <span class="o_section_icon">🛬</span>
                                 <h2>Return Transportation</h2>
@@ -314,7 +314,7 @@
                                 </group>
                                 
                                 <!-- Return Rental Car Details -->
-                                <div class="o_transport_detail_section o_transport_rental_car" attrs="{'invisible': [('use_return_rental_car', '=', False)]}">
+                                <div class="o_transport_detail_section o_transport_rental_car" invisible="use_return_rental_car == False">
                                     <div class="o_transport_detail_header">
                                         <h3>Return Rental Car Details</h3>
                                     </div>
@@ -342,12 +342,12 @@
                                                    help="Select who will drive the return rental car"/>
                                             <field name="return_rental_car_drivers_license" string="Driver's License" 
                                                    widget="binary" filename="return_rental_car_drivers_license_filename"
-                                                   attrs="{'invisible': [('return_rental_car_type', '!=', 'self')]}"
+                                                   invisible="return_rental_car_type != 'self'"
                                                    help="Upload a copy of your valid driver's license"/>
                                             <field name="return_rental_car_unlimited_km" string="Unlimited Kilometers"
                                                    help="Check if you need unlimited mileage for return trip"/>
                                             <field name="return_rental_car_kilometer_limit" string="Kilometer Limit" 
-                                                   attrs="{'invisible': [('return_rental_car_unlimited_km', '=', True)]}"
+                                                   invisible="return_rental_car_unlimited_km == True"
                                                    help="Estimated kilometers you will drive on return"/>
                                         </group>
                                     </group>
@@ -359,7 +359,7 @@
                                 </div>
                                 
                                 <!-- Return Train Details -->
-                                <div class="o_transport_detail_section o_transport_train" attrs="{'invisible': [('use_return_train', '=', False)]}">
+                                <div class="o_transport_detail_section o_transport_train" invisible="use_return_train == False">
                                     <div class="o_transport_detail_header">
                                         <h3>Return Train Details</h3>
                                     </div>
@@ -388,7 +388,7 @@
                                 </div>
                                 
                                 <!-- Return Airplane Details -->
-                                <div class="o_transport_detail_section o_transport_airplane" attrs="{'invisible': [('use_return_airplane', '=', False)]}">
+                                <div class="o_transport_detail_section o_transport_airplane" invisible="use_return_airplane == False">
                                     <div class="o_transport_detail_header">
                                         <h3>Return Airplane Details</h3>
                                     </div>
@@ -420,7 +420,7 @@
                                 </div>
                                 
                                 <!-- Return Bus Details -->
-                                <div class="o_transport_detail_section o_transport_bus" attrs="{'invisible': [('use_return_bus', '=', False)]}">
+                                <div class="o_transport_detail_section o_transport_bus" invisible="use_return_bus == False">
                                     <div class="o_transport_detail_header">
                                         <h3>Return Bus Details</h3>
                                     </div>
@@ -463,7 +463,7 @@
                                            help="Select 'Yes' if you need accommodation booking during your trip"/>
                                 </group>
                                 
-                                <div attrs="{'invisible': [('accommodation_needed', '!=', 'yes')]}">
+                                <div invisible="accommodation_needed != 'yes'">
                                     <group>
                                         <group string="Accommodation Details">
                                             <field name="accommodation_number_of_people" string="Number of People"
@@ -487,13 +487,13 @@
                                     <!-- Accompanying Person Details -->
                                     <div class="o_accompanying_persons_section">
                                         <h3>Accompanying Persons</h3>
-                                        <field name="accompanying_person_ids" nolabel="1" context="{'default_business_trip_id': active_id}"
+                                        <field name="accompanying_person_ids" nolabel="1" context="{'default_business_trip_id': id}"
                                                help="Add details of any persons accompanying you on this trip">
-                                            <tree editable="bottom">
+                                            <list editable="bottom">
                                                 <field name="full_name" string="Full Name"/>
                                                 <field name="identity_document" widget="binary" filename="identity_document_filename" string="Identity Document"/>
-                                                <field name="identity_document_filename" invisible="1"/>
-                                            </tree>
+                                                <field name="identity_document_filename" column_invisible="True"/>
+                                            </list>
                                         </field>
                                     </div>
                                 </div>
@@ -503,7 +503,7 @@
                     </div>
                     
                     <!-- Save & Done button at bottom - only visible when form is awaiting completion -->
-                    <div class="o_form_buttons_bottom" attrs="{'invisible': [('form_completion_status', '!=', 'awaiting_completion')]}">
+                    <div class="o_form_buttons_bottom" invisible="form_completion_status != 'awaiting_completion'">
                         <button name="action_save_and_complete_form" string="Save &amp; Done" type="object" 
                                 class="btn-success o_form_button_save_done"/>
                     </div>
