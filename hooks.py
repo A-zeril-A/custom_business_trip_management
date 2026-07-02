@@ -1,7 +1,4 @@
-from odoo import api, SUPERUSER_ID
 import logging
-import json
-from odoo import fields
 
 _logger = logging.getLogger(__name__)
 
@@ -43,7 +40,7 @@ def _assign_group_to_internal_users(env):
         })
 
 
-def post_init_hook(cr, registry):
+def post_init_hook(env):
     """
     Post-install hook to:
     1. Migrate the legacy form completion status.
@@ -51,7 +48,8 @@ def post_init_hook(cr, registry):
     3. Add this group to the 'Internal User' group.
     4. Migrate existing trip data to the new line models.
     """
-    env = api.Environment(cr, SUPERUSER_ID, {})
     _create_business_trip_requester_group(env)
     _assign_group_to_internal_users(env)
-    _migrate_trip_data_to_new_models(env) 
+    migration = globals().get('_migrate_trip_data_to_new_models')
+    if migration:
+        migration(env)
