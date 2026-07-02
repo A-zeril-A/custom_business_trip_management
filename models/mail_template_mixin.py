@@ -14,6 +14,18 @@ class MailTemplateMixin(models.AbstractModel):
     _name = 'mail.template.mixin'
     _description = 'Mixin for posting styled chatter messages'
 
+    def _render_styled_message_card(self, card_type, icon, title, body_html=None, next_steps=None, submitted_by=None, icon_class=None):
+        rendered_message = self.env['ir.qweb']._render('custom_business_trip_management.chatter_message_card', {
+            'card_type': card_type,
+            'icon': icon,
+            'icon_class': icon_class,
+            'title': title,
+            'body_html': body_html,
+            'next_steps': next_steps,
+            'submitted_by': submitted_by,
+        })
+        return Markup(rendered_message.decode('utf-8') if isinstance(rendered_message, bytes) else rendered_message)
+
     def _post_styled_message(self, card_type, icon, title, template_xml_id=None, body_html=None, render_context=None, is_internal_note=True, confidential=False, recipient_partner_ids=None):
         """
         Renders the generic message card template and posts it to the chatter.
@@ -45,17 +57,16 @@ class MailTemplateMixin(models.AbstractModel):
             # Wrap plain HTML in Markup for Odoo 18
             final_body_html = Markup(body_html)
 
-        # Odoo 18: Use ir.qweb._render() instead of view._render()
-        rendered_message = self.env['ir.qweb']._render('custom_business_trip_management.chatter_message_card', {
-            'card_type': card_type,
-            'icon': icon,
-            'title': title,
-            'body_html': final_body_html,
-            'submitted_by': self.env.user.name
-        })
-        
-        # Convert to Markup for safe HTML rendering in Odoo 18
-        message_body = Markup(rendered_message.decode('utf-8') if isinstance(rendered_message, bytes) else rendered_message)
+        if final_body_html and hasattr(self, '_append_record_reference_to_body_html'):
+            final_body_html = self._append_record_reference_to_body_html(final_body_html)
+
+        message_body = self._render_styled_message_card(
+            card_type=card_type,
+            icon=icon,
+            title=title,
+            body_html=final_body_html,
+            submitted_by=self.env.user.name,
+        )
 
         post_vals = {
             'body': message_body,

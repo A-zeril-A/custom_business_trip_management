@@ -31,22 +31,29 @@ class BusinessTripController(http.Controller):
         """
         user = request.env.user
 
-        # Admin and Manager/Organizer go to "Assigned to Me", regular users go to "My Business Trip Forms"
+        is_management_user = (
+            user.has_group('custom_business_trip_management.group_business_trip_manager')
+            or user.has_group('custom_business_trip_management.group_business_trip_organizer')
+            or user.has_group('custom_business_trip_management.group_business_trip_manager_sale_order')
+            or user.has_group('custom_business_trip_management.group_business_trip_manager_standalone')
+        )
+
+        # Admin and management/reviewer users go to "Assigned to Me"; regular users go to "My Business Trip Forms".
         if user.has_group('base.group_system'):
             # Admin users: go to "Assigned to Me" and show all business trips
             action = request.env.ref('custom_business_trip_management.action_all_assigned_business_trip_forms')
             menu = request.env.ref('custom_business_trip_management.menu_all_assigned_business_trip_forms')
             domain = []
-        elif user.has_group('custom_business_trip_management.group_business_trip_manager') or user.has_group('custom_business_trip_management.group_business_trip_organizer'):
-            # Manager/Organizer users: go to "Assigned to Me" and show trips assigned to them
+        elif is_management_user:
+            # Management/reviewer users: go to "Assigned to Me" and show trips assigned to them.
             action = request.env.ref('custom_business_trip_management.action_all_assigned_business_trip_forms')
             menu = request.env.ref('custom_business_trip_management.menu_all_assigned_business_trip_forms')
             domain = [
-                '|', 
+                '|', '|', '|',
                 ('user_id', '=', user.id), 
-                '|',
                 '&', ('manager_id', '=', user.id), ('trip_status', '!=', 'draft'),
-                ('organizer_id', '=', user.id)
+                ('organizer_id', '=', user.id),
+                '&', ('expense_reviewer_id', '=', user.id), ('trip_status', '=', 'expense_submitted')
             ]
         else:
             # Regular users: go to "My Business Trip Forms" and show only their own trips

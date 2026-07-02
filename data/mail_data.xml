@@ -7,7 +7,7 @@
             <field name="name">Confidential Message</field>
             
             <!-- Description of the subtype; helps users understand its purpose -->
-            <field name="description">Confidential Message - Only visible to Manager and Organizer</field>
+            <field name="description">Confidential Message - Only visible to selected recipients</field>
             
             <!-- Marks this subtype as internal, meaning it's not shown to regular users by default -->
             <field name="internal" eval="True"/>

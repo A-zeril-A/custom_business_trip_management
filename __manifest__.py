@@ -17,6 +17,7 @@ This module provides a dynamic redirection to business trip management views:
         'security/security.xml',
         'security/ir.model.access.csv',
         'data/business_trip_project_data.xml',
+        'data/business_trip_name_upgrade.xml',
         'views/business_trip_views.xml',
         'views/business_trip_form_page_views.xml',
         'views/business_trip_action.xml',

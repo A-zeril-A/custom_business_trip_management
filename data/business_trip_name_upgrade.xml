@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <function model="business.trip" name="_refresh_generated_trip_names_on_upgrade"/>
+    </data>
+</odoo>

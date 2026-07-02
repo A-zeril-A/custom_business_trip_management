@@ -19,9 +19,10 @@
         <field name="name">Assigned to Me</field>
         <field name="res_model">business.trip</field>
         <field name="view_mode">list,form</field>
-        <field name="domain">['|', 
+        <field name="domain">['|', '|',
                               '&amp;', ('manager_id', '=', uid), ('trip_status', '!=', 'draft'),
-                              ('organizer_id', '=', uid)
+                              ('organizer_id', '=', uid),
+                              '&amp;', ('expense_reviewer_id', '=', uid), ('trip_status', '=', 'expense_submitted')
                              ]</field>
         <field name="view_id" ref="custom_business_trip_management.view_all_assigned_business_trip_tree"/>
         <field name="search_view_id" ref="custom_business_trip_management.view_business_trip_search"/>

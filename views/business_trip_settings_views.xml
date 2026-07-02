@@ -7,61 +7,102 @@
         <field name="priority" eval="70"/>
         <field name="inherit_id" ref="base.res_config_settings_view_form"/>
         <field name="arch" type="xml">
-            <!-- In Odoo 17, settings blocks are added directly to the form -->
             <xpath expr="//form" position="inside">
-                <div class="app_settings_block" data-string="Business Trip" string="Business Trip" data-key="custom_business_trip_management">
-                    <h2>Approval Process</h2>
-                    <div class="row mt16 o_settings_container">
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="require_finance_approval_for_trips"/>
+                <app data-string="Business Trips"
+                     string="Business Trips"
+                     name="custom_business_trip_management"
+                     groups="base.group_system,custom_business_trip_management.group_business_trip_manager">
+                    <block title="Approval Process" id="business_trip_approval_process">
+                        <setting id="business_trip_sale_order_travel_approver"
+                                 string="Travel Approver (Sale Order)"
+                                 help="Select the active Travel Approver for sale order related trips. This is the same setting available on the user form.">
+                            <field name="travel_approver_sale_order_user_id"
+                                   options="{'no_create': True, 'no_open': True}"/>
+                        </setting>
+                        <setting id="business_trip_standalone_travel_approver"
+                                 string="Travel Approver (Standalone)"
+                                 help="Select the active Travel Approver for standalone trips. This is the same setting available on the user form.">
+                            <field name="travel_approver_standalone_user_id"
+                                   options="{'no_create': True, 'no_open': True}"/>
+                        </setting>
+                        <setting id="business_trip_undo_expense_approval_deadline"
+                                 string="Expense Approval Reopen Window"
+                                 company_dependent="1"
+                                 help="Controls how long an approved expense can be reopened and sent back to expense review by an authorized user. Set 0 for no limit.">
+                            <div class="content-group">
+                                <span class="oe_inline">Allow reopening for</span>
+                                <field name="undo_expense_approval_days_limit" class="oe_inline" widget="integer"/>
+                                <span class="oe_inline">days after approval</span>
                             </div>
-                            <div class="o_setting_right_pane">
-                                <label for="require_finance_approval_for_trips"/>
-                                <div class="text-muted">
-                                    Require finance department approval for business trip requests after manager approval
-                                </div>
+                        </setting>
+                    </block>
+                    <block title="Employee Expense Follow-up" id="business_trip_employee_expense_submission_reminders">
+                        <setting id="business_trip_employee_expense_reminder_delay"
+                                 string="Employee First Reminder"
+                                 company_dependent="1"
+                                 help="Controls when the employee first receives a grouped expense reminder email and a To Do activity after planning is finalized.">
+                            <div class="content-group">
+                                <span class="oe_inline">Send the first employee reminder</span>
+                                <field name="employee_expense_reminder_delay" class="oe_inline" widget="integer"/>
+                                <field name="employee_expense_reminder_delay_type" class="oe_inline"/>
+                                <span class="oe_inline">after planning is finalized</span>
                             </div>
-                        </div>
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="undo_expense_approval_days_limit"/>
+                        </setting>
+                        <setting id="business_trip_employee_expense_digest_send_hour"
+                                 string="Employee Reminder Time"
+                                 company_dependent="1"
+                                 help="Controls the hour of day when employee reminder emails and To Do items are created.">
+                            <div class="content-group">
+                                <span class="oe_inline">Deliver employee reminders at</span>
+                                <field name="employee_expense_digest_send_hour" class="oe_inline" widget="integer"/>
+                                <span class="oe_inline">:00 server time</span>
                             </div>
-                            <div class="o_setting_right_pane">
-                                <label for="undo_expense_approval_days_limit"/>
-                                <div class="text-muted">
-                                    Days after expense approval within which it can be undone (0 for no limit).
-                                </div>
+                        </setting>
+                        <setting id="business_trip_expense_reminder_interval"
+                                 string="Employee Reminder Repeat"
+                                 company_dependent="1"
+                                 help="Controls how often grouped employee reminders repeat while the expense is still unresolved.">
+                            <div class="content-group">
+                                <span class="oe_inline">Repeat employee reminders every</span>
+                                <field name="expense_reminder_interval" class="oe_inline" widget="integer"/>
+                                <field name="expense_reminder_interval_type" class="oe_inline"/>
                             </div>
-                        </div>
-                    </div>
-                    
-                    <h2>Expense Submission Reminders</h2>
-                    <div class="row mt16 o_settings_container">
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="expense_reminder_interval"/>
+                        </setting>
+                    </block>
+                    <block title="Expense Reviewer Follow-up" id="business_trip_organizer_expense_submission_reminders">
+                        <setting id="business_trip_organizer_expense_escalation_delay"
+                                 string="Expense Reviewer Follow-up Starts"
+                                 company_dependent="1"
+                                 help="Controls when the configured expense reviewer starts receiving grouped reminders if the employee still has not clarified the trip expenses.">
+                            <div class="content-group">
+                                <span class="oe_inline">Start notifying the expense reviewer</span>
+                                <field name="organizer_expense_escalation_delay" class="oe_inline" widget="integer"/>
+                                <field name="organizer_expense_escalation_delay_type" class="oe_inline"/>
+                                <span class="oe_inline">after planning is finalized</span>
                             </div>
-                            <div class="o_setting_right_pane">
-                                <label for="expense_reminder_interval"/>
-                                <div class="text-muted">
-                                    Interval for sending expense submission reminders to employees
-                                </div>
+                        </setting>
+                        <setting id="business_trip_organizer_expense_digest_send_hour"
+                                 string="Expense Reviewer Reminder Time"
+                                 company_dependent="1"
+                                 help="Controls the hour of day when expense reviewer follow-up reminders are created.">
+                            <div class="content-group">
+                                <span class="oe_inline">Deliver expense reviewer reminders at</span>
+                                <field name="organizer_expense_digest_send_hour" class="oe_inline" widget="integer"/>
+                                <span class="oe_inline">:00 server time</span>
                             </div>
-                        </div>
-                        <div class="col-12 col-lg-6 o_setting_box">
-                            <div class="o_setting_left_pane">
-                                <field name="expense_reminder_interval_type"/>
+                        </setting>
+                        <setting id="business_trip_organizer_expense_reminder_interval"
+                                 string="Expense Reviewer Reminder Repeat"
+                                 company_dependent="1"
+                                 help="Controls how often grouped expense reviewer reminders repeat while the expense is still unresolved.">
+                            <div class="content-group">
+                                <span class="oe_inline">Repeat expense reviewer reminders every</span>
+                                <field name="organizer_expense_reminder_interval" class="oe_inline" widget="integer"/>
+                                <field name="organizer_expense_reminder_interval_type" class="oe_inline"/>
                             </div>
-                            <div class="o_setting_right_pane">
-                                <label for="expense_reminder_interval_type"/>
-                                <div class="text-muted">
-                                    Unit type for expense reminder interval (Minutes or Days)
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                        </setting>
+                    </block>
+                </app>
             </xpath>
         </field>
     </record>
@@ -73,7 +114,7 @@
         <field name="res_model">res.config.settings</field>
         <field name="view_mode">form</field>
         <field name="target">inline</field>
-        <field name="context">{'module' : 'custom_business_trip_management'}</field>
+        <field name="context">{'module': 'custom_business_trip_management', 'bin_size': False}</field>
     </record>
 
     <!-- Settings menu -->

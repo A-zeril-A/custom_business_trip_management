@@ -1,16 +1,35 @@
 # -*- coding: utf-8 -*-
+from collections import defaultdict
+import re
+
 from odoo import models, fields, api, _
 import logging
 from odoo.exceptions import UserError, ValidationError
 import json
 from dateutil.relativedelta import relativedelta
 import pytz
-from markupsafe import Markup
+from markupsafe import Markup, escape
 from odoo.tools import html_sanitize
-from datetime import timedelta
+from datetime import datetime, timedelta
 from lxml import etree
+from odoo.osv import expression
 
 _logger = logging.getLogger(__name__)
+MONTH_ABBREVIATIONS = (
+    '',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+)
 
 class BusinessTrip(models.Model):
     _name = 'business.trip'
@@ -33,8 +52,8 @@ class BusinessTrip(models.Model):
     # This was previously a problematic 'related' field. Now it's a direct, stored link.
     business_trip_data_id = fields.Many2one('business.trip.data', string='Business Trip Data', ondelete='cascade', index=True, copy=False)
 
-    # The name is now computed directly on this model, removing the dependency on formio.form.
-    # The logic is preserved from the original _compute_name method.
+    # The trip name is generated from a compact summary of the trip and stays stable
+    # after submission unless an explicit refresh is requested during an upgrade.
     name = fields.Char(string='Trip Name', compute='_compute_name', store=True)
     
     # The 'state' field related to formio.form.state is removed as it's redundant.
@@ -78,6 +97,14 @@ class BusinessTrip(models.Model):
         help="Name of the colleague who will approve this trip. Auto-filled with Travel Approver name but can be edited."
     )
     manager_id = fields.Many2one('res.users', string='Travel Approver', tracking=True, help="Travel Approver who reviews the initial request and final plan.")
+    expense_reviewer_id = fields.Many2one(
+        'res.users',
+        string='Expense Reviewer',
+        compute='_compute_expense_reviewer_id',
+        search='_search_expense_reviewer_id',
+        store=False,
+        help="Commercial Director for sale-order trips, or CEO for standalone trips."
+    )
     organizer_id = fields.Many2one(
         'res.users',
         string='Trip Organizer',
@@ -325,12 +352,27 @@ class BusinessTrip(models.Model):
     is_current_user_owner = fields.Boolean(string="Is Current User Owner", compute='_compute_is_current_user_owner', store=False)
     can_cancel_trip = fields.Boolean(string="Can Cancel Trip", compute='_compute_can_cancel_trip', store=False)
     can_undo_expense_approval_action = fields.Boolean(string="Can Undo Expense Approval", compute='_compute_can_undo_expense_approval_action', store=False)
+    can_review_expenses = fields.Boolean(string="Can Review Expenses", compute='_compute_can_review_expenses', store=False)
     is_form_fields_readonly = fields.Boolean(string="Form Fields Read-only", compute='_compute_is_form_fields_readonly', store=False,
                                               help="True when form is completed or cancelled, making all fields read-only")
     is_from_assigned_to_me = fields.Boolean(string="Is From Assigned To Me", compute='_compute_is_from_assigned_to_me', store=False)
     is_from_my_business_trip = fields.Boolean(string="Is From My Business Trip", compute='_compute_is_from_my_business_trip', store=False)
 
-    # Smart Color-coding for tree views
+    # Smart action tracking for tree views
+    action_status = fields.Selection([
+        ('needs_my_action', 'Needs My Action'),
+        ('waiting_for_others', 'Waiting for Others'),
+        ('no_pending_action', 'No Pending Action'),
+        ('closed', 'Closed'),
+    ], string="Action Status", compute='_compute_action_status', readonly=True, store=False,
+       help="High-level workflow status for the current user in the current menu context.")
+    next_action_summary = fields.Char(
+        string="Next Step",
+        compute='_compute_action_status',
+        readonly=True,
+        store=False,
+        help="Human-readable description of the next expected workflow step."
+    )
     needs_my_action = fields.Boolean(string="Needs My Action", compute='_compute_action_status', readonly=True, store=False,
                                      help="True if current user needs to take urgent action on this trip")
     waiting_for_others = fields.Boolean(string="Waiting for Others", compute='_compute_action_status', readonly=True, store=False,
@@ -451,10 +493,20 @@ class BusinessTrip(models.Model):
         copy=False,
         help="Date when the organizer confirmed the trip plan."
     )
+    expense_followup_start_date = fields.Datetime(
+        string='Expense Follow-up Start Date',
+        copy=False,
+        help="Stable timestamp marking when the expense follow-up phase started after organizer planning was finalized."
+    )
     last_expense_reminder_date = fields.Datetime(
         string='Last Expense Reminder Date',
         copy=False,
-        help="The date and time the last expense submission reminder was sent."
+        help="The date and time this trip was last included in an expense reviewer follow-up digest."
+    )
+    employee_expense_reminder_sent_date = fields.Datetime(
+        string='Employee Expense Reminder Sent Date',
+        copy=False,
+        help="The date and time this trip was last included in an employee expense follow-up digest."
     )
 
     # ADDED: Fields from old model to support detailed organizer workflow
@@ -486,6 +538,67 @@ class BusinessTrip(models.Model):
     # --- UI & UX HELPER FIELDS ---
     can_edit_request = fields.Boolean(compute='_compute_can_edit_request', string='Can Edit Request')
     can_submit_expenses = fields.Boolean(compute='_compute_can_submit_expenses', string='Can Submit Expenses')
+
+    def _get_expense_review_role_label(self):
+        """Return the business role responsible for expense review on this trip."""
+        self.ensure_one()
+        return "Commercial Director" if self.sale_order_id else "CEO"
+
+    @api.model
+    def _get_expense_reviewer_by_job_title(self, job_title):
+        employee = self.env['hr.employee'].sudo().search([
+            ('active', '=', True),
+            ('user_id', '!=', False),
+            ('user_id.active', '=', True),
+            '|',
+            ('job_title', '=ilike', job_title),
+            ('job_id.name', '=ilike', job_title),
+        ], limit=1)
+        return employee.user_id if employee else self.env['res.users']
+
+    def _get_expense_review_user(self):
+        """Return the user who must review submitted expenses by business role."""
+        self.ensure_one()
+        if self.sale_order_id:
+            return self._get_expense_reviewer_by_job_title("Commercial Director")
+        return self._get_expense_reviewer_by_job_title("CEO")
+
+    def _get_expense_review_display_name(self):
+        self.ensure_one()
+        reviewer = self._get_expense_review_user()
+        return reviewer.name or self._get_expense_review_role_label()
+
+    @api.depends('sale_order_id')
+    def _compute_expense_reviewer_id(self):
+        for record in self:
+            record.expense_reviewer_id = record._get_expense_review_user()
+
+    @api.model
+    def _search_expense_reviewer_id(self, operator, value):
+        if operator not in ('=', 'in'):
+            return [('id', '=', 0)]
+
+        reviewer_ids = value if isinstance(value, (list, tuple, set)) else [value]
+        reviewer_ids = [reviewer_id for reviewer_id in reviewer_ids if reviewer_id]
+        if not reviewer_ids:
+            return [('id', '=', 0)]
+
+        sale_order_reviewer = self._get_expense_reviewer_by_job_title("Commercial Director")
+        standalone_reviewer = self._get_expense_reviewer_by_job_title("CEO")
+
+        domains = []
+        if sale_order_reviewer and sale_order_reviewer.id in reviewer_ids:
+            domains.append([('sale_order_id', '!=', False)])
+        if standalone_reviewer and standalone_reviewer.id in reviewer_ids:
+            domains.append([('sale_order_id', '=', False)])
+
+        return expression.OR(domains) if domains else [('id', '=', 0)]
+
+    @api.depends('sale_order_id')
+    @api.depends_context('uid')
+    def _compute_can_review_expenses(self):
+        for record in self:
+            record.can_review_expenses = record._can_current_user_review_expenses()
 
     @api.depends('manager_id', 'organizer_id', 'user_id')
     @api.depends_context('uid', 'from_assigned_to_me')
@@ -530,82 +643,161 @@ class BusinessTrip(models.Model):
             is_in_organizer_group = user.has_group('custom_business_trip_management.group_business_trip_organizer')
             record.can_see_costs = record.is_manager or record.is_organizer or is_in_organizer_group
 
+    def _can_current_user_review_expenses(self):
+        """Return whether the current user can review submitted trip expenses."""
+        self.ensure_one()
+        user = self.env.user
+        reviewer = self._get_expense_review_user()
+        return bool(
+            user.has_group('base.group_system')
+            or (reviewer and user.id == reviewer.id)
+        )
+
+    def _get_expense_review_actor_role(self):
+        """Return the role label used in expense review notifications."""
+        self.ensure_one()
+        user = self.env.user
+        reviewer = self._get_expense_review_user()
+        if reviewer and user.id == reviewer.id:
+            return self._get_expense_review_role_label()
+        if user.has_group('base.group_system'):
+            return "System Administrator"
+        return "Reviewer"
+
     @api.depends_context('uid')
     def _compute_is_current_user_owner(self):
         for record in self:
             record.is_current_user_owner = (record.user_id.id == self.env.user.id)
 
-    @api.depends('trip_status', 'user_id', 'manager_id', 'organizer_id')
-    @api.depends_context('uid')
+    @api.depends('trip_status', 'form_completion_status', 'has_trip_details', 'user_id', 'manager_id', 'organizer_id')
+    @api.depends_context('uid', 'from_assigned_to_me', 'from_my_business_trip')
     def _compute_action_status(self):
         """
-        Compute whether current user needs to take action or is waiting for others.
-        This provides smart color-coding for tree views based on user's role and trip status.
+        Compute a user-facing workflow status plus helper booleans for list decorations.
+        The result is menu-aware:
+        - In "My Business Trip Forms", it follows the employee/requester perspective.
+        - In "Assigned to Me", it follows the assigned reviewer/organizer perspective.
         """
+        user = self.env.user
+        user_id = user.id
+        is_finance_user = user.has_group('account.group_account_manager')
+        is_admin_user = user.has_group('base.group_system')
+        from_assigned_to_me = bool(self.env.context.get('from_assigned_to_me'))
+        from_my_business_trip_ctx = self.env.context.get('from_my_business_trip')
+
         for record in self:
-            user = self.env.user
-            user_id = user.id
-            
-            # Initialize both as False
-            needs_action = False
-            waiting = False
-            
-            # Determine user's role for this specific trip
-            is_employee = (record.user_id.id == user_id)
-            is_manager = (record.manager_id.id == user_id) if record.manager_id else False
-            is_organizer = (record.organizer_id.id == user_id) if record.organizer_id else False
-            
-            # Logic based on trip status and user role
-            if record.trip_status == 'submitted':
-                # Trip is waiting for Travel Approver approval
-                if is_manager:
-                    needs_action = True  # Manager needs to approve/reject
-                elif is_employee:
-                    waiting = True  # Employee is waiting for approval
-                    
-            elif record.trip_status == 'returned':
-                # Trip was returned to employee for revision
-                if is_employee:
-                    needs_action = True  # Employee needs to fix and resubmit
-                elif is_manager:
-                    waiting = True  # Manager is waiting for resubmission
-                    
-            elif record.trip_status == 'pending_organization':
-                # Trip is waiting for Organizer planning
-                if is_organizer:
-                    needs_action = True  # Organizer needs to plan
-                elif is_employee or is_manager:
-                    waiting = True  # Others are waiting for planning
-                    
-            elif record.trip_status == 'organization_done':
-                # Trip plan is ready, employee can travel
-                if is_employee:
-                    waiting = True  # Employee needs to travel (informational)
-                    
-            elif record.trip_status == 'completed_waiting_expense':
-                # Employee needs to submit expenses
-                if is_employee:
-                    needs_action = True  # Employee needs to submit expenses
-                elif is_organizer or is_manager:
-                    waiting = True  # Others waiting for expense submission
-                    
-            elif record.trip_status == 'expense_submitted':
-                # Expenses submitted, waiting for approval
-                if is_organizer:
-                    needs_action = True  # Organizer needs to approve expenses
-                elif is_employee:
-                    waiting = True  # Employee waiting for expense approval
-                    
-            elif record.trip_status == 'expense_returned':
-                # Expenses returned to employee for correction
-                if is_employee:
-                    needs_action = True  # Employee needs to fix expenses
-                elif is_organizer:
-                    waiting = True  # Organizer waiting for corrected expenses
-                    
-            # Set computed values
-            record.needs_my_action = needs_action
-            record.waiting_for_others = waiting
+            is_employee = bool(record.user_id and record.user_id.id == user_id)
+            is_manager = bool(record.manager_id and record.manager_id.id == user_id)
+            is_organizer = bool(record.organizer_id and record.organizer_id.id == user_id)
+            is_expense_reviewer = record._can_current_user_review_expenses()
+            expense_reviewer_label = record._get_expense_review_role_label()
+
+            if from_my_business_trip_ctx is None:
+                from_my_business_trip = is_employee and not from_assigned_to_me
+            else:
+                from_my_business_trip = bool(from_my_business_trip_ctx)
+
+            status = record.trip_status
+            if status in ('awaiting_trip_start', 'in_progress'):
+                status = 'completed_waiting_expense'
+
+            action_status = 'no_pending_action'
+            next_step = "No pending workflow step."
+
+            def set_state(category, summary):
+                nonlocal action_status, next_step
+                action_status = category
+                next_step = summary
+
+            def set_employee_status():
+                if status == 'draft':
+                    if record.form_completion_status != 'form_completed' or not record.has_trip_details:
+                        set_state('needs_my_action', "Complete the trip form and required details.")
+                    else:
+                        set_state('needs_my_action', "Submit the request for approval.")
+                elif status == 'submitted':
+                    set_state('waiting_for_others', "Waiting for the Travel Approver to review the request.")
+                elif status == 'returned':
+                    if record.form_completion_status != 'form_completed' or not record.has_trip_details:
+                        set_state('needs_my_action', "Complete the returned form and required details before resubmitting.")
+                    else:
+                        set_state('needs_my_action', "Resubmit the request for approval.")
+                elif status == 'pending_organization':
+                    set_state('waiting_for_others', "Waiting for the Organizer to prepare and confirm the trip plan.")
+                elif status == 'organization_done':
+                    set_state('no_pending_action', "Trip plan confirmed. Complete the trip and submit expenses afterward.")
+                elif status == 'completed_waiting_expense':
+                    set_state('needs_my_action', "Submit expenses or confirm there were no additional expenses.")
+                elif status == 'expense_submitted':
+                    set_state('waiting_for_others', f"Waiting for the {expense_reviewer_label} to review submitted expenses.")
+                elif status == 'expense_returned':
+                    set_state('needs_my_action', "Revise and resubmit the expense submission.")
+                elif status == 'completed':
+                    set_state('closed', "Trip workflow completed.")
+                elif status == 'rejected':
+                    set_state('closed', "Request rejected.")
+                elif status == 'cancelled':
+                    set_state('closed', "Request cancelled.")
+                else:
+                    set_state('no_pending_action', "No pending workflow step.")
+
+            def set_assignee_status():
+                if status == 'draft':
+                    set_state('waiting_for_others', "Waiting for the employee to complete and submit the request.")
+                elif status == 'submitted':
+                    if is_manager:
+                        set_state('needs_my_action', "Assign the organizer and budget, or return/reject the request.")
+                    else:
+                        set_state('waiting_for_others', "Waiting for the assigned Travel Approver to review the request.")
+                elif status == 'returned':
+                    if is_manager:
+                        set_state('waiting_for_others', "Waiting for the employee to revise and resubmit the request.")
+                    else:
+                        set_state('no_pending_action', "Request is back with the employee for correction.")
+                elif status == 'pending_organization':
+                    if is_organizer:
+                        set_state('needs_my_action', "Prepare the trip plan and confirm it.")
+                    else:
+                        set_state('waiting_for_others', "Waiting for the Organizer to complete the trip plan.")
+                elif status == 'organization_done':
+                    set_state('no_pending_action', "Trip plan confirmed. Waiting for the trip to finish before expenses are submitted.")
+                elif status == 'completed_waiting_expense':
+                    set_state('waiting_for_others', "Waiting for the employee to submit expenses or confirm no additional expenses.")
+                elif status == 'expense_submitted':
+                    if is_expense_reviewer:
+                        set_state('needs_my_action', "Review the expense submission: approve it or return it for revision.")
+                    elif is_manager:
+                        set_state('waiting_for_others', f"Waiting for the {expense_reviewer_label} to review submitted expenses.")
+                    else:
+                        set_state('waiting_for_others', "Waiting for the assigned reviewer to handle the expense submission.")
+                elif status == 'expense_returned':
+                    set_state('waiting_for_others', "Waiting for the employee to correct and resubmit the expense submission.")
+                elif status == 'completed':
+                    set_state('closed', "Trip workflow completed.")
+                elif status == 'rejected':
+                    set_state('closed', "Request rejected.")
+                elif status == 'cancelled':
+                    set_state('closed', "Request cancelled.")
+                else:
+                    set_state('no_pending_action', "No pending workflow step.")
+
+            if from_assigned_to_me:
+                set_assignee_status()
+            elif from_my_business_trip and is_employee:
+                set_employee_status()
+            elif is_employee:
+                set_employee_status()
+            elif is_manager or is_organizer or is_finance_user or is_admin_user or is_expense_reviewer:
+                set_assignee_status()
+            elif status in ['completed', 'rejected', 'cancelled']:
+                set_state('closed', "No further workflow action is expected.")
+            else:
+                set_state('no_pending_action', "No pending workflow step.")
+
+            record.action_status = action_status
+            record.next_action_summary = next_step
+            record.needs_my_action = action_status == 'needs_my_action'
+            record.waiting_for_others = action_status == 'waiting_for_others'
 
     @api.depends('trip_status', 'manager_approval_date', 'is_current_user_owner')
     @api.depends_context('uid')
@@ -655,9 +847,26 @@ class BusinessTrip(models.Model):
 
     @api.depends_context('from_my_business_trip')
     def _compute_is_from_my_business_trip(self):
-        """Check if the record is accessed from 'My Business Trip' menu"""
+        """
+        Check if the record is accessed from 'My Business Trip' context.
+
+        In Odoo 18 the same record can be opened either via an action URL
+        (e.g. `/odoo/action-.../<id>`) or directly via the model URL
+        (e.g. `/odoo/business.trip/<id>`). The latter does not always carry the
+        `from_my_business_trip` context flag, which would incorrectly hide
+        employee-facing buttons (Submit/Resubmit/Relink) for the record owner.
+
+        Policy:
+        - If context explicitly sets `from_my_business_trip`, respect it.
+        - Otherwise, treat the record as "My Business Trip" when the current
+          user is the owner (employee) of the request.
+        """
         for record in self:
-            record.is_from_my_business_trip = self.env.context.get('from_my_business_trip', False)
+            ctx_flag = self.env.context.get('from_my_business_trip')
+            if ctx_flag is None:
+                record.is_from_my_business_trip = (record.user_id.id == self.env.user.id)
+            else:
+                record.is_from_my_business_trip = bool(ctx_flag)
 
     @api.depends('organizer_planned_cost', 'expense_total', 'manager_max_budget')
     def _compute_budget_difference(self):
@@ -712,7 +921,7 @@ class BusinessTrip(models.Model):
 
     def action_approve_expenses(self):
         """
-        Approve trip expenses by Travel Approver, organizer, or finance personnel
+        Approve trip expenses by the configured expense reviewer or system administrators.
         """
         self.ensure_one()
         if self.trip_status != 'expense_submitted':
@@ -722,10 +931,10 @@ class BusinessTrip(models.Model):
         self._check_not_trip_owner_for_management_action("Approve Expenses")
 
         # Check permissions for expense approval
-        if not (self.env.user.has_group('account.group_account_manager') or
-                self.env.user.has_group('base.group_system') or
-                self.is_organizer):
-            raise ValidationError("Only the trip organizer, finance personnel, or system administrators can approve expenses.")
+        if not self._can_current_user_review_expenses():
+            raise ValidationError(
+                f"Only the {self._get_expense_review_role_label()} or system administrators can approve expenses."
+            )
 
         # Calculate final total cost
         total_cost = self.organizer_planned_cost + self.expense_total
@@ -746,73 +955,50 @@ class BusinessTrip(models.Model):
         else:
             budget_message = "<span style='color:blue'>Trip completed exactly on budget.</span>"
 
+        reviewer_name = self.env.user.name
+        expense_reviewer = self._get_expense_review_user()
+        expense_reviewer_label = self._get_expense_review_role_label()
+
         # Send personalized approval messages to each stakeholder
         
-        # 1. Message to Travel Approver (financial oversight completed)
-        if self.manager_id:
-            manager_approval_msg = f"""
-<div style="background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; padding: 15px; margin-top: 20px; margin-bottom: 15px;">
-    <div style="display: flex; align-items: center; margin-bottom: 10px;">
-        <span style="color: #155724; font-size: 20px; margin-right: 10px;">✅</span>
-        <span style="font-weight: bold; color: #155724; font-size: 16px;">Trip Successfully Completed - Travel Approver Summary</span>
-    </div>
-    <p style="margin: 5px 0 10px 0;">You have successfully completed the financial oversight for <strong>{self.user_id.name}</strong>'s business trip '<strong>{self.name}</strong>'.</p>
-    <div style="background-color: #fff; border: 1px solid #28a745; padding: 10px; margin-top: 5px; border-radius: 3px;">
-        <p style="margin: 0 0 5px 0; font-weight: bold; color: #155724;">Final Financial Summary:</p>
-        <ul style="margin: 5px 0; padding-left: 20px; color: #333;">
-            <li>Your Allocated Budget: <strong>{self.manager_max_budget:.2f} {self.currency_id.symbol}</strong></li>
-            <li>Organizer's Planned Costs: <strong>{self.organizer_planned_cost:.2f} {self.currency_id.symbol}</strong></li>
-            <li>Employee's Additional Expenditures: <strong>{self.expense_total:.2f} {self.currency_id.symbol}</strong></li>
-            <li>Total Actual Cost: <strong>{self.organizer_planned_cost + self.expense_total:.2f} {self.currency_id.symbol}</strong></li>
-            <li>Budget Performance: {budget_message}</li>
-        </ul>
-    </div>
-    <div style="background-color: #fff; border-left: 4px solid #28a745; padding: 10px; margin-top: 5px;">
-        <p style="margin: 0; color: #333;"><strong>Travel Approver Achievement:</strong> You have successfully managed this business trip from approval to completion. The employee has been notified.</p>
-    </div>
-    <div style="margin-top: 15px; text-align: right;">
-        <span style="background-color: #28a745; color: white; padding: 5px 10px; border-radius: 3px; font-size: 12px;">🎯 Management Complete</span>
-    </div>
-</div>
-"""
-            self.sudo().post_confidential_message(
-                message=manager_approval_msg,
-                recipient_ids=[self.manager_id.id]
+        # 1. Message to the configured expense reviewer
+        if expense_reviewer:
+            reviewer_review_outcome = (
+                "You approved the submitted expenses and completed the trip review."
+                if expense_reviewer.id == self.env.user.id
+                else f"The submitted expenses were approved by <strong>{reviewer_name}</strong>."
             )
-
-        # 2. Message to Organizer (coordination completed)
-        if self.organizer_id:
-            organizer_approval_msg = f"""
+            reviewer_approval_msg = f"""
 <div style="background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 5px; padding: 15px; margin-top: 20px; margin-bottom: 15px;">
     <div style="display: flex; align-items: center; margin-bottom: 10px;">
         <span style="color: #0c5460; font-size: 20px; margin-right: 10px;">🎊</span>
-        <span style="font-weight: bold; color: #0c5460; font-size: 16px;">Trip Organization Successfully Completed</span>
+        <span style="font-weight: bold; color: #0c5460; font-size: 16px;">Expense Review Completed</span>
     </div>
-    <p style="margin: 5px 0 10px 0;">Congratulations! You have successfully organized and coordinated <strong>{self.user_id.name}</strong>'s business trip '<strong>{self.name}</strong>' from start to finish.</p>
+    <p style="margin: 5px 0 10px 0;">The expense review for '<strong>{self.name}</strong>' has been completed.</p>
     <div style="background-color: #fff; border: 1px solid #17a2b8; padding: 10px; margin-top: 5px; border-radius: 3px;">
-        <p style="margin: 0 0 5px 0; font-weight: bold; color: #0c5460;">Your Organization Results:</p>
+        <p style="margin: 0 0 5px 0; font-weight: bold; color: #0c5460;">{expense_reviewer_label} Review Summary:</p>
         <ul style="margin: 5px 0; padding-left: 20px; color: #333;">
             <li>Budget Allocated: <strong>{self.manager_max_budget:.2f} {self.currency_id.symbol}</strong></li>
-            <li>Your Planned Costs: <strong>{self.organizer_planned_cost:.2f} {self.currency_id.symbol}</strong></li>
+            <li>Planned Costs: <strong>{self.organizer_planned_cost:.2f} {self.currency_id.symbol}</strong></li>
             <li>Employee Additional Expenditures: <strong>{self.expense_total:.2f} {self.currency_id.symbol}</strong></li>
             <li>Total Actual Cost: <strong>{self.organizer_planned_cost + self.expense_total:.2f} {self.currency_id.symbol}</strong></li>
             <li>Planning Accuracy: {budget_message}</li>
         </ul>
     </div>
     <div style="background-color: #fff; border-left: 4px solid #17a2b8; padding: 10px; margin-top: 5px;">
-        <p style="margin: 0; color: #333;"><strong>Organizer Success:</strong> Your planning and coordination ensured a smooth trip execution. Thank you for your excellent organization work!</p>
+        <p style="margin: 0; color: #333;"><strong>Review Outcome:</strong> {reviewer_review_outcome}</p>
     </div>
     <div style="margin-top: 15px; text-align: right;">
-        <span style="background-color: #17a2b8; color: white; padding: 5px 10px; border-radius: 3px; font-size: 12px;">🏆 Organization Success</span>
+        <span style="background-color: #17a2b8; color: white; padding: 5px 10px; border-radius: 3px; font-size: 12px;">✅ Review Closed</span>
     </div>
 </div>
 """
             self.sudo().post_confidential_message(
-                message=organizer_approval_msg,
-                recipient_ids=[self.organizer_id.id]
+                message=reviewer_approval_msg,
+                recipient_ids=[expense_reviewer.id]
             )
 
-        # 3. Message to Employee (trip completion confirmation)
+        # 2. Message to Employee (trip completion confirmation)
         if self.user_id.partner_id:
             employee_approval_msg = f"""
 <div style="background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; padding: 15px; margin-top: 20px; margin-bottom: 15px;">
@@ -820,7 +1006,7 @@ class BusinessTrip(models.Model):
         <span style="color: #155724; font-size: 20px; margin-right: 10px;">🎉</span>
         <span style="font-weight: bold; color: #155724; font-size: 16px;">Congratulations! Your Trip is Now Complete</span>
     </div>
-    <p style="margin: 5px 0 10px 0;">Great news! Your travel expense submission for trip '<strong>{self.name}</strong>' has been approved by your Travel Approver.</p>
+    <p style="margin: 5px 0 10px 0;">Great news! Your travel expense submission for trip '<strong>{self.name}</strong>' has been approved by <strong>{reviewer_name}</strong>.</p>
     <div style="background-color: #fff; border-left: 4px solid #28a745; padding: 10px; margin-top: 5px;">
         <p style="margin: 0; color: #333;"><strong>Trip Status:</strong> COMPLETED ✅<br/>
         <strong>What's Next:</strong> Your expenses will be processed according to company policy. Your business trip is now officially closed.</p>
@@ -831,18 +1017,24 @@ class BusinessTrip(models.Model):
 </div>
 """
             # Odoo 18: Wrap HTML in Markup for proper rendering
-            self.message_post(
+            self._post_message_with_record_link(
                 body=Markup(employee_approval_msg),
                 partner_ids=[self.user_id.partner_id.id]
             )
 
-        # 4. System log message (internal tracking)
-        self.message_post(
-            body=f"Travel expenses for business trip '{self.name}' have been approved by {self.env.user.name}. Trip status changed to COMPLETED.",
+        # 3. System log message (internal tracking)
+        self._post_message_with_record_link(
+            body=(
+                f"Travel expenses for business trip '{self.name}' have been approved by "
+                f"{reviewer_name}. Trip status changed to COMPLETED."
+            ),
             subtype_xmlid='mail.mt_note'
         )
 
-        return True
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'reload',
+        }
 
     def action_return_expenses(self):
         """
@@ -853,55 +1045,29 @@ class BusinessTrip(models.Model):
             raise ValidationError("You can only return expenses that have been submitted for review.")
 
         # Check permissions for expense return
-        if not (self.env.user.has_group('account.group_account_manager') or
-                self.env.user.has_group('base.group_system') or
-                self.is_organizer):
-            raise ValidationError("Only the trip organizer, finance personnel, or system administrators can return expenses.")
+        if not self._can_current_user_review_expenses():
+            raise ValidationError(
+                f"Only the {self._get_expense_review_role_label()} or system administrators can return expenses."
+            )
 
         self.write({'trip_status': 'expense_returned'})
+        reviewer_name = self.env.user.name
+        expense_reviewer = self._get_expense_review_user()
+        expense_reviewer_label = self._get_expense_review_role_label()
         
         # Send personalized messages to stakeholders about expense return
         
-        # 1. Message to Travel Approver (if not the one returning)
-        if self.manager_id and self.env.user.id != self.manager_id.id:
-            manager_return_msg = f"""
-<div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin-top: 20px; margin-bottom: 15px;">
-    <div style="display: flex; align-items: center; margin-bottom: 10px;">
-        <span style="color: #856404; font-size: 20px; margin-right: 10px;">↩️</span>
-        <span style="font-weight: bold; color: #856404; font-size: 16px;">Expense Return Notification</span>
-    </div>
-    <p style="margin: 5px 0 10px 0;">The expenses for <strong>{self.user_id.name}</strong>'s trip '<strong>{self.name}</strong>' have been returned for revision by <strong>{self.env.user.name}</strong>.</p>
-    <div style="background-color: #fff; border-left: 4px solid #ffc107; padding: 10px; margin-top: 5px;">
-        <p style="margin: 0; color: #333;"><strong>Travel Approver Update:</strong> The employee will resubmit corrected expenses. You will be notified when ready for your review again.</p>
-    </div>
-    <div style="margin-top: 15px; text-align: right;">
-        <span style="background-color: #ffc107; color: #856404; padding: 5px 10px; border-radius: 3px; font-size: 12px;">⏳ Awaiting Revision</span>
-    </div>
-</div>
-"""
-            if self.expense_return_comments:
-                manager_return_msg += f"""
-<div style="background-color: #f8f9fa; border-left: 4px solid #6c757d; padding: 10px; margin-top: 10px;">
-    <p style="margin: 0 0 5px 0; font-weight: bold;">Return Comments:</p>
-    <p style="margin: 0; color: #333;">{self.expense_return_comments}</p>
-</div>
-"""
-            self.sudo().post_confidential_message(
-                message=manager_return_msg,
-                recipient_ids=[self.manager_id.id]
-            )
-
-        # 2. Message to Organizer (if not the one returning)
-        if self.organizer_id and self.env.user.id != self.organizer_id.id:
-            organizer_return_msg = f"""
+        # 1. Message to the configured expense reviewer (if not the one returning)
+        if expense_reviewer and self.env.user.id != expense_reviewer.id:
+            reviewer_return_msg = f"""
 <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin-top: 20px; margin-bottom: 15px;">
     <div style="display: flex; align-items: center; margin-bottom: 10px;">
         <span style="color: #856404; font-size: 20px; margin-right: 10px;">🔄</span>
         <span style="font-weight: bold; color: #856404; font-size: 16px;">Expense Revision Required</span>
     </div>
-    <p style="margin: 5px 0 10px 0;">The expenses for <strong>{self.user_id.name}</strong>'s trip you organized ('<strong>{self.name}</strong>') have been returned for revision by <strong>{self.env.user.name}</strong>.</p>
+    <p style="margin: 5px 0 10px 0;">The expenses for <strong>{self.user_id.name}</strong>'s trip ('<strong>{self.name}</strong>') have been returned for revision by <strong>{reviewer_name}</strong>.</p>
     <div style="background-color: #fff; border-left: 4px solid #ffc107; padding: 10px; margin-top: 5px;">
-        <p style="margin: 0; color: #333;"><strong>Organizer Note:</strong> The employee will correct and resubmit expenses. You may want to coordinate if your assistance is needed.</p>
+        <p style="margin: 0; color: #333;"><strong>{expense_reviewer_label} Note:</strong> The employee will correct and resubmit expenses. Please review the updated submission once it is resubmitted.</p>
     </div>
     <div style="margin-top: 15px; text-align: right;">
         <span style="background-color: #ffc107; color: #856404; padding: 5px 10px; border-radius: 3px; font-size: 12px;">🔄 Revision Phase</span>
@@ -909,18 +1075,18 @@ class BusinessTrip(models.Model):
 </div>
 """
             if self.expense_return_comments:
-                organizer_return_msg += f"""
+                reviewer_return_msg += f"""
 <div style="background-color: #f8f9fa; border-left: 4px solid #6c757d; padding: 10px; margin-top: 10px;">
     <p style="margin: 0 0 5px 0; font-weight: bold;">Return Comments:</p>
     <p style="margin: 0; color: #333;">{self.expense_return_comments}</p>
 </div>
 """
             self.sudo().post_confidential_message(
-                message=organizer_return_msg,
-                recipient_ids=[self.organizer_id.id]
+                message=reviewer_return_msg,
+                recipient_ids=[expense_reviewer.id]
             )
 
-        # 3. Message to Employee (detailed revision request)
+        # 2. Message to Employee (detailed revision request)
         if self.user_id.partner_id:
             employee_return_msg = f"""
 <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin-top: 20px; margin-bottom: 15px;">
@@ -934,7 +1100,7 @@ class BusinessTrip(models.Model):
         1. Review the comments below carefully<br/>
         2. Make the necessary corrections to your expense submission<br/>
         3. Resubmit your expenses through the system<br/>
-        4. Your Travel Approver will review the revised submission</p>
+        4. The {expense_reviewer_label} will review the revised submission</p>
     </div>
     <div style="margin-top: 15px; text-align: right;">
         <span style="background-color: #ffc107; color: #856404; padding: 5px 10px; border-radius: 3px; font-size: 12px; font-weight: bold;">⚠️ Action Required</span>
@@ -949,18 +1115,24 @@ class BusinessTrip(models.Model):
 </div>
 """
             # Odoo 18: Wrap HTML in Markup for proper rendering
-            self.message_post(
+            self._post_message_with_record_link(
                 body=Markup(employee_return_msg),
                 partner_ids=[self.user_id.partner_id.id]
             )
 
-        # 4. System log message
-        self.message_post(
-            body=f"Travel expenses for trip '{self.name}' have been returned for revision by {self.env.user.name}.",
+        # 3. System log message
+        self._post_message_with_record_link(
+            body=(
+                f"Travel expenses for trip '{self.name}' have been returned for revision by "
+                f"{reviewer_name}. Once resubmitted, the {expense_reviewer_label} will review them."
+            ),
             subtype_xmlid='mail.mt_note'
         )
             
-        return True
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'reload',
+        }
 
     def action_open_rejection_wizard(self):
         """Open wizard for rejecting the trip request."""
@@ -1015,7 +1187,7 @@ class BusinessTrip(models.Model):
         # if self.formio_form_id:
         #     self.formio_form_id.write({'state': 'CANCEL'})
 
-        self.message_post(body=f"Request cancelled by {self.env.user.name}.")
+        self._post_message_with_record_link(body=f"Request cancelled by {self.env.user.name}.")
 
         return {
             'type': 'ir.actions.client',
@@ -1115,7 +1287,7 @@ class BusinessTrip(models.Model):
             </div>
             """
             # Odoo 18: Wrap HTML in Markup for proper rendering
-            new_trip.message_post(body=Markup(message_body))
+            new_trip._post_message_with_record_link(body=Markup(message_body))
             trips_to_return |= new_trip
 
         return trips_to_return
@@ -1153,16 +1325,168 @@ class BusinessTrip(models.Model):
             else:
                 trip.approving_colleague_name = ""
 
-    @api.depends('user_id', 'sale_order_id')
+    def _collapse_trip_name_value(self, value):
+        return re.sub(r'\s+', ' ', (value or '')).strip()
+
+    def _shorten_trip_name_value(self, value, max_length, fallback=''):
+        value = self._collapse_trip_name_value(value)
+        if not value:
+            return fallback
+        if len(value) <= max_length:
+            return value
+        if max_length <= 3:
+            return value[:max_length]
+        return f"{value[:max_length - 3].rstrip()}..."
+
+    def _get_trip_name_initials(self):
+        self.ensure_one()
+        employee_name = self._collapse_trip_name_value(self.user_id.name)
+        if not employee_name:
+            return 'GEN'
+
+        parts = [part for part in re.split(r'[\s/-]+', employee_name) if part]
+        if len(parts) >= 2:
+            return ''.join(part[0].upper() for part in parts[:3])[:4]
+        return self._shorten_trip_name_value(parts[0].upper(), max_length=4, fallback='GEN')
+
+    def _get_trip_name_reference_token(self, value, max_length=16, prefer_initials=False):
+        value = self._collapse_trip_name_value(value).replace('|', '/')
+        if not value:
+            return ''
+
+        if prefer_initials and len(value) > max_length:
+            parts = [part for part in re.split(r'[\s/_-]+', value) if part]
+            if len(parts) >= 2:
+                initials = ''.join(part[0].upper() for part in parts[:3])
+                if len(initials) >= 2:
+                    return initials[:max_length]
+
+        return self._shorten_trip_name_value(value, max_length=max_length)
+
+    def _get_trip_name_source_token(self):
+        self.ensure_one()
+        if self.sale_order_id:
+            sale_order_ref = self._get_trip_name_reference_token(
+                self.sale_order_id.name,
+                max_length=18,
+            ) or 'SO'
+            return f"SO-{sale_order_ref}"
+
+        standalone_context = (
+            self.selected_project_id.name
+            or self.business_trip_project_id.name
+            or self.selected_project_task_id.name
+            or self.business_trip_task_id.name
+        )
+        if standalone_context:
+            standalone_ref = self._get_trip_name_reference_token(
+                standalone_context,
+                max_length=14,
+                prefer_initials=True,
+            )
+        else:
+            standalone_ref = self._get_trip_name_initials()
+        return f"SA-{standalone_ref or 'GEN'}"
+
+    def _get_trip_name_descriptor_token(self):
+        self.ensure_one()
+        candidate = self.destination or self.purpose
+        if not candidate and self.sale_order_id:
+            candidate = self.sale_order_id.partner_id.name or self.sale_order_id.client_order_ref
+        if not candidate:
+            candidate = self.user_id.name or 'Business Trip'
+        return self._shorten_trip_name_value(
+            self._collapse_trip_name_value(candidate).replace('|', '/'),
+            max_length=24,
+            fallback='Business Trip',
+        )
+
+    def _get_trip_name_date_token(self):
+        self.ensure_one()
+        trip_date = self.travel_start_date or self.travel_end_date
+        if not trip_date:
+            return 'NoDate'
+        return f"{trip_date.day:02d}{MONTH_ABBREVIATIONS[trip_date.month]}{str(trip_date.year)[-2:]}"
+
+    def _get_trip_name_unique_suffix(self):
+        self.ensure_one()
+        if isinstance(self.id, int):
+            return f"BT{self.id}"
+        return False
+
+    def _build_generated_trip_name(self):
+        self.ensure_one()
+        name_parts = [
+            self._get_trip_name_source_token(),
+            self._get_trip_name_descriptor_token(),
+            self._get_trip_name_date_token(),
+        ]
+        unique_suffix = self._get_trip_name_unique_suffix()
+        if unique_suffix:
+            name_parts.append(unique_suffix)
+        return ' | '.join(part for part in name_parts if part)
+
+    def _should_refresh_generated_trip_name(self):
+        self.ensure_one()
+        if self.env.context.get('force_name_refresh'):
+            return True
+        return self.trip_status in ('draft', 'returned') or not self._origin.id
+
+    @api.depends(
+        'trip_status',
+        'sale_order_id',
+        'sale_order_id.name',
+        'sale_order_id.partner_id',
+        'sale_order_id.partner_id.name',
+        'sale_order_id.client_order_ref',
+        'selected_project_id',
+        'selected_project_id.name',
+        'selected_project_task_id',
+        'selected_project_task_id.name',
+        'business_trip_project_id',
+        'business_trip_project_id.name',
+        'business_trip_task_id',
+        'business_trip_task_id.name',
+        'destination',
+        'purpose',
+        'travel_start_date',
+        'travel_end_date',
+        'user_id',
+        'user_id.name',
+    )
     def _compute_name(self):
         for trip in self:
-            if trip.sale_order_id:
-                trip.name = f"Trip for SO {trip.sale_order_id.name}"
+            generated_name = trip._build_generated_trip_name()
+            current_name = trip._origin.name if trip._origin and trip._origin.id else False
+            if trip._should_refresh_generated_trip_name() or not current_name:
+                trip.name = generated_name
             else:
-                # The format for a newly created record's ID might be a NewId object
-                # which doesn't have a value yet. We handle this by checking its type.
-                trip_id = trip.id if isinstance(trip.id, int) else 'New'
-                trip.name = f"Standalone Trip for {trip.user_id.name} - #{trip_id}"
+                trip.name = current_name
+
+    @api.model
+    def _refresh_generated_trip_names_on_upgrade(self):
+        field = self._fields['name']
+        batched_model = self.with_context(force_name_refresh=True)
+        last_id = 0
+        total = 0
+        batch_size = 500
+
+        while True:
+            batch = batched_model.search([('id', '>', last_id)], order='id', limit=batch_size)
+            if not batch:
+                break
+
+            batched_model.env.add_to_compute(field, batch)
+            batch.flush_recordset(['name'])
+
+            total += len(batch)
+            last_id = batch[-1].id
+
+        _logger.info("Refreshed smart business trip names for %s records.", total)
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'reload',
+        }
 
     def _compute_has_trip_details(self):
         """
@@ -1336,12 +1660,12 @@ class BusinessTrip(models.Model):
             
             # Odoo 18: Convert rendered HTML to Markup for proper rendering
             message_body_markup = Markup(message_body.decode('utf-8') if isinstance(message_body, bytes) else message_body)
-            self.message_post(body=message_body_markup, subtype_xmlid="mail.mt_note")
+            self._post_message_with_record_link(body=message_body_markup, subtype_xmlid="mail.mt_note")
             _logger.info(f"Successfully posted styled summary message to chatter for trip {self.id} after Save & Done.")
         except Exception as e:
             _logger.error(f"Failed to render or post summary message for trip {self.id}: {e}", exc_info=True)
             # Fallback to simple message if template rendering fails
-            self.message_post(
+            self._post_message_with_record_link(
                 body=_('Form has been completed by %s.') % self.env.user.name,
                 message_type='notification',
                 subtype_xmlid='mail.mt_note',
@@ -1366,6 +1690,20 @@ class BusinessTrip(models.Model):
 
         if self.trip_status not in ['draft', 'returned']:
             raise UserError(f"Only forms in 'Draft' or 'Returned' status can be submitted. Current status: {self.trip_status}")
+
+        # Standalone trips must be linked to a project/task before submission.
+        # Do not open a wizard automatically for employees; show a clear message instead.
+        # Employees can explicitly link/relink the project using the "Relink Project" button
+        # available in the "My Business Trip" form when in Draft/Returned state.
+        if not self.sale_order_id:
+            has_project = bool(self.selected_project_id or self.business_trip_project_id)
+            has_task = bool(self.selected_project_task_id or self.business_trip_task_id)
+            if not (has_project and has_task):
+                raise UserError(
+                    "A project is required for standalone business trip requests.\n\n"
+                    "Please click 'Relink Project' on this form, select the project, "
+                    "and then submit the request for approval again."
+                )
 
         if not self.has_trip_details:
             # In a real scenario, you'd return a warning action.
@@ -1407,13 +1745,27 @@ class BusinessTrip(models.Model):
 
         # Notify the Travel Approver
         if self.manager_id and self.manager_id.partner_id:
-            self.message_post(
+            self._post_message_with_record_link(
                 body=f"Business trip request submitted by {self.env.user.name} for your review.",
                 partner_ids=[self.manager_id.partner_id.id],
                 subtype_xmlid="mail.mt_comment",
             )
 
-        return True
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'reload',
+        }
+
+    def action_employee_relink_project(self):
+        """Employee action: link/relink the project for a standalone trip before submission."""
+        self.ensure_one()
+        if self.user_id.id != self.env.user.id:
+            raise UserError("Only the owner of this trip request can relink the project.")
+        if self.sale_order_id:
+            raise UserError("This action is only available for standalone trips.")
+        if self.trip_status not in ['draft', 'returned']:
+            raise UserError("You can only relink the project while the request is in Draft or Returned status.")
+        return self.with_context(project_selection_flow='employee').action_open_standalone_project_selection_wizard()
 
     def action_manager_assign_organizer_and_budget(self):
         self.ensure_one()
@@ -1428,6 +1780,15 @@ class BusinessTrip(models.Model):
                 self.env.user.has_group('custom_business_trip_management.group_business_trip_manager')):
             raise UserError("Only the assigned Travel Approver or an administrator can perform this action.")
 
+        # Standalone trips must be linked to a project before management actions can proceed.
+        # Use the existing project selection wizard to link the trip safely.
+        # Note: "Return to Emp." and "Reject" actions are already available on the form header.
+        if not self.sale_order_id:
+            has_project = bool(self.selected_project_id or self.business_trip_project_id)
+            has_task = bool(self.selected_project_task_id or self.business_trip_task_id)
+            if not (has_project and has_task):
+                return self.with_context(project_selection_flow='approver').action_open_standalone_project_selection_wizard()
+
         return {
             'type': 'ir.actions.act_window',
             'name': 'Assign Organizer and Budget',
@@ -1437,6 +1798,25 @@ class BusinessTrip(models.Model):
             'context': {
                 'default_trip_id': self.id,
                 'default_manager_id': self.manager_id.id,
+            }
+        }
+
+    def action_open_standalone_project_selection_wizard(self):
+        """Open the project selection wizard to link a standalone trip to a project."""
+        self.ensure_one()
+        flow = self.env.context.get('project_selection_flow')
+        if not flow:
+            flow = 'employee' if self.user_id.id == self.env.user.id else 'approver'
+        title = "Relink Project" if flow == 'employee' else "Select Project for Standalone Trip"
+        return {
+            'type': 'ir.actions.act_window',
+            'name': title,
+            'res_model': 'business.trip.project.selection.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_trip_id': self.id,
+                'project_selection_flow': flow,
             }
         }
 
@@ -1481,9 +1861,15 @@ class BusinessTrip(models.Model):
                     project = self.env['project.project'].create(project_vals)
         else:
             # For standalone trips, use the pre-selected project
-            if self.selected_project_id:
-                project = self.selected_project_id
-            else:
+            # Prefer the currently selected project; fall back to an already linked project (if any)
+            # to keep the flow robust if the wizard context did not carry the selection.
+            project = (
+                self.selected_project_id
+                or self.business_trip_project_id
+                or (self.selected_project_task_id.project_id if self.selected_project_task_id else False)
+                or (self.business_trip_task_id.project_id if self.business_trip_task_id else False)
+            )
+            if not project:
                 raise UserError("No project selected for standalone trip. Please contact administrator.")
         
         if not project:
@@ -1495,8 +1881,8 @@ class BusinessTrip(models.Model):
             task = self._create_business_trip_task(project, organizer_id)
         else:
             # Use existing task for standalone trips and update it with organizer
-            if self.selected_project_task_id:
-                task = self.selected_project_task_id
+            task = self.selected_project_task_id or self.business_trip_task_id
+            if task:
                 # Add organizer and manager to the existing task
                 assignee_ids = [organizer_id, self.user_id.id]
                 if self.manager_id:
@@ -1639,7 +2025,7 @@ class BusinessTrip(models.Model):
 </div>
 """
         # Odoo 18: Wrap HTML in Markup for proper rendering
-        self.message_post(
+        self._post_message_with_record_link(
             body=Markup(employee_approval_msg),
             partner_ids=[self.user_id.partner_id.id]
         )
@@ -1669,12 +2055,14 @@ class BusinessTrip(models.Model):
             task_name = f'{base_task_name} - Copy #{counter}'
             counter += 1
         
-        task = self.env['project.task'].create({
+        # Create the task with zero planned hours:
+        # - avoids blocking automated flows that only need a tracking task container
+        # - stays compatible with custom planned-hours enforcement in `custom_project`
+        task = self.env['project.task'].with_context(allow_missing_allocated_hours=True).create({
             'name': task_name,
             'project_id': project.id,
             'user_ids': [(6, 0, list(set(assignee_ids)))],
             'description': f"Business trip task for {self.name}",
-            'planned_hours': 0.017,
         })
         return task
 
@@ -1705,15 +2093,18 @@ class BusinessTrip(models.Model):
         if self.organizer_planned_cost <= 0:
             raise UserError("Please set a planned cost greater than zero before confirming.")
 
+        confirmation_dt = fields.Datetime.now()
+
         self.write({
             'trip_status': 'completed_waiting_expense',
-            'organizer_submission_date': fields.Datetime.now(),
-            'organizer_confirmation_date': fields.Datetime.now(),
+            'organizer_submission_date': confirmation_dt,
+            'organizer_confirmation_date': confirmation_dt,
             'organizer_confirmed_by': self.env.user.id,
-            'plan_approval_date': fields.Datetime.now(),
-            'actual_start_date': fields.Datetime.now(),
-            'actual_end_date': fields.Datetime.now(),
-            'organization_done_date': fields.Datetime.now(),
+            'plan_approval_date': confirmation_dt,
+            'actual_start_date': confirmation_dt,
+            'actual_end_date': confirmation_dt,
+            'organization_done_date': confirmation_dt,
+            'expense_followup_start_date': confirmation_dt,
         })
 
         # --- MESSAGE POSTING ---
@@ -1743,7 +2134,7 @@ class BusinessTrip(models.Model):
 </div>
 """
         # Odoo 18: Wrap HTML in Markup for proper rendering
-        self.message_post(
+        self._post_message_with_record_link(
             body=Markup(employee_message),
             partner_ids=[self.user_id.partner_id.id]
         )
@@ -1771,7 +2162,10 @@ class BusinessTrip(models.Model):
             recipient_ids=recipient_users.ids
         )
 
-        return True
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'reload',
+        }
     
     @api.model
     def fields_view_get(self, view_id=None, view_type='form', toolbar=False, submenu=False):
@@ -1869,7 +2263,7 @@ class BusinessTrip(models.Model):
         })
 
         # Post a message to the chatter
-        self.message_post(body="Request returned to draft by the user. Form is now editable again.")
+        self._post_message_with_record_link(body="Request returned to draft by the user. Form is now editable again.")
 
         return {
             'type': 'ir.actions.client',
@@ -1888,16 +2282,29 @@ class BusinessTrip(models.Model):
                 self.env.user.has_group('custom_business_trip_management.group_business_trip_manager')):
             raise ValidationError("Only the assigned manager or system administrators can return the request with comments.")
 
+        ctx = {
+            'active_id': self.id,
+            'default_trip_id': self.id,  # Changed from default_form_id to default_trip_id
+        }
+
+        # If this is a standalone trip missing a linked project/task, prefill a clear instruction.
+        if not self.sale_order_id:
+            has_project = bool(self.selected_project_id or self.business_trip_project_id)
+            has_task = bool(self.selected_project_task_id or self.business_trip_task_id)
+            if not (has_project and has_task):
+                ctx['default_return_comments'] = (
+                    "Your request is missing a linked project for a standalone trip. "
+                    "Please create a new standalone trip request and make sure to select the project, "
+                    "then submit it again for approval."
+                )
+
         return {
             'name': 'Return with Comments',
             'type': 'ir.actions.act_window',
             'res_model': 'business.trip.return.comment.wizard',
             'view_mode': 'form',
             'target': 'new',
-            'context': {
-                'active_id': self.id,
-                'default_trip_id': self.id,  # Changed from default_form_id to default_trip_id
-            }
+            'context': ctx,
         }
 
     def action_open_expense_return_comment_wizard(self):
@@ -1910,11 +2317,10 @@ class BusinessTrip(models.Model):
         # Prevent trip owners from returning their own expenses
         self._check_not_trip_owner_for_management_action("Return Expenses")
 
-        # Check if user has permission (finance/system/organizer)
-        if not (self.env.user.has_group('account.group_account_manager') or
-                self.env.user.has_group('base.group_system') or
-                self.is_organizer):
-            raise ValidationError("Only the trip organizer, finance personnel, or system administrators can return expenses.")
+        if not self._can_current_user_review_expenses():
+            raise ValidationError(
+                f"Only the {self._get_expense_review_role_label()} or system administrators can return expenses."
+            )
 
         return {
             'name': 'Return Travel Expenses with Comments',
@@ -2283,11 +2689,10 @@ class BusinessTrip(models.Model):
         # Prevent trip owners from returning their own expenses
         self._check_not_trip_owner_for_management_action("Return Expenses")
 
-        # Check if user has permission (finance/system/organizer)
-        if not (self.env.user.has_group('account.group_account_manager') or
-                self.env.user.has_group('base.group_system') or
-                self.is_organizer):
-            raise ValidationError("Only the trip organizer, finance personnel, or system administrators can return expenses.")
+        if not self._can_current_user_review_expenses():
+            raise ValidationError(
+                f"Only the {self._get_expense_review_role_label()} or system administrators can return expenses."
+            )
 
         return {
             'name': 'Return Travel Expenses with Comments',
@@ -2342,7 +2747,7 @@ class BusinessTrip(models.Model):
 
         # Send message showing expense amount with improved styling
         # Odoo 18: Wrap HTML in Markup for proper rendering
-        self.message_post(
+        self._post_message_with_record_link(
             body=Markup(styled_message),
             subtype_xmlid='mail.mt_note'
         )
@@ -2402,7 +2807,7 @@ class BusinessTrip(models.Model):
 """
 
             # Odoo 18: Wrap HTML in Markup for proper rendering
-            self.message_post(
+            self._post_message_with_record_link(
                 body=Markup(styled_message),
                 partner_ids=[self.user_id.partner_id.id]
             )
@@ -2442,7 +2847,7 @@ class BusinessTrip(models.Model):
             if self.rejection_comment:
                 message += f" Details: {self.rejection_comment}"
 
-            self.message_post(
+            self._post_message_with_record_link(
                 body=message,
                 partner_ids=[self.user_id.partner_id.id]
             )
@@ -2476,7 +2881,7 @@ class BusinessTrip(models.Model):
             'final_total_cost': 0.0, # Reset final_total_cost as it's set upon approval
         })
 
-        self.message_post(body="Expense approval has been undone. The expenses are now back in 'Expenses Under Review' state for review.")
+        self._post_message_with_record_link(body="Expense approval has been undone. The expenses are now back in 'Expenses Under Review' state for review.")
 
         return {
             'type': 'ir.actions.client',
@@ -2521,6 +2926,13 @@ class BusinessTrip(models.Model):
 
         # Check if this is a submission with no expenses
         is_no_expenses = self.env.context.get('no_expenses_submission', False)
+        expense_reviewer = self._get_expense_review_user()
+        expense_reviewer_label = self._get_expense_review_role_label()
+
+        if not is_no_expenses and not expense_reviewer:
+            raise ValidationError(
+                f"No {expense_reviewer_label} is configured to review submitted travel expenses."
+            )
 
         # Change status based on whether there are expenses or not
         if is_no_expenses:
@@ -2566,112 +2978,34 @@ class BusinessTrip(models.Model):
 
         # Send personalized messages to each stakeholder
         
-        # 1. Message to Travel Approver (decision maker)
-        if self.manager_id and self.manager_id.partner_id:
+        # 1. Message to the configured expense reviewer
+        if expense_reviewer and expense_reviewer.partner_id:
             if is_no_expenses:
-                # Create budget status message for Travel Approver
-                manager_budget_info = ""
+                # Create budget status message for the expense reviewer
+                reviewer_budget_info = ""
                 if self.budget_difference > 0:
-                    manager_budget_info = f"<span style='color:green'>✓ Trip completed {abs(self.budget_difference):.2f} {self.currency_id.symbol} under budget.</span>"
+                    reviewer_budget_info = f"<span style='color:green'>✓ Trip completed {abs(self.budget_difference):.2f} {self.currency_id.symbol} under budget!</span>"
                 elif self.budget_difference < 0:
-                    manager_budget_info = f"<span style='color:red'>⚠ Trip exceeded budget by {abs(self.budget_difference):.2f} {self.currency_id.symbol}.</span>"
+                    reviewer_budget_info = f"<span style='color:red'>⚠ Trip exceeded budget by {abs(self.budget_difference):.2f} {self.currency_id.symbol}.</span>"
                 else:
-                    manager_budget_info = "<span style='color:blue'>✓ Trip completed exactly on budget.</span>"
+                    reviewer_budget_info = "<span style='color:blue'>✓ Trip completed exactly on budget!</span>"
                 
-                # Personalized message for Travel Approver - No Expenses - Trip Completed
-                manager_message = f"""
-<div style="background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; padding: 15px; margin-top: 20px; margin-bottom: 15px;">
-    <div style="display: flex; align-items: center; margin-bottom: 10px;">
-        <span style="color: #155724; font-size: 20px; margin-right: 10px;">✅</span>
-        <span style="font-weight: bold; color: #155724; font-size: 16px;">Trip Completed - No Additional Expenses</span>
-    </div>
-    <p style="margin: 5px 0 10px 0;">Your employee <strong>{self.user_id.name}</strong> has confirmed that there are no additional expenses for trip '<strong>{self.name}</strong>'. The trip has been automatically completed.</p>
-    <div style="background-color: #fff; border: 1px solid #28a745; padding: 10px; margin-top: 5px; border-radius: 3px;">
-        <p style="margin: 0 0 5px 0; font-weight: bold; color: #155724;">Financial Summary:</p>
-        <p style="margin: 0; color: #333;">Trip: <strong>{self.name}</strong><br/>
-        Final Total Cost: <strong>{self.final_total_cost:.2f} {self.currency_id.symbol if self.currency_id else ''}</strong><br/>
-        {manager_budget_info}</p>
-    </div>
-    <div style="background-color: #fff; border-left: 4px solid #28a745; padding: 10px; margin-top: 5px;">
-        <p style="margin: 0; color: #333;"><strong>Travel Approver Update:</strong> No action required from you. The trip is now financially closed and the process is complete.</p>
-    </div>
-    <div style="margin-top: 15px; text-align: right;">
-        <span style="background-color: #28a745; color: white; padding: 5px 10px; border-radius: 3px; font-size: 12px;">✅ Trip Completed</span>
-    </div>
-</div>
-"""
-                if self.expense_comments:
-                    manager_message += f"""
-<div style="background-color: #f8f9fa; border-left: 4px solid #6c757d; padding: 10px; margin-top: 10px;">
-    <p style="margin: 0 0 5px 0; font-weight: bold;">Employee Comments:</p>
-    <p style="margin: 0; color: #333;">{self.expense_comments}</p>
-</div>
-"""
-            else:
-                # Personalized message for Travel Approver - With Expenses
-                manager_message = f"""
-<div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 15px; margin-top: 20px; margin-bottom: 15px;">
-    <div style="display: flex; align-items: center; margin-bottom: 10px;">
-        <span style="color: #856404; font-size: 20px; margin-right: 10px;">💰</span>
-        <span style="font-weight: bold; color: #856404; font-size: 16px;">Expense Approval Required</span>
-    </div>
-    <p style="margin: 5px 0 10px 0;">Your employee <strong>{self.user_id.name}</strong> has submitted travel expenses for your review and approval.</p>
-    <div style="background-color: #fff; border: 1px solid #ffc107; padding: 10px; margin-top: 5px; border-radius: 3px;">
-        <p style="margin: 0 0 5px 0; font-weight: bold; color: #856404;">Financial Details:</p>
-        <p style="margin: 0; color: #333;">Trip: <strong>{self.name}</strong><br/>
-        Employee Additional Expenditures: <strong>{self.expense_total:.2f} {self.currency_id.symbol if self.currency_id else ''}</strong><br/>
-        Total Actual Cost: <strong>{self.organizer_planned_cost + self.expense_total:.2f} {self.currency_id.symbol if self.currency_id else ''}</strong></p>
-    </div>
-    <div style="background-color: #fff; border-left: 4px solid #ffc107; padding: 10px; margin-top: 5px;">
-        <p style="margin: 0; color: #333;"><strong>Travel Approver Action Required:</strong> Please review the submission and either approve the expenses or return them for revision.</p>
-    </div>
-    <div style="margin-top: 15px; text-align: right;">
-        <span style="background-color: #ffc107; color: #856404; padding: 5px 10px; border-radius: 3px; font-size: 12px; font-weight: bold;">⏳ Awaiting Your Decision</span>
-    </div>
-</div>
-"""
-                if self.expense_comments:
-                    manager_message += f"""
-<div style="background-color: #f8f9fa; border-left: 4px solid #6c757d; padding: 10px; margin-top: 10px;">
-    <p style="margin: 0 0 5px 0; font-weight: bold;">Employee Comments:</p>
-    <p style="margin: 0; color: #333;">{self.expense_comments}</p>
-</div>
-"""
-
-            # Post confidential message to Travel Approver
-            self.sudo().post_confidential_message(
-                message=manager_message,
-                recipient_ids=[self.manager_id.id]
-            )
-
-        # 2. Message to Organizer (coordinator)
-        if self.organizer_id and self.organizer_id.partner_id:
-            if is_no_expenses:
-                # Create budget status message for organizer
-                organizer_budget_info = ""
-                if self.budget_difference > 0:
-                    organizer_budget_info = f"<span style='color:green'>✓ Trip completed {abs(self.budget_difference):.2f} {self.currency_id.symbol} under budget!</span>"
-                elif self.budget_difference < 0:
-                    organizer_budget_info = f"<span style='color:red'>⚠ Trip exceeded budget by {abs(self.budget_difference):.2f} {self.currency_id.symbol}.</span>"
-                else:
-                    organizer_budget_info = "<span style='color:blue'>✓ Trip completed exactly on budget!</span>"
-                
-                # Personalized message for Organizer - No Expenses - Trip Completed
-                organizer_message = f"""
+                # Personalized message for the expense reviewer - No Expenses - Trip Completed
+                reviewer_message = f"""
 <div style="background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 5px; padding: 15px; margin-top: 20px; margin-bottom: 15px;">
     <div style="display: flex; align-items: center; margin-bottom: 10px;">
         <span style="color: #0c5460; font-size: 20px; margin-right: 10px;">🎉</span>
         <span style="font-weight: bold; color: #0c5460; font-size: 16px;">Trip Successfully Completed - No Additional Expenses</span>
     </div>
-    <p style="margin: 5px 0 10px 0;">The employee <strong>{self.user_id.name}</strong> has confirmed no additional expenses for the trip you organized: '<strong>{self.name}</strong>'. The trip has been automatically completed.</p>
+    <p style="margin: 5px 0 10px 0;">The employee <strong>{self.user_id.name}</strong> has confirmed no additional expenses for trip '<strong>{self.name}</strong>'. The trip has been automatically completed.</p>
     <div style="background-color: #fff; border: 1px solid #17a2b8; padding: 10px; margin-top: 5px; border-radius: 3px;">
-        <p style="margin: 0 0 5px 0; font-weight: bold; color: #0c5460;">Organization Success Summary:</p>
+        <p style="margin: 0 0 5px 0; font-weight: bold; color: #0c5460;">{expense_reviewer_label} Summary:</p>
         <p style="margin: 0; color: #333;">Trip: <strong>{self.name}</strong><br/>
         Final Total Cost: <strong>{self.final_total_cost:.2f} {self.currency_id.symbol if self.currency_id else ''}</strong><br/>
-        {organizer_budget_info}</p>
+        {reviewer_budget_info}</p>
     </div>
     <div style="background-color: #fff; border-left: 4px solid #17a2b8; padding: 10px; margin-top: 5px;">
-        <p style="margin: 0; color: #333;"><strong>Organizer Achievement:</strong> Your planned budget execution was perfect! The trip is now fully completed with no additional expenses required.</p>
+        <p style="margin: 0; color: #333;"><strong>Review Status:</strong> The trip is now fully completed with no additional expenses required.</p>
     </div>
     <div style="margin-top: 15px; text-align: right;">
         <span style="background-color: #17a2b8; color: white; padding: 5px 10px; border-radius: 3px; font-size: 12px;">🏆 Trip Completed</span>
@@ -2679,43 +3013,43 @@ class BusinessTrip(models.Model):
 </div>
 """
             else:
-                # Personalized message for Organizer - With Expenses
-                organizer_message = f"""
+                # Personalized message for the expense reviewer - With Expenses
+                reviewer_message = f"""
 <div style="background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 5px; padding: 15px; margin-top: 20px; margin-bottom: 15px;">
     <div style="display: flex; align-items: center; margin-bottom: 10px;">
         <span style="color: #0c5460; font-size: 20px; margin-right: 10px;">📊</span>
-        <span style="font-weight: bold; color: #0c5460; font-size: 16px;">Expense Coordination Update</span>
+        <span style="font-weight: bold; color: #0c5460; font-size: 16px;">Expense Review Required</span>
     </div>
-    <p style="margin: 5px 0 10px 0;">The employee <strong>{self.user_id.name}</strong> has submitted expenses for the trip you organized: '<strong>{self.name}</strong>'.</p>
+    <p style="margin: 5px 0 10px 0;">The employee <strong>{self.user_id.name}</strong> has submitted expenses for review for trip '<strong>{self.name}</strong>'.</p>
     <div style="background-color: #fff; border: 1px solid #17a2b8; padding: 10px; margin-top: 5px; border-radius: 3px;">
         <p style="margin: 0 0 5px 0; font-weight: bold; color: #0c5460;">Expense Summary:</p>
         <p style="margin: 0; color: #333;">Employee Additional Expenditures: <strong>{self.expense_total:.2f} {self.currency_id.symbol if self.currency_id else ''}</strong><br/>
         Total Actual Cost: <strong>{self.organizer_planned_cost + self.expense_total:.2f} {self.currency_id.symbol if self.currency_id else ''}</strong></p>
     </div>
     <div style="background-color: #fff; border-left: 4px solid #17a2b8; padding: 10px; margin-top: 5px;">
-        <p style="margin: 0; color: #333;"><strong>Organizer Role:</strong> Please coordinate with the manager if needed for expense approval. Monitor the final budget comparison.</p>
+        <p style="margin: 0; color: #333;"><strong>{expense_reviewer_label} Action:</strong> Please review this submission and either approve it or return it for revision.</p>
     </div>
     <div style="margin-top: 15px; text-align: right;">
-        <span style="background-color: #17a2b8; color: white; padding: 5px 10px; border-radius: 3px; font-size: 12px;">📋 Coordination Mode</span>
+        <span style="background-color: #17a2b8; color: white; padding: 5px 10px; border-radius: 3px; font-size: 12px;">⏳ Awaiting Your Review</span>
     </div>
 </div>
 """
 
             if self.expense_comments:
-                organizer_message += f"""
+                reviewer_message += f"""
 <div style="background-color: #f8f9fa; border-left: 4px solid #6c757d; padding: 10px; margin-top: 10px;">
     <p style="margin: 0 0 5px 0; font-weight: bold;">Employee Comments:</p>
     <p style="margin: 0; color: #333;">{self.expense_comments}</p>
 </div>
 """
 
-            # Post confidential message to Organizer
+            # Post confidential message to the expense reviewer
             self.sudo().post_confidential_message(
-                message=organizer_message,
-                recipient_ids=[self.organizer_id.id]
+                message=reviewer_message,
+                recipient_ids=[expense_reviewer.id]
             )
 
-        # 3. Confirmation message to Employee (submitter)
+        # 2. Confirmation message to Employee (submitter)
         if self.user_id.partner_id:
             if is_no_expenses:
                 employee_message = f"""
@@ -2742,7 +3076,7 @@ class BusinessTrip(models.Model):
     </div>
     <p style="margin: 5px 0 10px 0;">Your travel expense submission for trip '<strong>{self.name}</strong>' has been successfully received.</p>
     <div style="background-color: #fff; border-left: 4px solid #28a745; padding: 10px; margin-top: 5px;">
-        <p style="margin: 0; color: #333;"><strong>Next Steps:</strong> Your manager will review your expenses and approve or request revisions. You will be notified of the decision.</p>
+        <p style="margin: 0; color: #333;"><strong>Next Steps:</strong> The {expense_reviewer_label} will review your expenses and either approve them or request revisions. You will be notified of the decision.</p>
     </div>
     <div style="margin-top: 15px; text-align: right;">
         <span style="background-color: #28a745; color: white; padding: 5px 10px; border-radius: 3px; font-size: 12px;">📋 Under Review</span>
@@ -2752,12 +3086,26 @@ class BusinessTrip(models.Model):
 
             # Post public confirmation message to Employee
             # Odoo 18: Wrap HTML in Markup for proper rendering
-            self.message_post(
+            self._post_message_with_record_link(
                 body=Markup(employee_message),
                 partner_ids=[self.user_id.partner_id.id]
             )
 
-        return True
+        if not is_no_expenses:
+            review_note = (
+                f"{message_body}"
+                f"<br/><strong>Review Flow:</strong> The {expense_reviewer_label} will review this submission "
+                "and either approve it or return it for revision."
+            )
+            self._post_message_with_record_link(
+                body=Markup(review_note),
+                subtype_xmlid='mail.mt_note'
+            )
+
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'reload',
+        }
 
     def action_show_missing_details_warning(self):
         """Show a warning notification about missing trip details"""
@@ -2921,6 +3269,72 @@ class BusinessTrip(models.Model):
             'context': self.env.context,
         }
 
+    def _get_trip_record_url(self):
+        self.ensure_one()
+        base_url = self.get_base_url() or self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+        return f"{base_url}/web#id={self.id}&model={self._name}&view_type=form"
+
+    @api.model
+    def _normalize_message_body_html(self, body):
+        if body in (False, None):
+            return ""
+
+        body_html = str(body).strip()
+        if not body_html:
+            return ""
+
+        if re.search(r'<[a-zA-Z/][^>]*>', body_html):
+            return body_html
+
+        lines = [line.strip() for line in body_html.splitlines() if line.strip()]
+        if not lines:
+            return f"<p>{escape(body_html)}</p>"
+        return ''.join(f"<p>{escape(line)}</p>" for line in lines)
+
+    def _get_trip_reference_html(self, action_label=None, helper_text=None):
+        self.ensure_one()
+        return Markup(
+            f"""
+<div data-business-trip-reference="1" style="margin-top: 14px; padding: 12px 14px; border: 1px solid #B3D4FF; background-color: #EBF5FF; border-radius: 6px;">
+    <div style="font-size: 13px; font-weight: 600; color: #00529B; margin-bottom: 6px;">
+        Related Business Trip: {escape(self.name or 'Business Trip')}
+    </div>
+    <div style="font-size: 13px; color: #004085; margin-bottom: 10px;">
+        {escape(helper_text or 'Open the related business trip in Odoo for the full context and next actions.')}
+    </div>
+    <a href="{escape(self._get_trip_record_url())}" style="display: inline-block; background-color: #00529B; color: #FFFFFF !important; text-decoration: none; padding: 8px 14px; border-radius: 4px; font-weight: 600;">
+        {escape(action_label or 'Open Business Trip')}
+    </a>
+</div>
+"""
+        )
+
+    def _get_trip_anchor_html(self, label=None):
+        self.ensure_one()
+        return Markup(
+            f'<a href="{escape(self._get_trip_record_url())}" '
+            f'style="color: #00529B; text-decoration: none; font-weight: 600;">'
+            f'{escape(label or self.name or "Open Business Trip")}</a>'
+        )
+
+    def _append_record_reference_to_body_html(self, body, action_label=None, helper_text=None):
+        self.ensure_one()
+        body_html = self._normalize_message_body_html(body)
+        if 'data-business-trip-reference="1"' in body_html:
+            return Markup(body_html)
+        return Markup(f"{body_html}{self._get_trip_reference_html(action_label=action_label, helper_text=helper_text)}")
+
+    def _post_message_with_record_link(self, body, action_label=None, helper_text=None, **kwargs):
+        self.ensure_one()
+        return self.message_post(
+            body=self._append_record_reference_to_body_html(
+                body,
+                action_label=action_label,
+                helper_text=helper_text,
+            ),
+            **kwargs,
+        )
+
     def post_confidential_message(self, message, recipient_ids=None, attachment_ids=None):
         """Send confidential message in chatter that is only visible to specific recipients"""
         self.ensure_one()
@@ -2986,9 +3400,11 @@ class BusinessTrip(models.Model):
                             f'<i class="fa fa-lock"></i> Confidential</span>' \
                             f'<div style="margin-top: 10px;">{message}</div>' \
                             f'</div>'
-
-        # Odoo 18: Wrap HTML in Markup for proper rendering
-        formatted_message_markup = Markup(formatted_message)
+        formatted_message_markup = self._append_record_reference_to_body_html(
+            formatted_message,
+            action_label='Open Confidential Trip Record',
+            helper_text='Open the related business trip in Odoo to review the confidential context securely.',
+        )
 
         # Use internal note type (mail.mt_note) which is more restricted
         subtype_id = self.env.ref('mail.mt_note').id
@@ -3107,10 +3523,10 @@ class BusinessTrip(models.Model):
         
         # Post confidential message for internal users
         self._post_styled_message(
-            'custom_business_trip_management.organizer_plan_confidential_summary',
             card_type='warning',
             icon='🔒',
             title='Confidential: Trip Plan Updated (Pending Confirmation)',
+            template_xml_id='custom_business_trip_management.organizer_plan_confidential_summary',
             is_internal_note=True,
             render_context={
                 'record': self,
@@ -3120,10 +3536,10 @@ class BusinessTrip(models.Model):
 
         # Post public message for the employee
         self._post_styled_message(
-            'custom_business_trip_management.organizer_plan_public_summary',
             card_type='info',
             icon='⏳',
             title='Trip Plan Updated',
+            template_xml_id='custom_business_trip_management.organizer_plan_public_summary',
             is_internal_note=False,
             render_context={
                 'record': self
@@ -3290,79 +3706,514 @@ class BusinessTrip(models.Model):
         minutes = int((time_float * 60) % 60)
         return f"{hours:02d}:{minutes:02d}"
 
+    def _get_reminder_delta(self, interval, interval_type):
+        interval = max(interval or 0, 0)
+        if interval_type == 'minutes':
+            return timedelta(minutes=interval)
+        return timedelta(days=interval)
+
+    def _get_expense_followup_company(self):
+        self.ensure_one()
+        return self.user_id.company_id or self.env.company
+
+    @api.model
+    def _normalize_digest_send_hour(self, raw_hour, default=9):
+        try:
+            hour = int(default if raw_hour in (False, None) else raw_hour)
+        except (TypeError, ValueError):
+            hour = default
+        return min(max(hour, 0), 23)
+
+    @api.model
+    def _get_weekday_index(self, weekday_value):
+        weekday_map = {
+            'monday': 0,
+            'tuesday': 1,
+            'wednesday': 2,
+            'thursday': 3,
+            'friday': 4,
+            'saturday': 5,
+            'sunday': 6,
+        }
+        return weekday_map.get(weekday_value or 'monday', 0)
+
+    @api.model
+    def _align_datetime_to_daily_window(self, value, send_hour):
+        if not value:
+            return False
+
+        aligned = value.replace(
+            hour=self._normalize_digest_send_hour(send_hour),
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        if value > aligned:
+            aligned += timedelta(days=1)
+        return aligned
+
+    @api.model
+    def _align_datetime_to_weekly_window(self, value, weekday_value, send_hour):
+        if not value:
+            return False
+
+        target_weekday = self._get_weekday_index(weekday_value)
+        days_ahead = (target_weekday - value.weekday()) % 7
+        aligned = value.replace(
+            hour=self._normalize_digest_send_hour(send_hour),
+            minute=0,
+            second=0,
+            microsecond=0,
+        ) + timedelta(days=days_ahead)
+        if days_ahead == 0 and value > aligned:
+            aligned += timedelta(days=7)
+        return aligned
+
+    @api.model
+    def _get_current_daily_window_datetime(self, reference_datetime, send_hour):
+        if not reference_datetime:
+            return False
+        return reference_datetime.replace(
+            hour=self._normalize_digest_send_hour(send_hour),
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+
+    @api.model
+    def _get_current_weekly_window_datetime(self, reference_datetime, weekday_value, send_hour):
+        if not reference_datetime:
+            return False
+
+        target_weekday = self._get_weekday_index(weekday_value)
+        week_start = reference_datetime.date() - timedelta(days=reference_datetime.weekday())
+        window_date = week_start + timedelta(days=target_weekday)
+        return datetime.combine(window_date, datetime.min.time()).replace(
+            hour=self._normalize_digest_send_hour(send_hour),
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+
+    def _ensure_expense_followup_start_date(self):
+        for trip in self:
+            if trip.expense_followup_start_date:
+                continue
+
+            anchor_datetime = trip.organization_done_date or trip.create_date or trip.write_date or fields.Datetime.now()
+            trip.with_context(mail_notrack=True, system_edit=True).write({
+                'expense_followup_start_date': anchor_datetime,
+            })
+
+    def _get_expense_reminder_base_datetime(self):
+        self.ensure_one()
+        return self.expense_followup_start_date or self.organization_done_date or self.create_date or self.write_date
+
+    def _get_employee_expense_followup_due_datetime(self):
+        self.ensure_one()
+        base_datetime = self._get_expense_reminder_base_datetime()
+        if not base_datetime:
+            return False
+
+        company = self._get_expense_followup_company()
+        earliest_due_datetime = base_datetime + self._get_reminder_delta(
+            company.employee_expense_reminder_delay,
+            company.employee_expense_reminder_delay_type,
+        )
+        return self._align_datetime_to_daily_window(
+            earliest_due_datetime,
+            company.employee_expense_digest_send_hour,
+        )
+
+    def _get_employee_expense_repeat_delta(self, company):
+        interval = company.expense_reminder_interval or 0
+        if interval <= 0:
+            return False
+        return self._get_reminder_delta(interval, company.expense_reminder_interval_type)
+
+    def _get_organizer_expense_repeat_delta(self, company):
+        interval = company.organizer_expense_reminder_interval or 0
+        if interval <= 0:
+            return False
+        return self._get_reminder_delta(interval, company.organizer_expense_reminder_interval_type)
+
+    def _get_employee_digest_trip_due_datetime(self):
+        self.ensure_one()
+        company = self._get_expense_followup_company()
+        if self.trip_status == 'expense_returned':
+            base_datetime = self.write_date or fields.Datetime.now()
+            return self._align_datetime_to_daily_window(
+                base_datetime,
+                company.employee_expense_digest_send_hour,
+            )
+        return self._get_employee_expense_followup_due_datetime()
+
+    def _get_organizer_expense_followup_due_datetime(self):
+        self.ensure_one()
+        if self.trip_status != 'completed_waiting_expense' or not self._get_expense_review_user():
+            return False
+
+        base_datetime = self._get_expense_reminder_base_datetime()
+        if not base_datetime:
+            return False
+
+        company = self._get_expense_followup_company()
+        earliest_due_datetime = base_datetime + self._get_reminder_delta(
+            company.organizer_expense_escalation_delay,
+            company.organizer_expense_escalation_delay_type,
+        )
+        return self._align_datetime_to_daily_window(
+            earliest_due_datetime,
+            company.organizer_expense_digest_send_hour,
+        )
+
+    def _get_employee_expense_followup_activity_summary(self):
+        self.ensure_one()
+        return "Clarify Expense Status"
+
+    def _get_employee_expense_followup_note(self):
+        self.ensure_one()
+        if self.trip_status == 'expense_returned':
+            return (
+                "Your submitted travel expenses were returned for revision. "
+                "Please update the expense details and resubmit them."
+            )
+        return (
+            "Please submit your travel expenses or confirm that there were no additional expenses "
+            "for this trip."
+        )
+
+    def _get_employee_expense_followup_status_label(self):
+        self.ensure_one()
+        if self.trip_status == 'expense_returned':
+            return "Expense Revision Requested"
+        return "Awaiting Expense Decision"
+
+    def _get_employee_expense_followup_activities(self):
+        self.ensure_one()
+        todo = self.env.ref('mail.mail_activity_data_todo', raise_if_not_found=False)
+        if not todo:
+            return self.env['mail.activity']
+        return self.env['mail.activity'].search([
+            ('res_model', '=', 'business.trip'),
+            ('res_id', '=', self.id),
+            ('activity_type_id', '=', todo.id),
+            ('summary', '=', self._get_employee_expense_followup_activity_summary()),
+        ])
+
+    def _clear_employee_expense_followup_activities(self):
+        for trip in self:
+            trip._get_employee_expense_followup_activities().unlink()
+
+    def _create_or_update_employee_expense_followup_activity(self, due_datetime):
+        self.ensure_one()
+        todo = self.env.ref('mail.mail_activity_data_todo', raise_if_not_found=False)
+        if not todo or not self.user_id:
+            return
+
+        existing_activities = self._get_employee_expense_followup_activities()
+        existing_activity = existing_activities[:1]
+        (existing_activities - existing_activity).unlink()
+        activity_vals = {
+            'date_deadline': due_datetime.date(),
+            'note': self._get_employee_expense_followup_note(),
+            'user_id': self.user_id.id,
+        }
+        if existing_activity:
+            existing_activity.write(activity_vals)
+            return
+
+        activity_vals.update({
+            'activity_type_id': todo.id,
+            'summary': self._get_employee_expense_followup_activity_summary(),
+            'res_model_id': self.env['ir.model']._get_id('business.trip'),
+            'res_id': self.id,
+            'user_id': self.user_id.id,
+        })
+        # The digest email is the user-facing notification; keep the To Do creation silent
+        # to avoid reintroducing one email per trip via the default activity assignment flow.
+        self.env['mail.activity'].with_context(mail_activity_quick_update=True).create(activity_vals)
+
+    @api.model
+    def _format_expense_digest_datetime(self, value):
+        if not value:
+            return "-"
+        return fields.Datetime.to_string(value)
+
+    @api.model
+    def _queue_expense_digest_email(self, recipient_partner, company, subject, body_html):
+        if not recipient_partner or not recipient_partner.email:
+            return False
+
+        author_partner = company.partner_id or self.env.user.partner_id
+        self.env['mail.mail'].sudo().create({
+            'author_id': author_partner.id if author_partner else False,
+            'auto_delete': False,
+            'body': body_html,
+            'body_html': body_html,
+            'email_from': author_partner.email_formatted if author_partner else False,
+            'recipient_ids': [(4, recipient_partner.id)],
+            'subject': subject,
+        })
+        return True
+
+    @api.model
+    def _build_employee_expense_followup_digest_email(self, employee, trips, company):
+        sorted_trips = trips.sorted(
+            key=lambda trip: (
+                trip._get_employee_digest_trip_due_datetime() or fields.Datetime.now(),
+                trip.name or '',
+            )
+        )
+        row_html = []
+        for trip in sorted_trips:
+            row_html.append(
+                f"""
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">{trip._get_trip_anchor_html(trip.name or '-')}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">{escape(trip.destination or '-')}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">{escape(trip._get_expense_review_display_name())}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">{escape(trip._get_employee_expense_followup_status_label())}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">{escape(self._format_expense_digest_datetime(trip.expense_followup_start_date))}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">{trip._get_trip_anchor_html('Open Trip')}</td>
+                    </tr>
+                """
+            )
+
+        trip_label = "trip" if len(sorted_trips) == 1 else "trips"
+        verb_label = "needs" if len(sorted_trips) == 1 else "need"
+        subject = f"Reminder: {len(sorted_trips)} {trip_label} {verb_label} your expense update"
+        body_content = f"""
+    <p>Hello <strong>{escape(employee.name or '')}</strong>,</p>
+    <p>The following business trips are still waiting for your expense update. Please submit your expenses or confirm that there were no additional expenses.</p>
+    <table style="border-collapse: collapse; width: 100%; margin: 16px 0;">
+        <thead>
+            <tr style="background-color: #f8f9fa;">
+                <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Trip</th>
+                <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Destination</th>
+                <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Expense Reviewer</th>
+                <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Status</th>
+                <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Planning Finalized At</th>
+                <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Record</th>
+            </tr>
+        </thead>
+        <tbody>
+            {''.join(row_html)}
+        </tbody>
+    </table>
+    <p>Each trip row links directly to the related record in Odoo. Your related To Do items are available on each business trip record.</p>
+    <p style="margin-top: 16px;">Best regards,<br/>{escape(company.name or self.env.company.name or 'Your Company')}</p>
+"""
+        body_html = self._render_styled_message_card(
+            card_type='warning',
+            icon='🧾',
+            title='Expense Update Needed',
+            body_html=Markup(body_content),
+            next_steps='Open each trip above, confirm whether there were expenses, and submit or revise the expense details.',
+        )
+        return subject, body_html
+
+    @api.model
+    def _build_organizer_expense_digest_email(self, reviewer, trips, company):
+        sorted_trips = trips.sorted(
+            key=lambda trip: (
+                trip.user_id.name or '',
+                trip._get_organizer_expense_followup_due_datetime() or fields.Datetime.now(),
+                trip.name or '',
+            )
+        )
+        row_html = []
+        for trip in sorted_trips:
+            employee_reminder_status = "Sent" if trip.employee_expense_reminder_sent_date else "Pending"
+            row_html.append(
+                f"""
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">{escape(trip.user_id.name or '-')}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">{trip._get_trip_anchor_html(trip.name or '-')}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">{escape(trip.destination or '-')}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">{escape(self._format_expense_digest_datetime(trip.expense_followup_start_date))}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">{escape(employee_reminder_status)}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">{trip._get_trip_anchor_html('Open Trip')}</td>
+                    </tr>
+                """
+            )
+
+        trip_label = "trip" if len(sorted_trips) == 1 else "trips"
+        subject = f"Expense Follow-up Digest: {len(sorted_trips)} pending {trip_label}"
+        body_content = f"""
+    <p>Hello <strong>{escape(reviewer.name or '')}</strong>,</p>
+    <p>This digest groups all business trips that are still waiting for employee expense submission and currently need your follow-up as the expense reviewer.</p>
+    <table style="border-collapse: collapse; width: 100%; margin: 16px 0;">
+        <thead>
+            <tr style="background-color: #f8f9fa;">
+                <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Employee</th>
+                <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Trip</th>
+                <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Destination</th>
+                <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Planning Finalized At</th>
+                <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Employee Reminder</th>
+                <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Record</th>
+            </tr>
+        </thead>
+        <tbody>
+            {''.join(row_html)}
+        </tbody>
+    </table>
+    <p>Each trip row links directly to the related record in Odoo. Please follow up with the employees listed above and help move these trips toward financial closure.</p>
+    <p style="margin-top: 16px;">Best regards,<br/>{escape(company.name or self.env.company.name or 'Your Company')}</p>
+"""
+        body_html = self._render_styled_message_card(
+            card_type='info',
+            icon='📋',
+            title='Expense Follow-up Digest',
+            body_html=Markup(body_content),
+            next_steps='Open each trip above, review the latest expense state, and follow up with the employee where needed.',
+        )
+        return subject, body_html
+
+    def _sync_employee_expense_followup_activity(self):
+        for trip in self:
+            if not trip.user_id:
+                trip._clear_employee_expense_followup_activities()
+                continue
+
+            if trip.trip_status == 'completed_waiting_expense':
+                due_datetime = trip._get_employee_expense_followup_due_datetime()
+                if not due_datetime:
+                    trip._clear_employee_expense_followup_activities()
+                    continue
+
+                if fields.Datetime.now() >= due_datetime:
+                    trip._create_or_update_employee_expense_followup_activity(due_datetime)
+                else:
+                    trip._clear_employee_expense_followup_activities()
+            elif trip.trip_status == 'expense_returned':
+                trip._create_or_update_employee_expense_followup_activity(fields.Datetime.now())
+            else:
+                trip._clear_employee_expense_followup_activities()
+
+    def _send_employee_expense_followup_digests(self, now):
+        grouped_trips = defaultdict(lambda: self.env['business.trip'])
+        digest_state_model = self.env['business.trip.reminder.digest.state'].sudo()
+
+        for trip in self.filtered(lambda record: record.trip_status in ('completed_waiting_expense', 'expense_returned')):
+            due_datetime = trip._get_employee_digest_trip_due_datetime()
+            if not due_datetime or not trip.user_id:
+                continue
+
+            company = trip._get_expense_followup_company()
+            current_window_dt = self._get_current_daily_window_datetime(now, company.employee_expense_digest_send_hour)
+            if not current_window_dt or now < current_window_dt or due_datetime > current_window_dt:
+                continue
+
+            grouped_trips[(trip.user_id.id, company.id)] |= trip
+
+        for (user_id, company_id), trips in grouped_trips.items():
+            employee = self.env['res.users'].browse(user_id)
+            company = self.env['res.company'].browse(company_id)
+            current_window_dt = self._get_current_daily_window_datetime(now, company.employee_expense_digest_send_hour)
+            repeat_delta = trips[:1]._get_employee_expense_repeat_delta(company)
+            digest_state = digest_state_model.get_or_create_state(
+                employee,
+                company,
+                'employee_expense_followup',
+            )
+
+            if digest_state.last_sent_date:
+                if digest_state.last_sent_date >= current_window_dt:
+                    continue
+                if repeat_delta and current_window_dt < (digest_state.last_sent_date + repeat_delta):
+                    continue
+                if not repeat_delta:
+                    continue
+
+            subject, body_html = self._build_employee_expense_followup_digest_email(employee, trips, company)
+            queued = self._queue_expense_digest_email(employee.partner_id, company, subject, body_html)
+            if not queued:
+                _logger.info(
+                    "Skipping employee expense digest for user %s because no email recipient is available.",
+                    employee.id,
+                )
+                continue
+
+            trips.with_context(mail_notrack=True, system_edit=True).write({
+                'employee_expense_reminder_sent_date': current_window_dt or now,
+            })
+            digest_state.write({'last_sent_date': current_window_dt or now})
+
+    def _get_due_organizer_expense_followup_trips(self, now):
+        due_trips = self.env['business.trip']
+
+        for trip in self.filtered(lambda record: record.trip_status == 'completed_waiting_expense' and record._get_expense_review_user()):
+            company = trip._get_expense_followup_company()
+            current_window_dt = self._get_current_daily_window_datetime(
+                now,
+                company.organizer_expense_digest_send_hour,
+            )
+            due_datetime = trip._get_organizer_expense_followup_due_datetime()
+            if current_window_dt and now >= current_window_dt and due_datetime and due_datetime <= current_window_dt:
+                due_trips |= trip
+
+        return due_trips
+
+    def _send_organizer_expense_followup_digests(self, now):
+        grouped_trips = defaultdict(lambda: self.env['business.trip'])
+        digest_state_model = self.env['business.trip.reminder.digest.state'].sudo()
+
+        for trip in self._get_due_organizer_expense_followup_trips(now):
+            company = trip._get_expense_followup_company()
+            reviewer = trip._get_expense_review_user()
+            if reviewer:
+                grouped_trips[(reviewer.id, company.id)] |= trip
+
+        for (reviewer_id, company_id), trips in grouped_trips.items():
+            reviewer = self.env['res.users'].browse(reviewer_id)
+            company = self.env['res.company'].browse(company_id)
+            current_window_dt = self._get_current_daily_window_datetime(
+                now,
+                company.organizer_expense_digest_send_hour,
+            )
+            repeat_delta = trips[:1]._get_organizer_expense_repeat_delta(company)
+            digest_state = digest_state_model.get_or_create_state(
+                reviewer,
+                company,
+                'organizer_expense_followup',
+            )
+
+            if digest_state.last_sent_date:
+                if digest_state.last_sent_date >= current_window_dt:
+                    continue
+                if repeat_delta and current_window_dt < (digest_state.last_sent_date + repeat_delta):
+                    continue
+                if not repeat_delta:
+                    continue
+
+            subject, body_html = self._build_organizer_expense_digest_email(reviewer, trips, company)
+            queued = self._queue_expense_digest_email(reviewer.partner_id, company, subject, body_html)
+            if not queued:
+                _logger.info(
+                    "Skipping expense reviewer digest for user %s because no email recipient is available.",
+                    reviewer.id,
+                )
+                continue
+
+            trips.with_context(mail_notrack=True, system_edit=True).write({
+                'last_expense_reminder_date': current_window_dt or now,
+            })
+            digest_state.write({'last_sent_date': current_window_dt or now})
+
     def _cron_send_expense_submission_reminders(self):
         """
-        Cron job to send configurable reminders to employees to submit their expenses
-        after a trip plan has been finalized.
+        Cron job to keep employee expense follow-up aligned and optionally
+        escalate stale pending expense cases to expense reviewers using grouped digests.
         """
-        trips_to_remind = self.search([('trip_status', '=', 'completed_waiting_expense')])
+        trips_to_remind = self.search([('trip_status', 'in', ['completed_waiting_expense', 'expense_returned'])])
         now = fields.Datetime.now()
         _logger.info(f"Cron job for expense reminders running at {now}. Found {len(trips_to_remind)} trips to check.")
 
-        for trip in trips_to_remind:
-            # Modified by A_zeril_A, 2025-10-20: Use write_date as a fallback if organization_done_date is missing to ensure reminders are still sent.
-            if not trip.organization_done_date:
-                _logger.info(f"Trip {trip.id} is in 'completed_waiting_expense' state but has no 'organization_done_date'. Using write_date as a fallback.")
-                base_date = trip.write_date
-            else:
-                base_date = trip.organization_done_date
-
-            # Get company settings for reminder interval
-            company = trip.env.company
-            reminder_interval = company.expense_reminder_interval
-            reminder_interval_type = company.expense_reminder_interval_type
-
-            # Use a timedelta for accurate time comparison
-            if reminder_interval_type == 'minutes':
-                delta = timedelta(minutes=reminder_interval)
-            else: # Default to days
-                delta = timedelta(days=reminder_interval)
-            
-            # Determine the timestamp to check against
-            last_event_timestamp = trip.last_expense_reminder_date or base_date
-            
-            # Check if it's time to send a reminder
-            if now >= (last_event_timestamp + delta):
-                _logger.info(f"Sending expense submission reminder for trip {trip.id}.")
-                # Professional reminder message with consistent styling
-                reminder_message = f"""
-<div style="background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 5px; padding: 15px; margin-top: 20px; margin-bottom: 15px;">
-    <div style="display: flex; align-items: center; margin-bottom: 10px;">
-        <span style="color: #856404; font-size: 20px; margin-right: 10px;">🔔</span>
-        <span style="font-weight: bold; color: #856404; font-size: 16px;">Reminder: Please Submit Your Trip Expenses</span>
-    </div>
-    <p style="margin: 5px 0 10px 0;">This is a friendly reminder that the expenses for your business trip to <strong>{trip.destination}</strong> have not been submitted yet.</p>
-    <div style="background-color: #fff; border: 1px solid #ffc107; padding: 10px; margin-top: 5px; border-radius: 3px;">
-        <p style="margin: 0 0 5px 0; font-weight: bold; color: #856404;">Action Required:</p>
-        <ul style="margin: 5px 0; padding-left: 20px; color: #333;">
-            <li>📋 Please compile all your receipts and expense details</li>
-            <li>💼 Submit your expenses through the system at your earliest convenience</li>
-            <li>💰 This ensures prompt reimbursement processing</li>
-        </ul>
-    </div>
-    <div style="background-color: #fff; border-left: 4px solid #ffc107; padding: 10px; margin-top: 5px;">
-        <p style="margin: 0; color: #333;"><strong>Why is this important?</strong> Timely submission ensures prompt reimbursement and accurate financial tracking.</p>
-    </div>
-    <div style="margin-top: 15px; text-align: right;">
-        <span style="background-color: #ffc107; color: #212529; padding: 5px 10px; border-radius: 3px; font-size: 12px;">System Reminder</span>
-    </div>
-</div>
-"""
-                # Post to chatter and send an email notification ONLY to the employee.
-                # We use 'mail.mt_notification' as it's not a default subtype for followers,
-                # ensuring only partners in 'partner_ids' are notified.
-                subject = f"Reminder: Please Submit Your Trip Expenses for {trip.name}"
-                # Odoo 18: Wrap HTML in Markup for proper rendering
-                trip.message_post(
-                    body=Markup(reminder_message),
-                    subject=subject,
-                    email_from=trip.env.company.partner_id.email_formatted,
-                    partner_ids=[trip.user_id.partner_id.id],
-                    subtype_xmlid='mail.mt_notification',
-                )
-                trip.write({'last_expense_reminder_date': now})
-            else:
-                _logger.info(f"Skipping reminder for trip {trip.id}. Next reminder is due after {last_event_timestamp + delta}.")
+        trips_to_remind.filtered(lambda trip: not trip.expense_followup_start_date)._ensure_expense_followup_start_date()
+        trips_to_remind._sync_employee_expense_followup_activity()
+        trips_to_remind._send_employee_expense_followup_digests(now)
+        trips_to_remind._send_organizer_expense_followup_digests(now)
 
     # Duplicate method removed - using the one defined earlier in the file
         
@@ -3451,7 +4302,13 @@ class BusinessTrip(models.Model):
         """
         Override write to post messages on status changes and manage project/task creation.
         """
+        previous_statuses = {}
+        sync_followup_activity = any(field in vals for field in ('trip_status', 'user_id'))
+        if sync_followup_activity:
+            previous_statuses = {trip.id: trip.trip_status for trip in self}
+
         res = super(BusinessTrip, self).write(vals)
+
         if 'trip_status' in vals:
             for trip in self:
                 if vals['trip_status'] == 'pending_organization':
@@ -3465,6 +4322,19 @@ class BusinessTrip(models.Model):
                         trip.organizer_submission_date = fields.Datetime.now()
                     if not trip.plan_approval_date:
                         trip.plan_approval_date = fields.Datetime.now()
+
+        if sync_followup_activity:
+            for trip in self:
+                previous_status = previous_statuses.get(trip.id)
+                if (
+                    trip.trip_status == 'completed_waiting_expense'
+                    and previous_status not in ('completed_waiting_expense', 'expense_submitted', 'expense_returned')
+                ):
+                    trip.expense_followup_start_date = trip.expense_followup_start_date or trip.organization_done_date or fields.Datetime.now()
+                    trip.employee_expense_reminder_sent_date = False
+                    trip.last_expense_reminder_date = False
+                trip._sync_employee_expense_followup_activity()
+
         return res
 
     @api.depends('effective_trip_status')

@@ -77,21 +77,23 @@
           <list string="My Business Trip Forms"
                 js_class="my_business_trip_forms_view"
                 create="false"
-                decoration-warning="needs_my_action == True"
-                decoration-primary="waiting_for_others == True"
+                decoration-warning="action_status == 'needs_my_action'"
+                decoration-primary="action_status == 'waiting_for_others'"
                 decoration-success="trip_status == 'completed'"
                 decoration-muted="trip_status in ('cancelled', 'rejected')"
                 decoration-info="trip_status == 'draft'">
-            
-            <!-- Hidden fields for smart coloring -->
-            <field name="needs_my_action" invisible="1"/>
-            <field name="waiting_for_others" invisible="1"/>
             
             <!-- Essential Fields (Always Visible) -->
             <field name="id"/>
             <field name="name"/>
             <field name="display_quotation_ref" string="Linked Quotation"/>
             <field name="trip_status" string="Trip Status" widget="badge"/>
+            <field name="action_status" string="Action Status" widget="badge"
+                   decoration-warning="action_status == 'needs_my_action'"
+                   decoration-primary="action_status == 'waiting_for_others'"
+                   decoration-info="action_status == 'no_pending_action'"
+                   decoration-muted="action_status == 'closed'"/>
+            <field name="next_action_summary" string="Next Step" optional="show"/>
             <field name="submission_date" string="Submission Date"/>
             
             <!-- Travel Information -->
@@ -172,7 +174,7 @@
             </header>
             <header invisible="(form_completion_status != 'form_completed' and trip_status != 'returned') or trip_status == 'cancelled'"> <!-- Header 2: Trip Request & Organization Phase -->
                 <field name="trip_status_phase1" widget="statusbar" 
-                       statusbar_visible="draft,submitted,pending_organization,organization_done,rejected"
+                       statusbar_visible="draft,submitted,pending_organization,organization_done"
                        decoration-info="trip_status_phase1 == 'draft'" 
                        decoration-warning="trip_status_phase1 in ('submitted', 'pending_organization')" 
                        decoration-orange="trip_status_phase1 == 'returned'"
@@ -209,6 +211,12 @@
                 </div>
 
                 <!-- Employee: Draft or Returned (from manager before organizer assignment or after rejection for rework) -->
+                <!-- Standalone: Relink Project button (employee only, before submission) -->
+                <button name="action_employee_relink_project" type="object" string="Relink Project"
+                    class="btn-secondary"
+                    invisible="sale_order_id or trip_status not in ['draft', 'returned'] or not is_current_user_owner or not is_from_my_business_trip or ((selected_project_id or business_trip_project_id) and (selected_project_task_id or business_trip_task_id))"
+                    help="Select or relink the project for this standalone trip before submitting for approval."/>
+
                 <!-- Submit button - available when details are complete and in draft status -->
                 <button name="action_submit_to_manager" type="object" string="Submit for Approval"
                     class="oe_highlight"
@@ -315,14 +323,14 @@
                       help="Recall your submitted expenses for further editing before they are processed."/>
                 <button name="action_open_expense_return_comment_wizard" type="object" string="Return Expenses"
                       class="btn-warning"
-                      invisible="trip_status != 'expense_submitted' or not is_from_assigned_to_me or (not is_finance and not is_organizer)"
-                      help="Return expense submission to employee with comments for revision."/>
+                      invisible="trip_status != 'expense_submitted' or not can_review_expenses"
+                      help="Return expense submission to employee with comments for revision. The configured expense reviewer or Administrator can perform this action."/>
 
                 <!-- New button for expense approval -->
                 <button name="action_approve_expenses" type="object" string="Approve Expenses"
                       class="btn-success oe_highlight"
-                      invisible="trip_status != 'expense_submitted' or not is_from_assigned_to_me or (not is_finance and not is_organizer)"
-                      help="Approve the submitted expenses and complete the business trip process."/>
+                      invisible="trip_status != 'expense_submitted' or not can_review_expenses"
+                      help="Approve the submitted expenses and complete the business trip process. The configured expense reviewer or Administrator can perform this action."/>
 
                 <!-- Travel Approver/Admin/Finance: When 'completed' (after expense approval) -->
                 <button name="action_manager_undo_expense_approval" type="object" string="Undo Exp. Approval"
@@ -369,6 +377,7 @@
               <field name="can_cancel_trip" invisible="1"/>
               <field name="is_current_user_owner" invisible="1"/>
               <field name="can_undo_expense_approval_action" invisible="1"/>
+              <field name="can_review_expenses" invisible="1"/>
               <field name="is_from_assigned_to_me" invisible="1"/>
               <field name="is_from_my_business_trip" invisible="1"/>
               <field name="trip_status" invisible="1"/>
@@ -897,6 +906,9 @@
             <filter name="filter_submitted" string="Submitted" domain="[('trip_status', '=', 'submitted')]"/>
             <filter name="filter_pending_organization" string="Pending Organization" domain="[('trip_status', '=', 'pending_organization')]"/>
             <filter name="filter_organization_done" string="Organization Done" domain="[('trip_status', '=', 'organization_done')]"/>
+            <filter name="filter_completed_waiting_expense" string="Awaiting Expenses" domain="[('trip_status', '=', 'completed_waiting_expense')]"/>
+            <filter name="filter_expense_submitted" string="Expenses Under Review" domain="[('trip_status', '=', 'expense_submitted')]"/>
+            <filter name="filter_expense_returned" string="Expenses Returned" domain="[('trip_status', '=', 'expense_returned')]"/>
 
             <filter name="filter_completed" string="Completed" domain="[('trip_status', '=', 'completed')]"/>
             
@@ -969,6 +981,9 @@
             <filter name="filter_submitted" string="Submitted" domain="[('trip_status', '=', 'submitted')]"/>
             <filter name="filter_pending_organization" string="Pending Organization" domain="[('trip_status', '=', 'pending_organization')]"/>
             <filter name="filter_organization_done" string="Organization Done" domain="[('trip_status', '=', 'organization_done')]"/>
+            <filter name="filter_completed_waiting_expense" string="Awaiting Expenses" domain="[('trip_status', '=', 'completed_waiting_expense')]"/>
+            <filter name="filter_expense_submitted" string="Expenses Under Review" domain="[('trip_status', '=', 'expense_submitted')]"/>
+            <filter name="filter_expense_returned" string="Expenses Returned" domain="[('trip_status', '=', 'expense_returned')]"/>
 
             <filter name="filter_completed" string="Completed" domain="[('trip_status', '=', 'completed')]"/>
             
@@ -1039,15 +1054,18 @@
             
             <!-- Status Filters -->
             <separator/>
-            <filter name="filter_needs_manager_action" string="Needs Travel Approver Action" domain="[('trip_status', 'in', ['submitted', 'pending_organization']), ('manager_id', '=', uid)]"/>
-            <filter name="filter_needs_organizer_action" string="Needs Organizer Action" domain="[('trip_status', 'in', ['pending_organization', 'organization_done']), ('organizer_id', '=', uid)]"/>
-            <filter name="filter_needs_employee_action" string="Needs Employee Action" domain="[('trip_status', 'in', ['draft', 'organization_done', 'completed']), ('user_id', '=', uid)]"/>
+            <filter name="filter_needs_manager_action" string="Needs Travel Approver Action" domain="[('trip_status', '=', 'submitted'), ('manager_id', '=', uid)]"/>
+            <filter name="filter_needs_organizer_action" string="Needs Organizer Action" domain="[('trip_status', '=', 'pending_organization'), ('organizer_id', '=', uid)]"/>
+            <filter name="filter_needs_employee_action" string="Needs Employee Action" domain="[('trip_status', 'in', ['draft', 'returned', 'completed_waiting_expense', 'expense_returned']), ('user_id', '=', uid)]"/>
             
             <separator/>
             <filter name="filter_draft" string="Draft" domain="[('trip_status', '=', 'draft')]"/>
             <filter name="filter_submitted" string="Submitted" domain="[('trip_status', '=', 'submitted')]"/>
             <filter name="filter_pending_organization" string="Pending Organization" domain="[('trip_status', '=', 'pending_organization')]"/>
             <filter name="filter_organization_done" string="Organization Done" domain="[('trip_status', '=', 'organization_done')]"/>
+            <filter name="filter_completed_waiting_expense" string="Awaiting Expenses" domain="[('trip_status', '=', 'completed_waiting_expense')]"/>
+            <filter name="filter_expense_submitted" string="Expenses Under Review" domain="[('trip_status', '=', 'expense_submitted')]"/>
+            <filter name="filter_expense_returned" string="Expenses Returned" domain="[('trip_status', '=', 'expense_returned')]"/>
 
             <filter name="filter_completed" string="Completed" domain="[('trip_status', '=', 'completed')]"/>
             
@@ -1186,14 +1204,10 @@
       <field name="arch" type="xml">
         <list string="My Assigned Business Trips"
               create="false"
-              decoration-warning="needs_my_action == True"
-              decoration-primary="waiting_for_others == True"
+              decoration-warning="action_status == 'needs_my_action'"
+              decoration-primary="action_status == 'waiting_for_others'"
               decoration-success="trip_status == 'completed'"
               decoration-muted="trip_status in ('cancelled', 'rejected')">
-            
-            <!-- Hidden fields for smart coloring -->
-            <field name="needs_my_action" invisible="1"/>
-            <field name="waiting_for_others" invisible="1"/>
             
             <!-- Essential Fields (Always Visible) -->
             <field name="id"/>
@@ -1202,6 +1216,12 @@
             <field name="user_id" string="Employee"/>
             <field name="trip_status" string="Status" widget="badge"/>
             <field name="my_role" string="My Role"/>
+            <field name="action_status" string="Action Status" widget="badge"
+                   decoration-warning="action_status == 'needs_my_action'"
+                   decoration-primary="action_status == 'waiting_for_others'"
+                   decoration-info="action_status == 'no_pending_action'"
+                   decoration-muted="action_status == 'closed'"/>
+            <field name="next_action_summary" string="Next Step" optional="show"/>
             <field name="submission_date" string="Submission Date"/>
             
             <!-- Travel Information -->

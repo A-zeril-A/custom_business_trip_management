@@ -223,16 +223,38 @@
         <field name="model">business.trip.project.selection.wizard</field>
         <field name="arch" type="xml">
             <form string="Select Project for Business Trip">
-                <div class="alert alert-info alert-link" style="margin: 16px 0;">
-                    <h4>Project Selection for Standalone Business Trip</h4>
-                    <p>Please select the project for which you are requesting this business trip. 
-                       All projects are shown. A task will be automatically 
-                       created in the selected project for tracking purposes.</p>
-                </div>
                 <group>
+                    <field name="ui_flow" invisible="1"/>
                     <field name="project_id" placeholder="Select a project for your business trip..." 
                            required="1" string="Select Project"/>
                 </group>
+
+                <!-- Guidance text (different for Approver vs Employee) -->
+                <div class="alert alert-info alert-link" style="margin: 16px 0;" invisible="ui_flow != 'approver'">
+                    <h4>Project Selection for Standalone Business Trip</h4>
+                    <p>
+                        Please select the project for which you are requesting this business trip.
+                        All projects are shown. A task will be automatically created in the selected
+                        project for tracking purposes.
+                    </p>
+                    <p>
+                        If you want the employee to resubmit the request with the correct project,
+                        cancel this wizard and use <strong>Return to Emp.</strong> on the trip form.
+                    </p>
+                </div>
+
+                <div class="alert alert-info alert-link" style="margin: 16px 0;" invisible="ui_flow != 'employee'">
+                    <h4>Select the Project for Your Trip</h4>
+                    <p>
+                        This standalone business trip request must be linked to a project.
+                        Please choose the project related to your trip. A tracking task will be
+                        created automatically.
+                    </p>
+                    <p>
+                        After linking the project, click <strong>Submit for Approval</strong> (or
+                        <strong>Resubmit</strong>) to send your request to the Travel Approver.
+                    </p>
+                </div>
                 <footer>
                     <button name="action_create_trip_with_project" type="object" string="Continue with Selected Project" class="btn-primary"/>
                     <button string="Cancel" class="btn-secondary" special="cancel"/>
@@ -240,6 +262,8 @@
             </form>
         </field>
     </record>
+
+    <!-- (Removed) Standalone trip missing project manager wizard -->
 
     <!-- Action for Project Selection Wizard -->
     <record id="action_business_trip_project_selection_wizard" model="ir.actions.act_window">

@@ -101,6 +101,7 @@ registry.category("views").add("custom_trip_redirect", customTripRedirectView);
 async function businessTripRedirectAction(env, action) {
     const orm = env.services.orm;
     const actionService = env.services.action;
+    const notification = env.services.notification;
 
     try {
         // Check if user is HR manager
@@ -121,13 +122,20 @@ async function businessTripRedirectAction(env, action) {
         }
     } catch (error) {
         console.error("Error in business trip redirect:", error);
+        // In Odoo 18, if an action fails (often due to missing access rights),
+        // we should show a visible message to the user instead of failing silently.
+        if (notification) {
+            notification.add(
+                _t("Operation failed. You may not have the required access rights."),
+                { type: "danger" }
+            );
+        }
         // Fallback to form request action
         await actionService.doAction(
             "custom_business_trip_management.action_business_trip_form_request"
         );
     }
 
-    return true;
 }
 
 // Register the client action

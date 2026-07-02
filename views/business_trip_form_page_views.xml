@@ -29,6 +29,10 @@
                     -->
                     
                     <!-- Submit for Approval Button - visible when form is completed and trip is in draft/returned status -->
+                    <button name="action_employee_relink_project" type="object" string="Relink Project"
+                        class="btn-secondary"
+                        invisible="form_completion_status != 'form_completed' or trip_status not in ['draft', 'returned'] or not is_current_user_owner or sale_order_id or ((selected_project_id or business_trip_project_id) and (selected_project_task_id or business_trip_task_id))"
+                        help="Select or relink the project for this standalone trip before submitting for approval."/>
                     <button name="action_submit_to_manager" type="object" string="Submit for Approval"
                         class="oe_highlight"
                         invisible="form_completion_status != 'form_completed' or trip_status not in ['draft', 'returned'] or not is_current_user_owner"
@@ -45,6 +49,11 @@
                     <field name="form_completion_status" invisible="1"/>
                     <field name="trip_status" invisible="1"/>
                     <field name="is_current_user_owner" invisible="1"/>
+                    <field name="sale_order_id" invisible="1"/>
+                    <field name="selected_project_id" invisible="1"/>
+                    <field name="selected_project_task_id" invisible="1"/>
+                    <field name="business_trip_project_id" invisible="1"/>
+                    <field name="business_trip_task_id" invisible="1"/>
                     <field name="trip_type" invisible="1"/>
                     <field name="accommodation_needed" invisible="1"/>
                     <field name="use_rental_car" invisible="1"/>

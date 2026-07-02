@@ -235,7 +235,7 @@ class CostEstimationWizard(models.TransientModel):
             
             # Notify the user
             if trip.user_id:
-                trip.message_post(
+                trip._post_message_with_record_link(
                     body=f"Cost estimation has been completed for your trip request.",
                     partner_ids=[trip.user_id.partner_id.id]
                 )
@@ -416,9 +416,10 @@ class ReturnCommentWizard(models.TransientModel):
         trip_id = self.env.context.get('active_id')
         if trip_id:
             trip = self.env['business.trip'].browse(trip_id)
+            default_return_comments = self.env.context.get('default_return_comments')
             res.update({
                 'trip_id': trip_id,
-                'return_comments': trip.manager_comments, # Pre-fill with Travel Approver comments
+                'return_comments': default_return_comments or trip.manager_comments,  # Pre-fill with comments
             })
         return res
 
@@ -527,11 +528,10 @@ class ExpenseReturnCommentWizard(models.TransientModel):
         if self.trip_id.trip_status != 'expense_submitted':
             raise ValidationError("You can only return expenses that have been submitted for review.")
 
-        # Check if user has permission (finance/system/organizer)
-        if not (self.env.user.has_group('account.group_account_manager') or \
-                self.env.user.has_group('base.group_system') or \
-                (self.trip_id.organizer_id and self.env.user.id == self.trip_id.organizer_id.id)):
-            raise ValidationError("Only the trip organizer, finance personnel, or system administrators can return expenses.")
+        if not self.trip_id._can_current_user_review_expenses():
+            raise ValidationError(
+                f"Only the {self.trip_id._get_expense_review_role_label()} or system administrators can return expenses."
+            )
 
         # Save the comments before calling the action_return_expenses - using system_edit context
         self.trip_id.with_context(system_edit=True).write({
@@ -712,7 +712,7 @@ class BusinessTripAssignOrganizerWizard(models.TransientModel):
         if chatter_message_parts:
             final_chatter_message = ' '.join(chatter_message_parts)
             _logger.info(f"action_save_organizer_only: Posting chatter message to form {self.trip_id.id}: {final_chatter_message}")
-            self.trip_id.message_post(
+            self.trip_id._post_message_with_record_link(
                 body=final_chatter_message,
                 subtype_xmlid='mail.mt_note'
             )
@@ -725,6 +725,23 @@ class BusinessTripProjectSelectionWizard(models.TransientModel):
     _name = 'business.trip.project.selection.wizard'
     _description = 'Business Trip Project Selection Wizard'
     
+    trip_id = fields.Many2one(
+        'business.trip',
+        string='Trip',
+        readonly=True,
+        help="If set, the selected project will be linked to this existing trip."
+    )
+
+    ui_flow = fields.Selection(
+        [
+            ('employee', 'Employee'),
+            ('approver', 'Approver'),
+        ],
+        string='UI Flow',
+        readonly=True,
+        help="Determines which guidance text is shown in the wizard.",
+    )
+
     project_id = fields.Many2one(
         'project.project', 
         string='Select Project', 
@@ -736,27 +753,44 @@ class BusinessTripProjectSelectionWizard(models.TransientModel):
     def default_get(self, fields_list):
         """Set domain for project selection"""
         res = super().default_get(fields_list)
+        # Allow linking a project to an existing trip (e.g., if a standalone trip was created
+        # from the standard form view without using the selection wizard).
+        trip_id = self.env.context.get('default_trip_id') or self.env.context.get('active_id')
+        if trip_id and 'trip_id' in fields_list:
+            res['trip_id'] = trip_id
+
+        flow = self.env.context.get('project_selection_flow')
+        if not flow and trip_id:
+            trip = self.env['business.trip'].browse(trip_id)
+            flow = 'employee' if trip.user_id.id == self.env.user.id else 'approver'
+        res['ui_flow'] = flow or 'employee'
         return res
     
     def action_create_trip_with_project(self):
-        """Create standalone business trip with selected project"""
+        """Create or update a standalone business trip with the selected project."""
         self.ensure_one()
         if not self.project_id:
             raise UserError("Please select a project.")
         
-        # Create the business trip
         current_user = self.env.user
-        business_trip = self.env['business.trip'].sudo().create({
-            'user_id': current_user.id,
-        })
+        business_trip = self.trip_id
+        if business_trip:
+            # Use the existing trip passed through context.
+            business_trip = business_trip.sudo()
+        else:
+            # Create a new standalone trip when called from the main menu.
+            business_trip = self.env['business.trip'].sudo().create({
+                'user_id': current_user.id,
+            })
         
         # Create a task in the selected project with a unique name
         task_name = f"Business Trip: {business_trip.name} - {current_user.name}"
-        task = self.env['project.task'].sudo().create({
+        # Create a zero-budget task container; planned hours can be assigned later.
+        # This avoids blocking automated flows and remains compatible with custom planned-hours enforcement.
+        task = self.env['project.task'].sudo().with_context(allow_missing_allocated_hours=True).create({
             'name': task_name,
             'project_id': self.project_id.id,
             'user_ids': [(6, 0, [current_user.id])],
-            'planned_hours': 1,
             'description': f"Task created for business trip request: {business_trip.name}"
         })
         
@@ -764,6 +798,9 @@ class BusinessTripProjectSelectionWizard(models.TransientModel):
         business_trip.write({
             'selected_project_id': self.project_id.id,
             'selected_project_task_id': task.id,
+            # Also store the generic project/task fields to make downstream flows resilient.
+            'business_trip_project_id': self.project_id.id,
+            'business_trip_task_id': task.id,
         })
         
         # Modified by A_zeril_A, 2025-10-20: Removed formio dependency
@@ -1639,7 +1676,7 @@ class BusinessTripOrganizerPlanWizard(models.TransientModel):
             # Odoo 18: Convert rendered HTML to Markup for proper rendering
             message_body_markup = Markup(message_body.decode('utf-8') if isinstance(message_body, bytes) else message_body)
             
-            self.trip_id.message_post(
+            self.trip_id._post_message_with_record_link(
                 body=message_body_markup,
                 message_type='notification',
                 subtype_id=self.env.ref('mail.mt_note').id,
