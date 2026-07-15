@@ -3716,6 +3716,42 @@ class BusinessTrip(models.Model):
         self.ensure_one()
         return self.user_id.company_id or self.env.company
 
+    def _filter_expense_followup_eligible_trips(self):
+        """Keep trips owned by an active user and an active employee."""
+        trips = self.exists()
+        if not trips:
+            return trips
+
+        active_user_ids = set(trips.mapped('user_id').filtered('active').ids)
+        if not active_user_ids:
+            return self.env['business.trip']
+
+        companies = self.env['res.company']
+        for trip in trips:
+            companies |= trip._get_expense_followup_company()
+
+        active_employees = self.env['hr.employee'].sudo().with_context(
+            active_test=False,
+        ).search([
+            ('active', '=', True),
+            ('user_id', 'in', list(active_user_ids)),
+            ('company_id', 'in', companies.ids),
+        ])
+        active_employee_keys = {
+            (employee.user_id.id, employee.company_id.id)
+            for employee in active_employees
+        }
+
+        return trips.filtered(
+            lambda trip: (
+                trip.user_id.id in active_user_ids
+                and (
+                    trip.user_id.id,
+                    trip._get_expense_followup_company().id,
+                ) in active_employee_keys
+            )
+        )
+
     @api.model
     def _normalize_digest_send_hour(self, raw_hour, default=9):
         try:
@@ -4070,8 +4106,16 @@ class BusinessTrip(models.Model):
         )
         return subject, body_html
 
-    def _sync_employee_expense_followup_activity(self):
-        for trip in self:
+    def _sync_employee_expense_followup_activity(self, eligibility_prechecked=False):
+        eligible_trips = (
+            self
+            if eligibility_prechecked
+            else self._filter_expense_followup_eligible_trips()
+        )
+        if not eligibility_prechecked:
+            (self - eligible_trips)._clear_employee_expense_followup_activities()
+
+        for trip in eligible_trips:
             if not trip.user_id:
                 trip._clear_employee_expense_followup_activities()
                 continue
@@ -4091,11 +4135,18 @@ class BusinessTrip(models.Model):
             else:
                 trip._clear_employee_expense_followup_activities()
 
-    def _send_employee_expense_followup_digests(self, now):
+    def _send_employee_expense_followup_digests(self, now, eligibility_prechecked=False):
         grouped_trips = defaultdict(lambda: self.env['business.trip'])
         digest_state_model = self.env['business.trip.reminder.digest.state'].sudo()
 
-        for trip in self.filtered(lambda record: record.trip_status in ('completed_waiting_expense', 'expense_returned')):
+        eligible_trips = (
+            self
+            if eligibility_prechecked
+            else self._filter_expense_followup_eligible_trips()
+        )
+        for trip in eligible_trips.filtered(
+            lambda record: record.trip_status in ('completed_waiting_expense', 'expense_returned')
+        ):
             due_datetime = trip._get_employee_digest_trip_due_datetime()
             if not due_datetime or not trip.user_id:
                 continue
@@ -4140,10 +4191,20 @@ class BusinessTrip(models.Model):
             })
             digest_state.write({'last_sent_date': current_window_dt or now})
 
-    def _get_due_organizer_expense_followup_trips(self, now):
+    def _get_due_organizer_expense_followup_trips(self, now, eligibility_prechecked=False):
         due_trips = self.env['business.trip']
+        eligible_trips = (
+            self
+            if eligibility_prechecked
+            else self._filter_expense_followup_eligible_trips()
+        )
 
-        for trip in self.filtered(lambda record: record.trip_status == 'completed_waiting_expense' and record._get_expense_review_user()):
+        for trip in eligible_trips.filtered(
+            lambda record: (
+                record.trip_status == 'completed_waiting_expense'
+                and record._get_expense_review_user()
+            )
+        ):
             company = trip._get_expense_followup_company()
             current_window_dt = self._get_current_daily_window_datetime(
                 now,
@@ -4155,11 +4216,14 @@ class BusinessTrip(models.Model):
 
         return due_trips
 
-    def _send_organizer_expense_followup_digests(self, now):
+    def _send_organizer_expense_followup_digests(self, now, eligibility_prechecked=False):
         grouped_trips = defaultdict(lambda: self.env['business.trip'])
         digest_state_model = self.env['business.trip.reminder.digest.state'].sudo()
 
-        for trip in self._get_due_organizer_expense_followup_trips(now):
+        for trip in self._get_due_organizer_expense_followup_trips(
+            now,
+            eligibility_prechecked=eligibility_prechecked,
+        ):
             company = trip._get_expense_followup_company()
             reviewer = trip._get_expense_review_user()
             if reviewer:
@@ -4210,10 +4274,24 @@ class BusinessTrip(models.Model):
         now = fields.Datetime.now()
         _logger.info(f"Cron job for expense reminders running at {now}. Found {len(trips_to_remind)} trips to check.")
 
-        trips_to_remind.filtered(lambda trip: not trip.expense_followup_start_date)._ensure_expense_followup_start_date()
-        trips_to_remind._sync_employee_expense_followup_activity()
-        trips_to_remind._send_employee_expense_followup_digests(now)
-        trips_to_remind._send_organizer_expense_followup_digests(now)
+        eligible_trips = trips_to_remind._filter_expense_followup_eligible_trips()
+        ineligible_trips = trips_to_remind - eligible_trips
+        ineligible_trips._clear_employee_expense_followup_activities()
+
+        eligible_trips.filtered(
+            lambda trip: not trip.expense_followup_start_date
+        )._ensure_expense_followup_start_date()
+        eligible_trips._sync_employee_expense_followup_activity(
+            eligibility_prechecked=True,
+        )
+        eligible_trips._send_employee_expense_followup_digests(
+            now,
+            eligibility_prechecked=True,
+        )
+        eligible_trips._send_organizer_expense_followup_digests(
+            now,
+            eligibility_prechecked=True,
+        )
 
     # Duplicate method removed - using the one defined earlier in the file
         
