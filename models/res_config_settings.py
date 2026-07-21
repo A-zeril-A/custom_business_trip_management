@@ -1,50 +1,46 @@
-from odoo import api, models, fields
+from odoo import models, fields
 
 class ResConfigSettings(models.TransientModel):
     _inherit = 'res.config.settings'
 
     travel_approver_sale_order_user_id = fields.Many2one(
-        'res.users',
-        string="Travel Approver (Sale Order)",
-        compute='_compute_travel_approver_users',
-        inverse='_inverse_travel_approver_sale_order_user_id',
+        related="company_id.business_trip_sale_order_approver_id",
         readonly=False,
-        domain=[('active', '=', True)],
-        help="Select the active Travel Approver for sale order related trips. This updates the same user setting."
+        string="Travel Approver (Sale Order)",
+        help=(
+            "Fallback approver for sale-order trips when the employee has no "
+            "direct manager."
+        ),
     )
 
     travel_approver_standalone_user_id = fields.Many2one(
-        'res.users',
-        string="Travel Approver (Standalone)",
-        compute='_compute_travel_approver_users',
-        inverse='_inverse_travel_approver_standalone_user_id',
+        related="company_id.business_trip_standalone_approver_id",
         readonly=False,
-        domain=[('active', '=', True)],
-        help="Select the active Travel Approver for standalone trips. This updates the same user setting."
+        string="Travel Approver (Standalone)",
+        help="Default approver for standalone business trips.",
     )
 
-    @api.depends_context('uid')
-    def _compute_travel_approver_users(self):
-        user_model = self.env['res.users'].sudo()
-        sale_order_approver = user_model.get_default_travel_approver_sale_order()
-        standalone_approver = user_model.get_default_travel_approver_standalone()
-        for settings in self:
-            settings.travel_approver_sale_order_user_id = sale_order_approver
-            settings.travel_approver_standalone_user_id = standalone_approver
+    business_trip_organizer_id = fields.Many2one(
+        related="company_id.business_trip_organizer_id",
+        readonly=False,
+        string="Active Business Trip Organizer",
+        help=(
+            "Changing the active organizer transfers every non-final trip "
+            "assigned to the previous organizer."
+        ),
+    )
 
-    def _inverse_travel_approver_sale_order_user_id(self):
-        for settings in self:
-            if settings.travel_approver_sale_order_user_id:
-                settings.travel_approver_sale_order_user_id.sudo().write({
-                    'is_travel_approver': True,
-                })
+    business_trip_sale_order_expense_reviewer_id = fields.Many2one(
+        related="company_id.business_trip_sale_order_expense_reviewer_id",
+        readonly=False,
+        string="Expense Reviewer (Sale Order)",
+    )
 
-    def _inverse_travel_approver_standalone_user_id(self):
-        for settings in self:
-            if settings.travel_approver_standalone_user_id:
-                settings.travel_approver_standalone_user_id.sudo().write({
-                    'is_travel_approver_standalone': True,
-                })
+    business_trip_standalone_expense_reviewer_id = fields.Many2one(
+        related="company_id.business_trip_standalone_expense_reviewer_id",
+        readonly=False,
+        string="Expense Reviewer (Standalone)",
+    )
     
     undo_expense_approval_days_limit = fields.Integer(
         related='company_id.undo_expense_approval_days_limit',
@@ -72,7 +68,7 @@ class ResConfigSettings(models.TransientModel):
         related='company_id.employee_expense_reminder_delay',
         readonly=False,
         string="Employee First Reminder",
-        help="How long after planning is finalized the employee should receive the first grouped expense reminder email and To Do activity."
+        help="How long after the trip ends the employee should receive the first grouped expense reminder email and To Do activity."
     )
 
     employee_expense_reminder_delay_type = fields.Selection(
@@ -93,7 +89,7 @@ class ResConfigSettings(models.TransientModel):
         related='company_id.organizer_expense_escalation_delay',
         readonly=False,
         string="Expense Reviewer Follow-up Starts",
-        help="How long after planning is finalized the configured expense reviewer should start receiving grouped reminders if the employee still has not clarified the trip expenses."
+        help="How long after the trip ends the configured expense reviewer should start receiving grouped reminders if the employee still has not clarified the trip expenses."
     )
 
     organizer_expense_escalation_delay_type = fields.Selection(

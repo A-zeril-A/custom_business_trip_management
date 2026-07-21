@@ -573,8 +573,11 @@ class BusinessTripAssignOrganizerWizard(models.TransientModel):
                 if trip.currency_id:
                     res['currency_id'] = trip.currency_id.id
                 
+                active_organizer = trip.company_id.business_trip_organizer_id
                 if trip.organizer_id:
                     res['organizer_id'] = trip.organizer_id.id
+                elif active_organizer:
+                    res['organizer_id'] = active_organizer.id
                     
                 # Logic for pre-filling budget in the wizard:
                 # 1. Prioritize the unconfirmed temporary budget saved on the form.
@@ -628,6 +631,24 @@ class BusinessTripAssignOrganizerWizard(models.TransientModel):
             raise UserError("Business Trip Request is not linked.")
         if not self.organizer_id:
             raise UserError("Trip Organizer must be selected.")
+        if not (
+            self.env.user == self.trip_id.manager_id
+            or self.env.user.has_group('base.group_system')
+            or self.env.user.has_group(
+                'custom_business_trip_management.group_business_trip_manager'
+            )
+        ):
+            raise UserError(
+                "Only the assigned Travel Approver or a Business Trip "
+                "Administrator can save a preliminary organizer."
+            )
+        if (
+            self.organizer_id
+            != self.trip_id.company_id.business_trip_organizer_id
+        ):
+            raise UserError(
+                "Select the active organizer configured for this trip's company."
+            )
             
         organizer_changed = self.trip_id.organizer_id.id != self.organizer_id.id
         
@@ -667,7 +688,9 @@ class BusinessTripAssignOrganizerWizard(models.TransientModel):
         }
         
         _logger.info(f"action_save_organizer_only: Writing to form {self.trip_id.id}: {form_vals_to_write}")
-        self.trip_id.with_context(system_edit=True).write(form_vals_to_write)
+        self.trip_id.with_context(
+            authorized_business_trip_assignment=True,
+        ).write(form_vals_to_write)
         
         attention_style = "font-weight: bold; color: #856404; background-color: #fff3cd; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 1px;"
         
@@ -775,13 +798,25 @@ class BusinessTripProjectSelectionWizard(models.TransientModel):
         current_user = self.env.user
         business_trip = self.trip_id
         if business_trip:
-            # Use the existing trip passed through context.
-            business_trip = business_trip.sudo()
+            if not (
+                business_trip.user_id == current_user
+                or business_trip.manager_id == current_user
+                or current_user.has_group('base.group_system')
+                or current_user.has_group(
+                    'custom_business_trip_management.group_business_trip_manager'
+                )
+            ):
+                raise UserError(
+                    "You cannot link a project to this business trip."
+                )
         else:
             # Create a new standalone trip when called from the main menu.
-            business_trip = self.env['business.trip'].sudo().create({
+            business_trip = self.env['business.trip'].create({
                 'user_id': current_user.id,
             })
+
+        self.project_id.check_access_rights('read')
+        self.project_id.check_access_rule('read')
         
         # Create a task in the selected project with a unique name
         task_name = f"Business Trip: {business_trip.name} - {current_user.name}"
@@ -818,17 +853,16 @@ class BusinessTripProjectSelectionWizard(models.TransientModel):
             first_name_val = name_parts[1] if len(name_parts) > 1 else ''
             
             # Determine the Travel Approver for Standalone trips
-            travel_approver_id = self.env['res.users'].sudo().get_travel_approver_for_standalone(current_user.id)
+            travel_approver_id = self.env['res.users'].sudo().with_company(
+                business_trip.company_id
+            ).get_travel_approver_for_standalone(current_user.id)
             travel_approver_name = ""
             if travel_approver_id:
                 travel_approver_user = self.env['res.users'].sudo().browse(travel_approver_id)
                 if travel_approver_user:
                     travel_approver_name = travel_approver_user.name
 
-                    # Add user to Business Trip Manager group if not already a member
-                    manager_group = self.env.ref('custom_business_trip_management.group_business_trip_manager', raise_if_not_found=False)
-                    if manager_group and not travel_approver_user.has_group('custom_business_trip_management.group_business_trip_manager'):
-                        travel_approver_user.sudo().write({'groups_id': [(4, manager_group.id)]})
+                    travel_approver_user.ensure_business_trip_approver_capability()
             
             initial_data = {
                 "first_name": first_name_val,
@@ -841,7 +875,7 @@ class BusinessTripProjectSelectionWizard(models.TransientModel):
             # Modified by A_zeril_A, 2025-10-20: Removed formio dependency - form data is now handled directly in business_trip_data
             # Update business_trip_data with initial submission data
             if business_trip.business_trip_data_id:
-                business_trip.business_trip_data_id.sudo().write({
+                business_trip.business_trip_data_id.write({
                     'first_name': first_name_val,
                     'last_name': last_name_val,
                     'purpose': f"Standalone business trip request for project: {self.project_id.name}",
@@ -852,7 +886,9 @@ class BusinessTripProjectSelectionWizard(models.TransientModel):
             
             # Set the Travel Approver on the business trip record
             if travel_approver_id:
-                business_trip.sudo().write({'manager_id': travel_approver_id})
+                business_trip.with_context(
+                    authorized_business_trip_assignment=True,
+                ).write({'manager_id': travel_approver_id})
         
         # Redirect to the business trip form
         # In Odoo 18, use view_mode instead of view_type and standard action window

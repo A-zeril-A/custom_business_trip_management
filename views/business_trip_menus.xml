@@ -22,7 +22,7 @@
         <field name="name">Business Trip Management (Manager)</field>
         <field name="action" ref="custom_business_trip_management.action_all_assigned_business_trip_forms"/>
         <field name="sequence">90</field>
-        <field name="groups_id" eval="[(4, ref('custom_business_trip_management.group_business_trip_manager')), (4, ref('custom_business_trip_management.group_business_trip_organizer')), (4, ref('custom_business_trip_management.group_business_trip_manager_sale_order')), (4, ref('custom_business_trip_management.group_business_trip_manager_standalone'))]"/>
+        <field name="groups_id" eval="[(4, ref('custom_business_trip_management.group_business_trip_manager')), (4, ref('custom_business_trip_management.group_business_trip_approver')), (4, ref('custom_business_trip_management.group_business_trip_organizer')), (4, ref('custom_business_trip_management.group_business_trip_expense_reviewer'))]"/>
         <field name="active" eval="False"/>
     </record>
 
@@ -40,7 +40,7 @@
       parent="menu_business_trip_root"
       action="custom_business_trip_management.action_view_business_trip_forms"
       sequence="3"
-      groups="base.group_system"/>
+      groups="base.group_system,custom_business_trip_management.group_business_trip_manager"/>
       
     <menuitem id="menu_view_my_business_trip_forms"
       name="My Business Trip Forms"
@@ -63,6 +63,20 @@
         <field name="parent_id" ref="custom_business_trip_management.menu_business_trip_root"/>
         <field name="action" ref="action_all_assigned_business_trip_forms"/>
         <field name="sequence">1</field>
-        <field name="groups_id" eval="[(4, ref('base.group_system')), (4, ref('custom_business_trip_management.group_business_trip_manager')), (4, ref('custom_business_trip_management.group_business_trip_organizer')), (4, ref('custom_business_trip_management.group_business_trip_manager_sale_order')), (4, ref('custom_business_trip_management.group_business_trip_manager_standalone'))]"/>
+        <field name="groups_id" eval="[(4, ref('base.group_system')), (4, ref('custom_business_trip_management.group_business_trip_manager')), (4, ref('custom_business_trip_management.group_business_trip_approver')), (4, ref('custom_business_trip_management.group_business_trip_organizer')), (4, ref('custom_business_trip_management.group_business_trip_expense_reviewer'))]"/>
     </record>
+
+    <menuitem id="menu_business_trip_organizer_workspace"
+        name="Organizer Workspace"
+        parent="custom_business_trip_management.menu_business_trip_root"
+        action="custom_business_trip_management.action_business_trip_organizer_workspace"
+        sequence="4"
+        groups="custom_business_trip_management.group_business_trip_organizer"/>
+
+    <menuitem id="menu_business_trip_auditor_all"
+        name="All Trips (Read Only)"
+        parent="custom_business_trip_management.menu_business_trip_root"
+        action="custom_business_trip_management.action_business_trip_auditor_all"
+        sequence="5"
+        groups="custom_business_trip_management.group_business_trip_auditor"/>
 </odoo>

@@ -9,42 +9,142 @@
 
 
     <record id="group_business_trip_manager" model="res.groups">
-        <field name="name">Business Trip Manager</field>
+        <field name="name">Business Trip Administrator</field>
         <field name="category_id" ref="module_category_business_trip_management"/>
         <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
-        <field name="comment">Users in this group can manage business trips, approve requests and budgets.</field>
+        <field name="comment">Users in this group can configure and administer all business trips in their allowed companies.</field>
     </record>  
+
+    <record id="group_business_trip_approver" model="res.groups">
+        <field name="name">Business Trip Approver</field>
+        <field name="category_id" ref="base.module_category_hidden"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        <field name="comment">Technical capability for users assigned as travel approvers on individual trips.</field>
+    </record>
 
     <record id="group_business_trip_organizer" model="res.groups">
         <field name="name">Business Trip Organizer</field>
+        <field name="category_id" ref="base.module_category_hidden"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        <field name="comment">Technical role managed by the active organizer company setting.</field>
+    </record>
+
+    <record id="group_business_trip_expense_reviewer" model="res.groups">
+        <field name="name">Business Trip Expense Reviewer</field>
+        <field name="category_id" ref="base.module_category_hidden"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        <field name="comment">Technical capability for configured business trip expense reviewers.</field>
+    </record>
+
+    <record id="group_business_trip_auditor" model="res.groups">
+        <field name="name">Business Trip Auditor (Read Only)</field>
         <field name="category_id" ref="module_category_business_trip_management"/>
         <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
-        <field name="comment">Users in this group can organize and plan business trips after Travel Approver's initial approval and budget allocation.</field>
+        <field name="comment">Users in this group can read all business trips in allowed companies without modifying them.</field>
     </record>
   
     
     <record id="group_business_trip_manager_sale_order" model="res.groups">
         <field name="name">Travel Approver (Sale Order)</field>
-        <field name="category_id" ref="module_category_business_trip_management"/>
-        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
-        <field name="comment">Users in this group can approve business trip requests for sale order related trips. Only one user should have this role.</field>
+        <field name="category_id" ref="base.module_category_hidden"/>
+        <field name="implied_ids" eval="[(4, ref('custom_business_trip_management.group_business_trip_approver'))]"/>
+        <field name="comment">Technical role managed by the fallback sale-order approver company setting.</field>
     </record>
 
     <record id="group_business_trip_manager_standalone" model="res.groups">
         <field name="name">Travel Approver (Standalone)</field>
-        <field name="category_id" ref="module_category_business_trip_management"/>
-        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
-        <field name="comment">Users in this group can approve business trip requests for standalone trips. Only one user should have this role.</field>
+        <field name="category_id" ref="base.module_category_hidden"/>
+        <field name="implied_ids" eval="[(4, ref('custom_business_trip_management.group_business_trip_approver'))]"/>
+        <field name="comment">Technical role managed by the standalone approver company setting.</field>
     </record>
 
     <record id="group_business_trip_requester" model="res.groups">
         <field name="name">Business Trip Requester</field>
         <field name="category_id" ref="module_category_business_trip_management"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
         <field name="comment">Users in this group can request business trips and view all sale orders for selection.</field>
     </record> 
 
     <record id="base.group_user" model="res.groups">
         <field name="implied_ids" eval="[(4, ref('custom_business_trip_management.group_business_trip_requester'))]"/>
+    </record>
+
+    <!-- Business trip record security -->
+    <record id="business_trip_requester_rule" model="ir.rule">
+        <field name="name">Business Trip: requester owns record</field>
+        <field name="model_id" ref="model_business_trip"/>
+        <field name="domain_force">[('company_id', 'in', company_ids), ('user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_requester'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_approver_rule" model="ir.rule">
+        <field name="name">Business Trip: approver assigned record</field>
+        <field name="model_id" ref="model_business_trip"/>
+        <field name="domain_force">[('company_id', 'in', company_ids), ('manager_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_approver'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_organizer_read_rule" model="ir.rule">
+        <field name="name">Business Trip: active organizer company workspace</field>
+        <field name="model_id" ref="model_business_trip"/>
+        <field name="domain_force">[('company_id', 'in', company_ids), ('company_id.business_trip_organizer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_organizer_write_rule" model="ir.rule">
+        <field name="name">Business Trip: organizer modifies assigned record</field>
+        <field name="model_id" ref="model_business_trip"/>
+        <field name="domain_force">[('company_id', 'in', company_ids), ('company_id.business_trip_organizer_id', '=', user.id), ('organizer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
+        <field name="perm_read" eval="0"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_expense_reviewer_rule" model="ir.rule">
+        <field name="name">Business Trip: expense reviewer assigned record</field>
+        <field name="model_id" ref="model_business_trip"/>
+        <field name="domain_force">[('company_id', 'in', company_ids), ('expense_reviewer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_expense_reviewer'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_auditor_rule" model="ir.rule">
+        <field name="name">Business Trip: auditor reads allowed companies</field>
+        <field name="model_id" ref="model_business_trip"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_auditor'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_administrator_rule" model="ir.rule">
+        <field name="name">Business Trip: administrator manages allowed companies</field>
+        <field name="model_id" ref="model_business_trip"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_manager'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
     </record>
 
 
@@ -123,6 +223,7 @@
     <record id="ir_attachment_business_trip_rule" model="ir.rule">
         <field name="name">Access to Business Trip Attachments</field>
         <field name="model_id" ref="base.model_ir_attachment"/>
+        <field name="active" eval="False"/>
         <field name="domain_force">
             [
                 '|',
@@ -138,21 +239,473 @@
     </record>
 
     <record id="business_trip_expense_line_rule" model="ir.rule">
-        <field name="name">Access to Business Trip Expense Lines</field>
+        <field name="name">Business Trip Expense Line: requester owns trip</field>
         <field name="model_id" ref="custom_business_trip_management.model_business_trip_expense_line"/>
-        <field name="domain_force">
-            [('trip_id.id', 'in', user.env['business.trip'].search([
-                '|', '|',
-                ('user_id', '=', user.id),
-                ('manager_id', '=', user.id),
-                ('organizer_id', '=', user.id)
-            ]).ids)]
-        </field>
-        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_requester'))]"/>
         <field name="perm_read" eval="1"/>
         <field name="perm_write" eval="1"/>
         <field name="perm_create" eval="1"/>
         <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- Related business trip data -->
+    <record id="business_trip_data_requester_rule" model="ir.rule">
+        <field name="name">Business Trip Data: requester owns trip</field>
+        <field name="model_id" ref="model_business_trip_data"/>
+        <field name="domain_force">[('form_id.company_id', 'in', company_ids), ('form_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_requester'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_data_approver_rule" model="ir.rule">
+        <field name="name">Business Trip Data: approver assigned trip</field>
+        <field name="model_id" ref="model_business_trip_data"/>
+        <field name="domain_force">[('form_id.company_id', 'in', company_ids), ('form_id.manager_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_approver'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_data_organizer_read_rule" model="ir.rule">
+        <field name="name">Business Trip Data: active organizer workspace</field>
+        <field name="model_id" ref="model_business_trip_data"/>
+        <field name="domain_force">[('form_id.company_id', 'in', company_ids), ('form_id.company_id.business_trip_organizer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_data_organizer_write_rule" model="ir.rule">
+        <field name="name">Business Trip Data: organizer assigned trip</field>
+        <field name="model_id" ref="model_business_trip_data"/>
+        <field name="domain_force">[('form_id.company_id', 'in', company_ids), ('form_id.company_id.business_trip_organizer_id', '=', user.id), ('form_id.organizer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
+        <field name="perm_read" eval="0"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_data_reviewer_rule" model="ir.rule">
+        <field name="name">Business Trip Data: expense reviewer assigned trip</field>
+        <field name="model_id" ref="model_business_trip_data"/>
+        <field name="domain_force">[('form_id.company_id', 'in', company_ids), ('form_id.expense_reviewer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_expense_reviewer'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_data_auditor_rule" model="ir.rule">
+        <field name="name">Business Trip Data: auditor reads allowed companies</field>
+        <field name="model_id" ref="model_business_trip_data"/>
+        <field name="domain_force">[('form_id.company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_auditor'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_data_administrator_rule" model="ir.rule">
+        <field name="name">Business Trip Data: administrator manages allowed companies</field>
+        <field name="model_id" ref="model_business_trip_data"/>
+        <field name="domain_force">[('form_id.company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_manager'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- Persistent organizer plan lines -->
+    <record id="business_trip_plan_line_requester_rule" model="ir.rule">
+        <field name="name">Business Trip Plan Line: requester reads own trip</field>
+        <field name="model_id" ref="model_business_trip_plan_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_requester'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_plan_line_approver_rule" model="ir.rule">
+        <field name="name">Business Trip Plan Line: approver assigned trip</field>
+        <field name="model_id" ref="model_business_trip_plan_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.manager_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_approver'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <record id="business_trip_plan_line_organizer_read_rule" model="ir.rule">
+        <field name="name">Business Trip Plan Line: active organizer workspace</field>
+        <field name="model_id" ref="model_business_trip_plan_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_plan_line_organizer_write_rule" model="ir.rule">
+        <field name="name">Business Trip Plan Line: organizer assigned trip</field>
+        <field name="model_id" ref="model_business_trip_plan_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_id', '=', user.id), ('trip_id.organizer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
+        <field name="perm_read" eval="0"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <record id="business_trip_plan_line_reviewer_rule" model="ir.rule">
+        <field name="name">Business Trip Plan Line: expense reviewer assigned trip</field>
+        <field name="model_id" ref="model_business_trip_plan_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.expense_reviewer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_expense_reviewer'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_plan_line_auditor_rule" model="ir.rule">
+        <field name="name">Business Trip Plan Line: auditor reads allowed companies</field>
+        <field name="model_id" ref="model_business_trip_plan_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_auditor'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_plan_line_administrator_rule" model="ir.rule">
+        <field name="name">Business Trip Plan Line: administrator manages allowed companies</field>
+        <field name="model_id" ref="model_business_trip_plan_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_manager'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- Expense lines -->
+    <record id="business_trip_expense_line_approver_rule" model="ir.rule">
+        <field name="name">Business Trip Expense Line: approver assigned trip</field>
+        <field name="model_id" ref="model_business_trip_expense_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.manager_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_approver'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_expense_line_organizer_rule" model="ir.rule">
+        <field name="name">Business Trip Expense Line: active organizer workspace</field>
+        <field name="model_id" ref="model_business_trip_expense_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_expense_line_reviewer_rule" model="ir.rule">
+        <field name="name">Business Trip Expense Line: expense reviewer assigned trip</field>
+        <field name="model_id" ref="model_business_trip_expense_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.expense_reviewer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_expense_reviewer'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_expense_line_auditor_rule" model="ir.rule">
+        <field name="name">Business Trip Expense Line: auditor reads allowed companies</field>
+        <field name="model_id" ref="model_business_trip_expense_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_auditor'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="business_trip_expense_line_administrator_rule" model="ir.rule">
+        <field name="name">Business Trip Expense Line: administrator manages allowed companies</field>
+        <field name="model_id" ref="model_business_trip_expense_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_manager'))]"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- Accompanying people and identity documents -->
+    <record id="accompanying_person_requester_rule" model="ir.rule">
+        <field name="name">Accompanying Person: requester owns trip</field>
+        <field name="model_id" ref="model_accompanying_person"/>
+        <field name="domain_force">[('business_trip_id.form_id.company_id', 'in', company_ids), ('business_trip_id.form_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_requester'))]"/>
+    </record>
+
+    <record id="accompanying_person_approver_rule" model="ir.rule">
+        <field name="name">Accompanying Person: approver assigned trip</field>
+        <field name="model_id" ref="model_accompanying_person"/>
+        <field name="domain_force">[('business_trip_id.form_id.company_id', 'in', company_ids), ('business_trip_id.form_id.manager_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_approver'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="accompanying_person_organizer_rule" model="ir.rule">
+        <field name="name">Accompanying Person: active organizer workspace</field>
+        <field name="model_id" ref="model_accompanying_person"/>
+        <field name="domain_force">[('business_trip_id.form_id.company_id', 'in', company_ids), ('business_trip_id.form_id.company_id.business_trip_organizer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="accompanying_person_reviewer_rule" model="ir.rule">
+        <field name="name">Accompanying Person: expense reviewer assigned trip</field>
+        <field name="model_id" ref="model_accompanying_person"/>
+        <field name="domain_force">[('business_trip_id.form_id.company_id', 'in', company_ids), ('business_trip_id.form_id.expense_reviewer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_expense_reviewer'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="accompanying_person_auditor_rule" model="ir.rule">
+        <field name="name">Accompanying Person: auditor reads allowed companies</field>
+        <field name="model_id" ref="model_accompanying_person"/>
+        <field name="domain_force">[('business_trip_id.form_id.company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_auditor'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="accompanying_person_administrator_rule" model="ir.rule">
+        <field name="name">Accompanying Person: administrator manages allowed companies</field>
+        <field name="model_id" ref="model_accompanying_person"/>
+        <field name="domain_force">[('business_trip_id.form_id.company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_manager'))]"/>
+    </record>
+
+    <!-- Legacy structured plan models -->
+    <record id="planned_accommodation_requester_rule" model="ir.rule">
+        <field name="name">Planned Accommodation: requester reads own trip</field>
+        <field name="model_id" ref="model_planned_trip_accommodation_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_requester'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="planned_accommodation_approver_rule" model="ir.rule">
+        <field name="name">Planned Accommodation: approver assigned trip</field>
+        <field name="model_id" ref="model_planned_trip_accommodation_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.manager_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_approver'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="planned_accommodation_organizer_read_rule" model="ir.rule">
+        <field name="name">Planned Accommodation: active organizer workspace</field>
+        <field name="model_id" ref="model_planned_trip_accommodation_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="planned_accommodation_organizer_write_rule" model="ir.rule">
+        <field name="name">Planned Accommodation: organizer assigned trip</field>
+        <field name="model_id" ref="model_planned_trip_accommodation_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_id', '=', user.id), ('trip_id.organizer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
+        <field name="perm_read" eval="0"/>
+    </record>
+
+    <record id="planned_accommodation_reviewer_rule" model="ir.rule">
+        <field name="name">Planned Accommodation: expense reviewer assigned trip</field>
+        <field name="model_id" ref="model_planned_trip_accommodation_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.expense_reviewer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_expense_reviewer'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="planned_accommodation_auditor_rule" model="ir.rule">
+        <field name="name">Planned Accommodation: auditor reads allowed companies</field>
+        <field name="model_id" ref="model_planned_trip_accommodation_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_auditor'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="planned_accommodation_administrator_rule" model="ir.rule">
+        <field name="name">Planned Accommodation: administrator manages allowed companies</field>
+        <field name="model_id" ref="model_planned_trip_accommodation_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_manager'))]"/>
+    </record>
+
+    <record id="planned_transport_requester_rule" model="ir.rule">
+        <field name="name">Planned Transport: requester reads own trip</field>
+        <field name="model_id" ref="model_planned_trip_transport_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_requester'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="planned_transport_approver_rule" model="ir.rule">
+        <field name="name">Planned Transport: approver assigned trip</field>
+        <field name="model_id" ref="model_planned_trip_transport_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.manager_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_approver'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="planned_transport_organizer_read_rule" model="ir.rule">
+        <field name="name">Planned Transport: active organizer workspace</field>
+        <field name="model_id" ref="model_planned_trip_transport_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="planned_transport_organizer_write_rule" model="ir.rule">
+        <field name="name">Planned Transport: organizer assigned trip</field>
+        <field name="model_id" ref="model_planned_trip_transport_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_id', '=', user.id), ('trip_id.organizer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
+        <field name="perm_read" eval="0"/>
+    </record>
+
+    <record id="planned_transport_reviewer_rule" model="ir.rule">
+        <field name="name">Planned Transport: expense reviewer assigned trip</field>
+        <field name="model_id" ref="model_planned_trip_transport_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.expense_reviewer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_expense_reviewer'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="planned_transport_auditor_rule" model="ir.rule">
+        <field name="name">Planned Transport: auditor reads allowed companies</field>
+        <field name="model_id" ref="model_planned_trip_transport_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_auditor'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="planned_transport_administrator_rule" model="ir.rule">
+        <field name="name">Planned Transport: administrator manages allowed companies</field>
+        <field name="model_id" ref="model_planned_trip_transport_line"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_manager'))]"/>
+    </record>
+
+    <!-- Immutable assignment history follows parent-trip visibility -->
+    <record id="assignment_history_requester_rule" model="ir.rule">
+        <field name="name">Assignment History: requester owns trip</field>
+        <field name="model_id" ref="model_business_trip_assignment_history"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_requester'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="assignment_history_approver_rule" model="ir.rule">
+        <field name="name">Assignment History: approver assigned trip</field>
+        <field name="model_id" ref="model_business_trip_assignment_history"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.manager_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_approver'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="assignment_history_organizer_rule" model="ir.rule">
+        <field name="name">Assignment History: active organizer workspace</field>
+        <field name="model_id" ref="model_business_trip_assignment_history"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="assignment_history_reviewer_rule" model="ir.rule">
+        <field name="name">Assignment History: expense reviewer assigned trip</field>
+        <field name="model_id" ref="model_business_trip_assignment_history"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.expense_reviewer_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_expense_reviewer'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="assignment_history_auditor_rule" model="ir.rule">
+        <field name="name">Assignment History: auditor reads allowed companies</field>
+        <field name="model_id" ref="model_business_trip_assignment_history"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_auditor'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="assignment_history_administrator_rule" model="ir.rule">
+        <field name="name">Assignment History: administrator reads allowed companies</field>
+        <field name="model_id" ref="model_business_trip_assignment_history"/>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('group_business_trip_manager'))]"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
     </record>
    
     <!-- Access rights for wizards -->

@@ -83,26 +83,48 @@ class TestExpenseFollowupEmployeeEligibility(TransactionCase):
 
         cls.now = datetime(2026, 1, 5, 9, 0, 0)
         followup_start = cls.now - timedelta(days=30)
+        past_end = (cls.now - timedelta(days=10)).date()
         Trip = cls.env["business.trip"]
         cls.active_trip = Trip.create(
             {
                 "user_id": cls.active_user.id,
+                "company_id": cls.company.id,
                 "trip_status": "completed_waiting_expense",
                 "expense_followup_start_date": followup_start,
+            }
+        )
+        cls.active_trip.business_trip_data_id.write(
+            {
+                "travel_start_date": past_end - timedelta(days=2),
+                "travel_end_date": past_end,
             }
         )
         cls.archived_employee_trip = Trip.create(
             {
                 "user_id": cls.archived_employee_user.id,
+                "company_id": cls.company.id,
                 "trip_status": "completed_waiting_expense",
                 "expense_followup_start_date": followup_start,
+            }
+        )
+        cls.archived_employee_trip.business_trip_data_id.write(
+            {
+                "travel_start_date": past_end - timedelta(days=2),
+                "travel_end_date": past_end,
             }
         )
         cls.inactive_user_trip = Trip.create(
             {
                 "user_id": cls.inactive_user.id,
+                "company_id": cls.company.id,
                 "trip_status": "completed_waiting_expense",
                 "expense_followup_start_date": followup_start,
+            }
+        )
+        cls.inactive_user_trip.business_trip_data_id.write(
+            {
+                "travel_start_date": past_end - timedelta(days=2),
+                "travel_end_date": past_end,
             }
         )
         cls.trips = (

@@ -31,18 +31,48 @@ class BusinessTripController(http.Controller):
         """
         user = request.env.user
 
+        is_organizer = user.has_group(
+            'custom_business_trip_management.group_business_trip_organizer'
+        )
+        is_auditor = user.has_group(
+            'custom_business_trip_management.group_business_trip_auditor'
+        )
+        is_trip_admin = user.has_group(
+            'custom_business_trip_management.group_business_trip_manager'
+        )
         is_management_user = (
-            user.has_group('custom_business_trip_management.group_business_trip_manager')
-            or user.has_group('custom_business_trip_management.group_business_trip_organizer')
-            or user.has_group('custom_business_trip_management.group_business_trip_manager_sale_order')
-            or user.has_group('custom_business_trip_management.group_business_trip_manager_standalone')
+            is_trip_admin
+            or user.has_group(
+                'custom_business_trip_management.group_business_trip_approver'
+            )
+            or user.has_group(
+                'custom_business_trip_management.group_business_trip_expense_reviewer'
+            )
         )
 
-        # Admin and management/reviewer users go to "Assigned to Me"; regular users go to "My Business Trip Forms".
-        if user.has_group('base.group_system'):
-            # Admin users: go to "Assigned to Me" and show all business trips
-            action = request.env.ref('custom_business_trip_management.action_all_assigned_business_trip_forms')
-            menu = request.env.ref('custom_business_trip_management.menu_all_assigned_business_trip_forms')
+        if user.has_group('base.group_system') or is_trip_admin:
+            action = request.env.ref(
+                'custom_business_trip_management.action_view_business_trip_forms'
+            )
+            menu = request.env.ref(
+                'custom_business_trip_management.menu_view_business_trip_forms'
+            )
+            domain = []
+        elif is_auditor:
+            action = request.env.ref(
+                'custom_business_trip_management.action_business_trip_auditor_all'
+            )
+            menu = request.env.ref(
+                'custom_business_trip_management.menu_business_trip_auditor_all'
+            )
+            domain = []
+        elif is_organizer:
+            action = request.env.ref(
+                'custom_business_trip_management.action_business_trip_organizer_workspace'
+            )
+            menu = request.env.ref(
+                'custom_business_trip_management.menu_business_trip_organizer_workspace'
+            )
             domain = []
         elif is_management_user:
             # Management/reviewer users: go to "Assigned to Me" and show trips assigned to them.
@@ -55,11 +85,17 @@ class BusinessTripController(http.Controller):
                 ('organizer_id', '=', user.id),
                 '&', ('expense_reviewer_id', '=', user.id), ('trip_status', '=', 'expense_submitted')
             ]
-        else:
+        elif user.has_group(
+            'custom_business_trip_management.group_business_trip_requester'
+        ):
             # Regular users: go to "My Business Trip Forms" and show only their own trips
             action = request.env.ref('custom_business_trip_management.action_view_my_business_trip_forms')
             menu = request.env.ref('custom_business_trip_management.menu_view_my_business_trip_forms')
             domain = [('user_id', '=', user.id)]
+        else:
+            raise werkzeug.exceptions.Forbidden(
+                "No Business Trip role is assigned to this user."
+            )
 
         domain_encoded = urllib.parse.quote(json.dumps(domain))
 
@@ -138,23 +174,35 @@ class BusinessTripController(http.Controller):
         Creates a new business trip for the given quotation (sale.order)
         and redirects the user to the new form view to fill the details.
         """
-        sale_order = request.env['sale.order'].sudo().browse(sale_order_id)
+        if not request.env.user.has_group(
+            'custom_business_trip_management.group_business_trip_requester'
+        ):
+            raise werkzeug.exceptions.Forbidden(
+                "Business Trip Requester access is required."
+            )
+
+        sale_order = request.env['sale.order'].browse(sale_order_id)
         if not sale_order.exists():
             return request.not_found()
+        sale_order.check_access_rights('read')
+        sale_order.check_access_rule('read')
 
         try:
             current_user = request.env.user
-            travel_approver_id = request.env['res.users'].sudo().get_travel_approver_for_sale_order(current_user.id)
+            travel_approver_id = request.env['res.users'].sudo().with_company(
+                sale_order.company_id
+            ).get_travel_approver_for_sale_order(current_user.id)
 
             trip_vals = {
                 'user_id': current_user.id,
                 'sale_order_id': sale_order.id,
+                'company_id': sale_order.company_id.id,
                 'manager_id': travel_approver_id,
                 'purpose': f"Business trip request based on Opportunity: {sale_order.name}",
             }
             
             # The creation of business.trip.data is handled by the create method of business.trip
-            business_trip = request.env['business.trip'].sudo().create(trip_vals)
+            business_trip = request.env['business.trip'].create(trip_vals)
             _logger.info(f"Created business trip {business_trip.id} for sale order {sale_order.id}")
 
             # Pre-fill some data in business_trip_data
@@ -164,7 +212,7 @@ class BusinessTripController(http.Controller):
                 last_name_val = name_parts[0]
                 first_name_val = name_parts[1] if len(name_parts) > 1 else ''
 
-                business_trip.business_trip_data_id.sudo().write({
+                business_trip.business_trip_data_id.write({
                     'first_name': first_name_val,
                     'last_name': last_name_val,
                 })
@@ -189,9 +237,15 @@ class BusinessTripController(http.Controller):
         """
         Redirects to project selection wizard for standalone business trips.
         """
+        if not request.env.user.has_group(
+            'custom_business_trip_management.group_business_trip_requester'
+        ):
+            raise werkzeug.exceptions.Forbidden(
+                "Business Trip Requester access is required."
+            )
         try:
             # Create and open the project selection wizard
-            wizard = request.env['business.trip.project.selection.wizard'].sudo().create({})
+            wizard = request.env['business.trip.project.selection.wizard'].create({})
             
             action = request.env.ref('custom_business_trip_management.action_business_trip_project_selection_wizard')
             menu_id = request.env.ref('custom_business_trip_management.menu_view_my_business_trip_forms').id

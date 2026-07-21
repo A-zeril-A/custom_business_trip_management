@@ -7,6 +7,7 @@ from . import business_trip_data
 from . import business_trip_destination
 from . import mail_template_mixin
 from . import business_trip
+from . import business_trip_assignment_history
 from . import business_trip_reminder_digest_state
 from . import business_trip_plan_line
 from . import business_trip_expense_line

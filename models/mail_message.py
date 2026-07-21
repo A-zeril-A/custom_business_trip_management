@@ -29,10 +29,9 @@ class MailMessage(models.Model):
         Note: In Odoo 18, the 'access_rights_uid' parameter was removed from _search method.
         The filtering logic remains exactly the same as Odoo 17.
         """
-        # If the user is a superuser or has admin/manager/organizer rights, bypass the confidential filter.
-        # This ensures they can always see all messages for administrative purposes.
-        is_privileged_user = self.env.user.has_group('base.group_system') or \
-                             self.env.user.has_group('custom_business_trip_management.group_trip_organizer')
+        # Only system administrators bypass recipient-level confidentiality.
+        # Operational roles still need to be explicit confidential recipients.
+        is_privileged_user = self.env.user.has_group('base.group_system')
         
         if not is_privileged_user:
             # For non-privileged users, add a domain to filter confidential messages.

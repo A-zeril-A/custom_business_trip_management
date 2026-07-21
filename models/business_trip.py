@@ -4,7 +4,7 @@ import re
 
 from odoo import models, fields, api, _
 import logging
-from odoo.exceptions import UserError, ValidationError
+from odoo.exceptions import AccessError, UserError, ValidationError
 import json
 from dateutil.relativedelta import relativedelta
 import pytz
@@ -84,6 +84,13 @@ class BusinessTrip(models.Model):
 
     # --- RELATIONAL & KEY FIELDS ---
     user_id = fields.Many2one('res.users', string='Employee', required=True, default=lambda self: self.env.user)
+    company_id = fields.Many2one(
+        "res.company",
+        required=True,
+        default=lambda self: self.env.company,
+        index=True,
+        tracking=True,
+    )
     sale_order_id = fields.Many2one('sale.order', string='Sales Order', readonly=True)
     display_quotation_ref = fields.Char(string='Linked Quotation', compute='_compute_display_quotation_ref', store=False)
     # Added by A_zeril_A, 2025-10-24: Field for approving colleague name from formio form
@@ -100,16 +107,22 @@ class BusinessTrip(models.Model):
     expense_reviewer_id = fields.Many2one(
         'res.users',
         string='Expense Reviewer',
-        compute='_compute_expense_reviewer_id',
-        search='_search_expense_reviewer_id',
-        store=False,
-        help="Commercial Director for sale-order trips, or CEO for standalone trips."
+        index=True,
+        tracking=True,
+        copy=False,
+        help="Company-configured reviewer responsible for this trip's expenses."
     )
     organizer_id = fields.Many2one(
         'res.users',
         string='Trip Organizer',
         tracking=True,
-        domain="[('groups_id', 'in', ref('custom_business_trip_management.group_business_trip_organizer').id)]"
+        domain="[('groups_id', 'in', ref('custom_business_trip_management.group_business_trip_organizer').id)]",
+    )
+    assignment_history_ids = fields.One2many(
+        "business.trip.assignment.history",
+        "trip_id",
+        string="Assignment History",
+        readonly=True,
     )
     business_trip_project_id = fields.Many2one('project.project', string='Business Trip Project', copy=False, tracking=True)
     business_trip_task_id = fields.Many2one('project.task', string='Business Trip Task', copy=False, tracking=True)
@@ -544,10 +557,12 @@ class BusinessTrip(models.Model):
         self.ensure_one()
         return "Commercial Director" if self.sale_order_id else "CEO"
 
-    @api.model
     def _get_expense_reviewer_by_job_title(self, job_title):
+        self.ensure_one()
+        company = self.company_id or self.env.company
         employee = self.env['hr.employee'].sudo().search([
             ('active', '=', True),
+            ('company_id', '=', company.id),
             ('user_id', '!=', False),
             ('user_id.active', '=', True),
             '|',
@@ -556,45 +571,31 @@ class BusinessTrip(models.Model):
         ], limit=1)
         return employee.user_id if employee else self.env['res.users']
 
+    def _resolve_expense_review_user(self):
+        """Resolve the configured reviewer for a trip without mutating it."""
+        self.ensure_one()
+        company = self.company_id or self.env.company
+        if self.sale_order_id:
+            return (
+                company.sudo().business_trip_sale_order_expense_reviewer_id
+                or self._get_expense_reviewer_by_job_title("Commercial Director")
+            )
+        return (
+            company.sudo().business_trip_standalone_expense_reviewer_id
+            or self._get_expense_reviewer_by_job_title("CEO")
+        )
+
     def _get_expense_review_user(self):
         """Return the user who must review submitted expenses by business role."""
         self.ensure_one()
-        if self.sale_order_id:
-            return self._get_expense_reviewer_by_job_title("Commercial Director")
-        return self._get_expense_reviewer_by_job_title("CEO")
+        return self.expense_reviewer_id or self._resolve_expense_review_user()
 
     def _get_expense_review_display_name(self):
         self.ensure_one()
         reviewer = self._get_expense_review_user()
         return reviewer.name or self._get_expense_review_role_label()
 
-    @api.depends('sale_order_id')
-    def _compute_expense_reviewer_id(self):
-        for record in self:
-            record.expense_reviewer_id = record._get_expense_review_user()
-
-    @api.model
-    def _search_expense_reviewer_id(self, operator, value):
-        if operator not in ('=', 'in'):
-            return [('id', '=', 0)]
-
-        reviewer_ids = value if isinstance(value, (list, tuple, set)) else [value]
-        reviewer_ids = [reviewer_id for reviewer_id in reviewer_ids if reviewer_id]
-        if not reviewer_ids:
-            return [('id', '=', 0)]
-
-        sale_order_reviewer = self._get_expense_reviewer_by_job_title("Commercial Director")
-        standalone_reviewer = self._get_expense_reviewer_by_job_title("CEO")
-
-        domains = []
-        if sale_order_reviewer and sale_order_reviewer.id in reviewer_ids:
-            domains.append([('sale_order_id', '!=', False)])
-        if standalone_reviewer and standalone_reviewer.id in reviewer_ids:
-            domains.append([('sale_order_id', '=', False)])
-
-        return expression.OR(domains) if domains else [('id', '=', 0)]
-
-    @api.depends('sale_order_id')
+    @api.depends('sale_order_id', 'expense_reviewer_id')
     @api.depends_context('uid')
     def _compute_can_review_expenses(self):
         for record in self:
@@ -638,10 +639,32 @@ class BusinessTrip(models.Model):
             record.is_manager = (record.manager_id and user.id == record.manager_id.id)
             record.is_organizer = (record.organizer_id and user.id == record.organizer_id.id)
             is_finance_user = user.has_group('account.group_account_manager')
-            record.is_finance = record.is_organizer or is_finance_user
+            is_expense_reviewer = (
+                record.expense_reviewer_id
+                and user.id == record.expense_reviewer_id.id
+            )
+            is_auditor = user.has_group(
+                'custom_business_trip_management.group_business_trip_auditor'
+            )
+            is_trip_admin = user.has_group(
+                'custom_business_trip_management.group_business_trip_manager'
+            )
+            record.is_finance = (
+                record.is_organizer
+                or is_finance_user
+                or is_expense_reviewer
+                or is_auditor
+            )
             
             is_in_organizer_group = user.has_group('custom_business_trip_management.group_business_trip_organizer')
-            record.can_see_costs = record.is_manager or record.is_organizer or is_in_organizer_group
+            record.can_see_costs = (
+                record.is_manager
+                or record.is_organizer
+                or is_in_organizer_group
+                or is_expense_reviewer
+                or is_auditor
+                or is_trip_admin
+            )
 
     def _can_current_user_review_expenses(self):
         """Return whether the current user can review submitted trip expenses."""
@@ -939,7 +962,9 @@ class BusinessTrip(models.Model):
         # Calculate final total cost
         total_cost = self.organizer_planned_cost + self.expense_total
 
-        self.write({
+        self.with_context(
+            authorized_business_trip_assignment=True,
+        ).write({
             'trip_status': 'completed',
             'expense_approval_date': fields.Datetime.now(),
             'expense_approved_by': self.env.user.id,
@@ -1238,42 +1263,138 @@ class BusinessTrip(models.Model):
                 trip.use_return_train, trip.use_return_airplane, trip.use_return_bus
             ])
 
+    @api.constrains('user_id', 'company_id', 'sale_order_id')
+    def _check_business_trip_company(self):
+        for trip in self:
+            if trip.company_id not in trip.user_id.company_ids:
+                raise ValidationError(
+                    "The employee is not allowed to access the trip company."
+                )
+            if (
+                trip.sale_order_id
+                and trip.sale_order_id.company_id
+                and trip.sale_order_id.company_id != trip.company_id
+            ):
+                raise ValidationError(
+                    "The business trip and sale order must belong to the same company."
+                )
+
+    @api.constrains('organizer_id', 'company_id', 'trip_status')
+    def _check_active_company_organizer(self):
+        final_statuses = ('completed', 'rejected', 'cancelled')
+        for trip in self:
+            active_organizer = trip.company_id.business_trip_organizer_id
+            if (
+                trip.organizer_id
+                and active_organizer
+                and trip.trip_status not in final_statuses
+                and trip.organizer_id != active_organizer
+            ):
+                raise ValidationError(
+                    "Non-final trips must be assigned to the active organizer "
+                    "configured for their company."
+                )
+
     @api.model_create_multi
     def create(self, vals_list):
         """
-        Overrides create to ensure a 'business.trip.data' record is created and linked
-        for every new business trip, removing the old dependency on formio.
+        Create the parent trip first, then create its secured data record with
+        a valid back-reference so record rules are enforceable from creation.
         """
         trips_to_return = self.env['business.trip']
-        for vals in vals_list:
-            # Get user_id from vals or use current user
+        for incoming_vals in vals_list:
+            vals = dict(incoming_vals)
+            is_privileged_creator = (
+                self.env.su
+                or self.env.user.has_group('base.group_system')
+                or self.env.user.has_group(
+                    'custom_business_trip_management.group_business_trip_manager'
+                )
+            )
+            requested_manager_id = vals.get('manager_id')
+            if not is_privileged_creator:
+                for protected_field in (
+                    'manager_id',
+                    'organizer_id',
+                    'expense_reviewer_id',
+                    'trip_status',
+                ):
+                    vals.pop(protected_field, None)
+
             user_id = vals.get('user_id') or self.env.user.id
+            if not is_privileged_creator:
+                user_id = self.env.user.id
             user = self.env['res.users'].browse(user_id)
+            sale_order = (
+                self.env['sale.order'].browse(vals['sale_order_id'])
+                if vals.get('sale_order_id')
+                else self.env['sale.order']
+            )
+            company = (
+                sale_order.company_id
+                or self.env['res.company'].browse(vals.get('company_id'))
+                or self.env.company
+            )
+            vals.update({
+                'user_id': user.id,
+                'company_id': company.id,
+            })
+            vals.pop('business_trip_data_id', None)
             
-            # Prepare name data for business_trip_data
             user_name = user.partner_id.name or user.name or ''
             name_parts = user_name.strip().split()
-            
-            first_name = ''
-            last_name = ''
-            
             if len(name_parts) == 1:
                 first_name = name_parts[0]
+                last_name = ''
             elif len(name_parts) >= 2:
                 first_name = name_parts[0]
                 last_name = ' '.join(name_parts[1:])
             else:
                 first_name = 'N/A'
-            
-            # Create a corresponding business.trip.data record with requester's name
+                last_name = ''
+
+            new_trip = super(BusinessTrip, self.with_context(mail_create_nosubscribe=True)).create(vals)
             trip_data = self.env['business.trip.data'].create({
+                'form_id': new_trip.id,
                 'first_name': first_name,
                 'last_name': last_name,
             })
-            vals['business_trip_data_id'] = trip_data.id
 
-            # Create the business.trip record
-            new_trip = super(BusinessTrip, self.with_context(mail_create_nosubscribe=True)).create(vals)
+            reviewer = new_trip._resolve_expense_review_user()
+            manager = self.env['res.users']
+            if requested_manager_id and is_privileged_creator:
+                manager = self.env['res.users'].browse(requested_manager_id)
+            else:
+                approver_model = self.env['res.users'].sudo().with_company(
+                    company
+                )
+                if sale_order:
+                    approver_id = approver_model.get_travel_approver_for_sale_order(
+                        user.id
+                    )
+                else:
+                    approver_id = (
+                        company.sudo().business_trip_standalone_approver_id.id
+                    )
+                if approver_id:
+                    manager = self.env['res.users'].browse(approver_id)
+
+            reviewer_group = self.env.ref(
+                'custom_business_trip_management.group_business_trip_expense_reviewer',
+                raise_if_not_found=False,
+            )
+            if reviewer and reviewer_group and reviewer_group not in reviewer.groups_id:
+                reviewer.sudo().write({'groups_id': [(4, reviewer_group.id)]})
+
+            link_vals = {'business_trip_data_id': trip_data.id}
+            if reviewer:
+                link_vals['expense_reviewer_id'] = reviewer.id
+            if manager:
+                link_vals['manager_id'] = manager.id
+            super(BusinessTrip, new_trip).write(link_vals)
+
+            if manager:
+                manager.ensure_business_trip_approver_capability()
             
             # Post a simple creation message. The complex message was tied to the formio form.
             message_body = """
@@ -1715,13 +1836,14 @@ class BusinessTrip(models.Model):
 
         # Find the employee's Travel Approver if not already set
         if not self.manager_id:
+            user_model = self.env['res.users'].sudo().with_company(self.company_id)
             # Determine Travel Approver based on trip type
             if self.sale_order_id:
                 # Sale Order related trip
-                manager_id = self.env['res.users'].sudo().get_travel_approver_for_sale_order(self.user_id.id)
+                manager_id = user_model.get_travel_approver_for_sale_order(self.user_id.id)
             else:
                 # Standalone trip
-                manager_id = self.env['res.users'].sudo().get_travel_approver_for_standalone(self.user_id.id)
+                manager_id = user_model.get_travel_approver_for_standalone(self.user_id.id)
             
             if manager_id:
                 manager = self.env['res.users'].sudo().browse(manager_id)
@@ -1730,18 +1852,27 @@ class BusinessTrip(models.Model):
         else:
             manager = self.manager_id
 
-        # Add manager to Business Trip Manager group if not already a member
-        if manager:
-            manager_group = self.env.ref('custom_business_trip_management.group_business_trip_manager', raise_if_not_found=False)
-            if manager_group and not manager.has_group('custom_business_trip_management.group_business_trip_manager'):
-                manager.sudo().write({'groups_id': [(4, manager_group.id)]})
+        manager.ensure_business_trip_approver_capability()
+        reviewer = self.expense_reviewer_id or self._resolve_expense_review_user()
+        if reviewer:
+            reviewer_group = self.env.ref(
+                'custom_business_trip_management.group_business_trip_expense_reviewer',
+                raise_if_not_found=False,
+            )
+            if reviewer_group and reviewer_group not in reviewer.groups_id:
+                reviewer.sudo().write({'groups_id': [(4, reviewer_group.id)]})
 
         # Update the trip
-        self.write({
+        submit_vals = {
             'trip_status': 'submitted',
             'submission_date': fields.Datetime.now(),
             'manager_id': manager.id,
-        })
+        }
+        if reviewer:
+            submit_vals['expense_reviewer_id'] = reviewer.id
+        self.with_context(
+            authorized_business_trip_assignment=True,
+        ).write(submit_vals)
 
         # Notify the Travel Approver
         if self.manager_id and self.manager_id.partner_id:
@@ -1824,15 +1955,28 @@ class BusinessTrip(models.Model):
         """Confirm and assign budget and organizer by Travel Approver"""
         self.ensure_one()
 
-        if not (self.env.user.has_group('hr.group_hr_manager') or 
-                self.env.user.has_group('base.group_system') or 
-                self.env.user.has_group('custom_business_trip_management.group_business_trip_manager')):
-            raise UserError("Only Travel Approvers or system administrators can assign organizers and budgets.")
+        if not (
+            self.env.user == self.manager_id
+            or self.env.user.has_group('base.group_system')
+            or self.env.user.has_group(
+                'custom_business_trip_management.group_business_trip_manager'
+            )
+        ):
+            raise UserError(
+                "Only the assigned Travel Approver or a Business Trip "
+                "Administrator can assign organizers and budgets."
+            )
 
         if manager_max_budget <= 0:
             raise UserError("Maximum budget must be a positive value.")
 
-        stakeholder_users = self.user_id | self.manager_id | self.env['res.users'].browse(organizer_id)
+        organizer = self.env['res.users'].browse(organizer_id)
+        if organizer != self.company_id.business_trip_organizer_id:
+            raise UserError(
+                "Select the active organizer configured for this trip's company."
+            )
+
+        stakeholder_users = self.user_id | self.manager_id | organizer
         
         # Use existing project from sale order, or selected project for standalone trips
         project = None
@@ -1907,7 +2051,9 @@ class BusinessTrip(models.Model):
         if internal_notes:
             vals['internal_manager_organizer_notes'] = internal_notes
 
-        self.write(vals)
+        self.with_context(
+            authorized_business_trip_assignment=True,
+        ).write(vals)
         
         # Add followers to the trip record
         organizer_user = self.env['res.users'].browse(organizer_id)
@@ -2075,6 +2221,81 @@ class BusinessTrip(models.Model):
         if task:
             task.message_subscribe(partner_ids=partners.ids) 
 
+    def _handover_organizer(self, new_user, reason, changed_by=None):
+        """Transfer non-final organizer responsibility as one audited operation."""
+        if not new_user:
+            raise ValidationError("A replacement organizer is required.")
+
+        organizer_group = self.env.ref(
+            'custom_business_trip_management.group_business_trip_organizer',
+            raise_if_not_found=False,
+        )
+        if organizer_group and organizer_group not in new_user.groups_id:
+            new_user.sudo().write({'groups_id': [(4, organizer_group.id)]})
+
+        changed_by = changed_by or self.env.user
+        history_model = self.env['business.trip.assignment.history'].sudo()
+        activity_model = self.env['mail.activity'].sudo()
+
+        for trip in self:
+            previous_user = trip.organizer_id
+            if not previous_user or previous_user == new_user:
+                continue
+            if new_user != trip.company_id.business_trip_organizer_id:
+                raise ValidationError(
+                    "The replacement must be the active organizer for the "
+                    "trip company."
+                )
+
+            super(BusinessTrip, trip.with_context(
+                mail_notrack=False,
+                system_edit=True,
+            )).write({'organizer_id': new_user.id})
+
+            trip.message_subscribe(partner_ids=new_user.partner_id.ids)
+            previous_user_is_still_stakeholder = previous_user in (
+                trip.user_id | trip.manager_id | trip.expense_reviewer_id
+            )
+            if not previous_user_is_still_stakeholder:
+                trip.message_unsubscribe(partner_ids=previous_user.partner_id.ids)
+
+            task = trip.business_trip_task_id
+            if task:
+                task.message_subscribe(partner_ids=new_user.partner_id.ids)
+                task_user_commands = [(4, new_user.id)]
+                if (
+                    previous_user in task.user_ids
+                    and not previous_user_is_still_stakeholder
+                ):
+                    task_user_commands.insert(0, (3, previous_user.id))
+                    task.message_unsubscribe(
+                        partner_ids=previous_user.partner_id.ids
+                    )
+                task.with_context(mail_notrack=True).write({
+                    'user_ids': task_user_commands,
+                })
+
+            activities = activity_model.search([
+                ('res_model', '=', 'business.trip'),
+                ('res_id', '=', trip.id),
+                ('user_id', '=', previous_user.id),
+            ])
+            if activities:
+                activities.with_context(mail_activity_quick_update=True).write({
+                    'user_id': new_user.id,
+                })
+
+            history_model.create({
+                'trip_id': trip.id,
+                'role': 'organizer',
+                'previous_user_id': previous_user.id,
+                'new_user_id': new_user.id,
+                'changed_by_id': changed_by.id,
+                'reason': reason,
+            })
+
+        return True
+
     def action_organizer_confirm_planning(self):
         """Organizer confirms planning is complete and notifies the employee."""
         self.ensure_one()
@@ -2096,15 +2317,12 @@ class BusinessTrip(models.Model):
         confirmation_dt = fields.Datetime.now()
 
         self.write({
-            'trip_status': 'completed_waiting_expense',
+            'trip_status': 'organization_done',
             'organizer_submission_date': confirmation_dt,
             'organizer_confirmation_date': confirmation_dt,
             'organizer_confirmed_by': self.env.user.id,
             'plan_approval_date': confirmation_dt,
-            'actual_start_date': confirmation_dt,
-            'actual_end_date': confirmation_dt,
             'organization_done_date': confirmation_dt,
-            'expense_followup_start_date': confirmation_dt,
         })
 
         # --- MESSAGE POSTING ---
@@ -2149,7 +2367,7 @@ class BusinessTrip(models.Model):
             has been finalized and confirmed by the organizer, <strong>{self.organizer_id.name}</strong>.
         </p>
         <p style="margin-top: 5px; color: #495057;">
-            The trip status has been updated to 'Awaiting Travel Expenses'. No further management action is required at this stage.
+            The trip status has been updated to 'Organization Completed'. Expense follow-up will start only after the trip end date.
         </p>
     </div>
 </div>
@@ -2248,7 +2466,9 @@ class BusinessTrip(models.Model):
 
         # Clear related approval/estimation/return fields to make it a clean draft
         # Also reset form_completion_status to allow editing
-        self.write({
+        self.with_context(
+            authorized_business_trip_assignment=True,
+        ).write({
             'trip_status': 'draft',
             'form_completion_status': 'awaiting_completion',  # Reset to allow editing
             'submission_date': False,
@@ -3714,7 +3934,7 @@ class BusinessTrip(models.Model):
 
     def _get_expense_followup_company(self):
         self.ensure_one()
-        return self.user_id.company_id or self.env.company
+        return self.company_id or self.user_id.company_id or self.env.company
 
     def _filter_expense_followup_eligible_trips(self):
         """Keep trips owned by an active user and an active employee."""
@@ -3836,14 +4056,38 @@ class BusinessTrip(models.Model):
             if trip.expense_followup_start_date:
                 continue
 
-            anchor_datetime = trip.organization_done_date or trip.create_date or trip.write_date or fields.Datetime.now()
+            anchor_datetime = trip._get_post_travel_expense_anchor()
+            if not anchor_datetime:
+                continue
             trip.with_context(mail_notrack=True, system_edit=True).write({
                 'expense_followup_start_date': anchor_datetime,
             })
 
+    def _get_post_travel_expense_anchor(self):
+        """Return midnight after travel end in company timezone, stored as UTC."""
+        self.ensure_one()
+        if not self.travel_end_date:
+            return False
+
+        company = self._get_expense_followup_company()
+        timezone_name = (
+            company.resource_calendar_id.tz
+            or company.partner_id.tz
+            or 'UTC'
+        )
+        timezone = pytz.timezone(timezone_name)
+        local_anchor = timezone.localize(datetime.combine(
+            self.travel_end_date + timedelta(days=1),
+            datetime.min.time(),
+        ))
+        return local_anchor.astimezone(pytz.UTC).replace(tzinfo=None)
+
     def _get_expense_reminder_base_datetime(self):
         self.ensure_one()
-        return self.expense_followup_start_date or self.organization_done_date or self.create_date or self.write_date
+        return (
+            self.expense_followup_start_date
+            or self._get_post_travel_expense_anchor()
+        )
 
     def _get_employee_expense_followup_due_datetime(self):
         self.ensure_one()
@@ -3956,7 +4200,21 @@ class BusinessTrip(models.Model):
             'user_id': self.user_id.id,
         }
         if existing_activity:
-            existing_activity.write(activity_vals)
+            changed_vals = {}
+            for field_name, value in activity_vals.items():
+                current_value = existing_activity[field_name]
+                if hasattr(current_value, 'ids'):
+                    current_compare = (
+                        current_value.id if len(current_value) == 1 else current_value.ids
+                    )
+                else:
+                    current_compare = current_value
+                if current_compare != value:
+                    changed_vals[field_name] = value
+            if changed_vals:
+                existing_activity.with_context(
+                    mail_activity_quick_update=True,
+                ).write(changed_vals)
             return
 
         activity_vals.update({
@@ -4010,7 +4268,7 @@ class BusinessTrip(models.Model):
                         <td style="padding: 8px; border: 1px solid #dee2e6;">{escape(trip.destination or '-')}</td>
                         <td style="padding: 8px; border: 1px solid #dee2e6;">{escape(trip._get_expense_review_display_name())}</td>
                         <td style="padding: 8px; border: 1px solid #dee2e6;">{escape(trip._get_employee_expense_followup_status_label())}</td>
-                        <td style="padding: 8px; border: 1px solid #dee2e6;">{escape(self._format_expense_digest_datetime(trip.expense_followup_start_date))}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">{escape(str(trip.travel_end_date or '-'))}</td>
                         <td style="padding: 8px; border: 1px solid #dee2e6;">{trip._get_trip_anchor_html('Open Trip')}</td>
                     </tr>
                 """
@@ -4029,7 +4287,7 @@ class BusinessTrip(models.Model):
                 <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Destination</th>
                 <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Expense Reviewer</th>
                 <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Status</th>
-                <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Planning Finalized At</th>
+                <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Trip End Date</th>
                 <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Record</th>
             </tr>
         </thead>
@@ -4067,7 +4325,7 @@ class BusinessTrip(models.Model):
                         <td style="padding: 8px; border: 1px solid #dee2e6;">{escape(trip.user_id.name or '-')}</td>
                         <td style="padding: 8px; border: 1px solid #dee2e6;">{trip._get_trip_anchor_html(trip.name or '-')}</td>
                         <td style="padding: 8px; border: 1px solid #dee2e6;">{escape(trip.destination or '-')}</td>
-                        <td style="padding: 8px; border: 1px solid #dee2e6;">{escape(self._format_expense_digest_datetime(trip.expense_followup_start_date))}</td>
+                        <td style="padding: 8px; border: 1px solid #dee2e6;">{escape(str(trip.travel_end_date or '-'))}</td>
                         <td style="padding: 8px; border: 1px solid #dee2e6;">{escape(employee_reminder_status)}</td>
                         <td style="padding: 8px; border: 1px solid #dee2e6;">{trip._get_trip_anchor_html('Open Trip')}</td>
                     </tr>
@@ -4085,7 +4343,7 @@ class BusinessTrip(models.Model):
                 <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Employee</th>
                 <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Trip</th>
                 <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Destination</th>
-                <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Planning Finalized At</th>
+                <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Trip End Date</th>
                 <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Employee Reminder</th>
                 <th style="padding: 8px; border: 1px solid #dee2e6; text-align: left;">Record</th>
             </tr>
@@ -4265,13 +4523,71 @@ class BusinessTrip(models.Model):
             })
             digest_state.write({'last_sent_date': current_window_dt or now})
 
+    @api.model
+    def _activate_post_travel_expense_followup(self, now=None):
+        """Open expense follow-up only after each trip has ended locally."""
+        now = fields.Datetime.to_datetime(now or fields.Datetime.now())
+        utc_now = pytz.UTC.localize(now) if now.tzinfo is None else now.astimezone(pytz.UTC)
+
+        companies = self.env['res.company'].sudo().search([])
+        for company in companies:
+            timezone_name = (
+                company.resource_calendar_id.tz
+                or company.partner_id.tz
+                or 'UTC'
+            )
+            local_today = utc_now.astimezone(
+                pytz.timezone(timezone_name)
+            ).date()
+
+            premature_trips = self.sudo().search([
+                ('company_id', '=', company.id),
+                ('trip_status', '=', 'completed_waiting_expense'),
+                '|',
+                ('travel_end_date', '=', False),
+                ('travel_end_date', '>=', local_today),
+            ])
+            if premature_trips:
+                premature_trips.with_context(
+                    mail_notrack=True,
+                    system_edit=True,
+                ).write({
+                    'trip_status': 'organization_done',
+                    'expense_followup_start_date': False,
+                    'employee_expense_reminder_sent_date': False,
+                    'last_expense_reminder_date': False,
+                })
+                premature_trips._clear_employee_expense_followup_activities()
+
+            due_trips = self.sudo().search([
+                ('company_id', '=', company.id),
+                ('trip_status', '=', 'organization_done'),
+                ('travel_end_date', '!=', False),
+                ('travel_end_date', '<', local_today),
+            ])
+            for trip in due_trips:
+                trip.with_context(
+                    mail_notrack=True,
+                    system_edit=True,
+                ).write({
+                    'trip_status': 'completed_waiting_expense',
+                    'expense_followup_start_date': (
+                        trip._get_post_travel_expense_anchor()
+                    ),
+                    'employee_expense_reminder_sent_date': False,
+                    'last_expense_reminder_date': False,
+                })
+
+        return True
+
     def _cron_send_expense_submission_reminders(self):
         """
         Cron job to keep employee expense follow-up aligned and optionally
         escalate stale pending expense cases to expense reviewers using grouped digests.
         """
-        trips_to_remind = self.search([('trip_status', 'in', ['completed_waiting_expense', 'expense_returned'])])
         now = fields.Datetime.now()
+        self._activate_post_travel_expense_followup(now=now)
+        trips_to_remind = self.search([('trip_status', 'in', ['completed_waiting_expense', 'expense_returned'])])
         _logger.info(f"Cron job for expense reminders running at {now}. Found {len(trips_to_remind)} trips to check.")
 
         eligible_trips = trips_to_remind._filter_expense_followup_eligible_trips()
@@ -4293,67 +4609,29 @@ class BusinessTrip(models.Model):
             eligibility_prechecked=True,
         )
 
-    # Duplicate method removed - using the one defined earlier in the file
-        
     def read(self, fields=None, load='_classic_read'):
         """
-        Overrides the read method to handle legacy trip statuses.
-        If a record has an old status ('awaiting_trip_start', 'in_progress'),
-        it is dynamically presented as 'completed_waiting_expense' to the user
-        and the rest of the system, ensuring compatibility without data migration.
+        Remap retired pre-travel statuses to organization_done for UI
+        compatibility. Expense follow-up activation remains cron-driven.
         """
         records = super(BusinessTrip, self).read(fields=fields, load=load)
-        
-        # Determine if trip_status needs to be checked.
-        # 'fields' is None when all fields are requested.
         status_in_fields = not fields or 'trip_status' in fields
-        
-        if status_in_fields:
-            for record_vals in records:
-                # Check if the record has a trip_status and if it's one of the legacy values
-                if 'trip_status' in record_vals and record_vals['trip_status'] in ['awaiting_trip_start', 'in_progress']:
-                    _logger.info(
-                        f"Remapping legacy status '{record_vals['trip_status']}' to 'completed_waiting_expense' "
-                        f"for Business Trip ID {record_vals.get('id')} during read."
-                    )
-                    record_vals['trip_status'] = 'completed_waiting_expense'
-                    
-        return records
-        
-        if status_in_fields:
-            # Also check if phase fields are requested
-            phase1_in_fields = not fields or 'trip_status_phase1' in fields
-            phase2_in_fields = not fields or 'trip_status_phase2' in fields
+        phase1_in_fields = not fields or 'trip_status_phase1' in fields
+        phase2_in_fields = not fields or 'trip_status_phase2' in fields
 
+        if status_in_fields:
             for record_vals in records:
-                # Check if the record has a trip_status and if it's one of the legacy values
-                if 'trip_status' in record_vals and record_vals['trip_status'] in ['awaiting_trip_start', 'in_progress']:
-                    _logger.info(
-                        f"Remapping legacy status '{record_vals['trip_status']}' to 'completed_waiting_expense' "
-                        f"for Business Trip ID {record_vals.get('id')} during read."
-                    )
-                    # Remap the main status
-                    record_vals['trip_status'] = 'completed_waiting_expense'
-                    
-                    # Also remap the phase statuses to keep the UI consistent
+                if record_vals.get('trip_status') in (
+                    'awaiting_trip_start',
+                    'in_progress',
+                ):
+                    record_vals['trip_status'] = 'organization_done'
                     if phase1_in_fields:
                         record_vals['trip_status_phase1'] = 'organization_done'
                     if phase2_in_fields:
-                        record_vals['trip_status_phase2'] = 'completed_waiting_expense'
-                    
+                        record_vals['trip_status_phase2'] = False
+
         return records
-        
-    @api.depends('effective_trip_status')
-    def _compute_effective_trip_status(self):
-        """
-        Dynamically remaps legacy trip statuses to their new equivalents.
-        This ensures that all logic depending on this field sees a valid, modern status.
-        """
-        for rec in self:
-            if rec.trip_status in ('awaiting_trip_start', 'in_progress'):
-                rec.effective_trip_status = 'completed_waiting_expense'
-            else:
-                rec.effective_trip_status = rec.trip_status
 
     @api.model
     def _get_trip_status_selection(self):
@@ -4368,7 +4646,7 @@ class BusinessTrip(models.Model):
         """
         for rec in self:
             if rec.trip_status in ('awaiting_trip_start', 'in_progress'):
-                rec.effective_trip_status = 'completed_waiting_expense'
+                rec.effective_trip_status = 'organization_done'
             else:
                 rec.effective_trip_status = rec.trip_status
 
@@ -4380,6 +4658,28 @@ class BusinessTrip(models.Model):
         """
         Override write to post messages on status changes and manage project/task creation.
         """
+        protected_assignment_fields = {
+            'company_id',
+            'user_id',
+            'manager_id',
+            'organizer_id',
+            'expense_reviewer_id',
+        }
+        if (
+            protected_assignment_fields.intersection(vals)
+            and not self.env.su
+            and not self.env.context.get('authorized_business_trip_assignment')
+            and not self.env.context.get('system_edit')
+            and not self.env.user.has_group('base.group_system')
+            and not self.env.user.has_group(
+                'custom_business_trip_management.group_business_trip_manager'
+            )
+        ):
+            raise AccessError(
+                "Business trip assignments can only be changed through the "
+                "authorized workflow."
+            )
+
         previous_statuses = {}
         sync_followup_activity = any(field in vals for field in ('trip_status', 'user_id'))
         if sync_followup_activity:
@@ -4394,8 +4694,7 @@ class BusinessTrip(models.Model):
                     # The organizer_submission_date should be set when the organizer submits their plan.
                     pass
                 elif vals['trip_status'] == 'completed_waiting_expense':
-                    # This status is set when the organizer confirms their plan.
-                    # We can consider this the "submission" and "approval" in one step for simplicity.
+                    # This status is set by the post-travel scheduled transition.
                     if not trip.organizer_submission_date:
                         trip.organizer_submission_date = fields.Datetime.now()
                     if not trip.plan_approval_date:
@@ -4408,7 +4707,10 @@ class BusinessTrip(models.Model):
                     trip.trip_status == 'completed_waiting_expense'
                     and previous_status not in ('completed_waiting_expense', 'expense_submitted', 'expense_returned')
                 ):
-                    trip.expense_followup_start_date = trip.expense_followup_start_date or trip.organization_done_date or fields.Datetime.now()
+                    trip.expense_followup_start_date = (
+                        trip.expense_followup_start_date
+                        or trip._get_post_travel_expense_anchor()
+                    )
                     trip.employee_expense_reminder_sent_date = False
                     trip.last_expense_reminder_date = False
                 trip._sync_employee_expense_followup_activity()
@@ -4455,11 +4757,8 @@ class BusinessTrip(models.Model):
                 # 'expense_returned' is a state in phase 2
                 rec.trip_status_phase2 = 'expense_returned'
                 _logger.info(f"Setting trip_status_phase2 to expense_returned for expense_returned status")
-            elif trip_status == 'organization_done':
-                # If organization is done, the next logical step in phase 2 is awaiting expenses
-                rec.trip_status_phase2 = 'completed_waiting_expense'
-                _logger.info(f"Setting trip_status_phase2 to completed_waiting_expense for organization_done status")
             else:
+                # organization_done stays in phase 1 until travel ends
                 rec.trip_status_phase2 = False
                 _logger.info(f"Setting trip_status_phase2 to False for status: {trip_status}")
             

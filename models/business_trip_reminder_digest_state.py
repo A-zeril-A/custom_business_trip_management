@@ -24,6 +24,14 @@ class BusinessTripReminderDigestState(models.Model):
 
     @api.model
     def get_or_create_state(self, user, company, digest_key):
+        lock_key = (
+            "custom_business_trip_management:"
+            f"{user.id}:{company.id}:{digest_key}"
+        )
+        self.env.cr.execute(
+            "SELECT pg_advisory_xact_lock(hashtext(%s))",
+            [lock_key],
+        )
         state = self.search([
             ('user_id', '=', user.id),
             ('company_id', '=', company.id),

@@ -1,13 +1,13 @@
 # pyright: reportUnusedExpression=false
 {
     'name': 'Business Trip Management',
-    'version': '18.0.1.0.2',
+    'version': '18.0.1.1.0',
     'license': 'LGPL-3',
-    'summary': 'Redirects users to different business trip views based on role',
+    'summary': 'Secure business trip workflow, organizer handover, and post-travel expense follow-up',
     'description': """
-This module provides a dynamic redirection to business trip management views:
-- Managers and supervisors are redirected to the admin dashboard.
-- Employees are redirected to a predefined business trip form.
+Business Trip Management with company-aware authorization, audited organizer
+handover, read-only auditor access, and expense reminders that start only after
+the trip end date.
     """,
     'author': 'A_zeril_A',
     'category': 'Human Resources',

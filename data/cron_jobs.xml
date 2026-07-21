@@ -22,9 +22,9 @@
             <field name="code">model._cron_send_expense_submission_reminders()</field>
             <field name="user_id" ref="base.user_root"/>
             <field name="interval_number">1</field>
-            <field name="interval_type">minutes</field>
+            <field name="interval_type">hours</field>
             <field name="active" eval="True"/>
-            <field name="nextcall" eval="(DateTime.now() + timedelta(minutes=1)).strftime('%Y-%m-%d %H:%M:%S')" />
+            <field name="nextcall" eval="(DateTime.now() + timedelta(hours=1)).strftime('%Y-%m-%d %H:00:00')" />
         </record>
     </data>
 </odoo> 
