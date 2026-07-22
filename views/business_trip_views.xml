@@ -286,9 +286,9 @@
                 <!-- EXPENSE MANAGEMENT: Show expense states -->
                 <field name="trip_status_phase2" widget="statusbar"
                        invisible="trip_status not in ['organization_done', 'completed_waiting_expense', 'expense_submitted', 'expense_returned', 'completed']"
-                       statusbar_visible="completed_waiting_expense,expense_submitted,completed"
+                       statusbar_visible="awaiting_trip_end,completed_waiting_expense,expense_submitted,completed"
                        decoration-warning="trip_status_phase2 == 'expense_submitted'"
-                       decoration-info="trip_status_phase2 == 'completed_waiting_expense'"
+                       decoration-info="trip_status_phase2 in ('awaiting_trip_end', 'completed_waiting_expense')"
                        decoration-success="trip_status_phase2 == 'completed'"
                        decoration-orange="trip_status_phase2 == 'expense_returned'"/>
                 

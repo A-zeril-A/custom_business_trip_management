@@ -61,30 +61,6 @@
         </field>
     </record>
 
-    <record id="action_business_trip_organizer_workspace" model="ir.actions.act_window">
-        <field name="name">Organizer Workspace</field>
-        <field name="res_model">business.trip</field>
-        <field name="view_mode">list,form</field>
-        <field name="domain">[]</field>
-        <field name="search_view_id" ref="custom_business_trip_management.view_business_trip_search"/>
-        <field name="context">{'from_organizer_workspace': True}</field>
-        <field name="view_ids" eval="[(5, 0, 0),
-          (0, 0, {'view_mode': 'list', 'view_id': ref('custom_business_trip_management.view_all_assigned_business_trip_tree')}),
-          (0, 0, {'view_mode': 'form', 'view_id': ref('custom_business_trip_management.view_business_trip_form')})]"/>
-    </record>
-
-    <record id="action_business_trip_auditor_all" model="ir.actions.act_window">
-        <field name="name">All Business Trips</field>
-        <field name="res_model">business.trip</field>
-        <field name="view_mode">list,form</field>
-        <field name="domain">[]</field>
-        <field name="search_view_id" ref="custom_business_trip_management.view_business_trip_search"/>
-        <field name="context">{'from_business_trip_auditor': True, 'create': False, 'edit': False, 'delete': False}</field>
-        <field name="view_ids" eval="[(5, 0, 0),
-          (0, 0, {'view_mode': 'list', 'view_id': ref('custom_business_trip_management.view_all_assigned_business_trip_tree')}),
-          (0, 0, {'view_mode': 'form', 'view_id': ref('custom_business_trip_management.view_business_trip_form')})]"/>
-    </record>
-
     <!-- This action opens the formio form builder/editor. We might need to replace it or point it to the new form view -->
     <record id="action_business_trip_formio_form" model="ir.actions.act_window">
         <field name="name">Business Trip Request</field>

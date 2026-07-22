@@ -35,12 +35,13 @@
     </record>
 
     <!-- Active Menu Items -->
+    <!-- Auditors get the same menu read-only: their ACL/record rules block writes. -->
     <menuitem id="menu_view_business_trip_forms"
       name="Business Trip Forms"
       parent="menu_business_trip_root"
       action="custom_business_trip_management.action_view_business_trip_forms"
       sequence="3"
-      groups="base.group_system,custom_business_trip_management.group_business_trip_manager"/>
+      groups="base.group_system,custom_business_trip_management.group_business_trip_manager,custom_business_trip_management.group_business_trip_auditor"/>
       
     <menuitem id="menu_view_my_business_trip_forms"
       name="My Business Trip Forms"
@@ -66,17 +67,4 @@
         <field name="groups_id" eval="[(4, ref('base.group_system')), (4, ref('custom_business_trip_management.group_business_trip_manager')), (4, ref('custom_business_trip_management.group_business_trip_approver')), (4, ref('custom_business_trip_management.group_business_trip_organizer')), (4, ref('custom_business_trip_management.group_business_trip_expense_reviewer'))]"/>
     </record>
 
-    <menuitem id="menu_business_trip_organizer_workspace"
-        name="Organizer Workspace"
-        parent="custom_business_trip_management.menu_business_trip_root"
-        action="custom_business_trip_management.action_business_trip_organizer_workspace"
-        sequence="4"
-        groups="custom_business_trip_management.group_business_trip_organizer"/>
-
-    <menuitem id="menu_business_trip_auditor_all"
-        name="All Business Trips"
-        parent="custom_business_trip_management.menu_business_trip_root"
-        action="custom_business_trip_management.action_business_trip_auditor_all"
-        sequence="5"
-        groups="custom_business_trip_management.group_business_trip_auditor"/>
 </odoo>

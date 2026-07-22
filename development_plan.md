@@ -48,6 +48,10 @@ access-rights form.
 - Final trips retain their historical `organizer_id`.
 - Every reassignment creates a structured history entry and tracked chatter
   change.
+- Navigation: "Assigned to Me" is the single management menu for approvers
+  and organizers; auditors reuse the "Business Trip Forms" menu read-only
+  (ACL/record rules enforce it). The trip form shows an "Awaiting Trip End"
+  stage between plan confirmation and expense follow-up.
 - Migration `18.0.1.2.0` seeds the pool from the legacy single-organizer
   column and removes stale organizer group memberships.
 

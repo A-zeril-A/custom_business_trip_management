@@ -437,6 +437,7 @@ class BusinessTrip(models.Model):
 
     # Computed fields for status phases and role display
     trip_status_phase2 = fields.Selection([
+        ('awaiting_trip_end', 'Awaiting Trip End'),
         ('completed_waiting_expense', 'Awaiting Travel Expenses'),
         ('expense_submitted', 'Expenses Under Review'),
         ('expense_returned', 'Expenses Returned for Revision'),
@@ -4630,7 +4631,7 @@ class BusinessTrip(models.Model):
                     if phase1_in_fields:
                         record_vals['trip_status_phase1'] = 'organization_done'
                     if phase2_in_fields:
-                        record_vals['trip_status_phase2'] = False
+                        record_vals['trip_status_phase2'] = 'awaiting_trip_end'
 
         return records
 
@@ -4758,8 +4759,11 @@ class BusinessTrip(models.Model):
                 # 'expense_returned' is a state in phase 2
                 rec.trip_status_phase2 = 'expense_returned'
                 _logger.info(f"Setting trip_status_phase2 to expense_returned for expense_returned status")
+            elif trip_status == 'organization_done':
+                # Trip is planned but not finished; expense phase starts after travel end.
+                rec.trip_status_phase2 = 'awaiting_trip_end'
+                _logger.info("Setting trip_status_phase2 to awaiting_trip_end for organization_done status")
             else:
-                # organization_done stays in phase 1 until travel ends
                 rec.trip_status_phase2 = False
                 _logger.info(f"Setting trip_status_phase2 to False for status: {trip_status}")
             

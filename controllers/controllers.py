@@ -31,9 +31,6 @@ class BusinessTripController(http.Controller):
         """
         user = request.env.user
 
-        is_organizer = user.has_group(
-            'custom_business_trip_management.group_business_trip_organizer'
-        )
         is_auditor = user.has_group(
             'custom_business_trip_management.group_business_trip_auditor'
         )
@@ -46,32 +43,21 @@ class BusinessTripController(http.Controller):
                 'custom_business_trip_management.group_business_trip_approver'
             )
             or user.has_group(
+                'custom_business_trip_management.group_business_trip_organizer'
+            )
+            or user.has_group(
                 'custom_business_trip_management.group_business_trip_expense_reviewer'
             )
         )
 
-        if user.has_group('base.group_system') or is_trip_admin:
+        if user.has_group('base.group_system') or is_trip_admin or is_auditor:
+            # Auditors share the "Business Trip Forms" menu; their ACL and
+            # record rules keep the content read-only for them.
             action = request.env.ref(
                 'custom_business_trip_management.action_view_business_trip_forms'
             )
             menu = request.env.ref(
                 'custom_business_trip_management.menu_view_business_trip_forms'
-            )
-            domain = []
-        elif is_auditor:
-            action = request.env.ref(
-                'custom_business_trip_management.action_business_trip_auditor_all'
-            )
-            menu = request.env.ref(
-                'custom_business_trip_management.menu_business_trip_auditor_all'
-            )
-            domain = []
-        elif is_organizer:
-            action = request.env.ref(
-                'custom_business_trip_management.action_business_trip_organizer_workspace'
-            )
-            menu = request.env.ref(
-                'custom_business_trip_management.menu_business_trip_organizer_workspace'
             )
             domain = []
         elif is_management_user:
