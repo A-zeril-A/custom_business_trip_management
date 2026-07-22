@@ -2224,7 +2224,13 @@ class BusinessTrip(models.Model):
             task.message_subscribe(partner_ids=partners.ids) 
 
     def _handover_organizer(self, new_user, reason, changed_by=None):
-        """Transfer non-final organizer responsibility as one audited operation."""
+        """Transfer non-final organizer responsibility as one audited batch.
+
+        The behavior matches the previous per-record implementation (tracked
+        organizer change, follower/task/activity synchronization, immutable
+        history entries) but every step runs on batched recordsets so a large
+        handover stays fast and does not block the Settings save.
+        """
         if not new_user:
             raise ValidationError("A replacement organizer is required.")
 
@@ -2236,65 +2242,107 @@ class BusinessTrip(models.Model):
             new_user.sudo().write({'groups_id': [(4, organizer_group.id)]})
 
         changed_by = changed_by or self.env.user
+        trips = self.filtered(
+            lambda trip: trip.organizer_id and trip.organizer_id != new_user
+        )
+        if not trips:
+            return True
+
+        invalid_trips = trips.filtered(
+            lambda trip: new_user not in trip.company_id.business_trip_organizer_ids
+        )
+        if invalid_trips:
+            raise ValidationError(
+                "The replacement must be one of the organizers configured "
+                "for the trip company."
+            )
+
+        previous_user_by_trip = {trip.id: trip.organizer_id for trip in trips}
+        previous_users = self.env['res.users']
+        for previous_user in previous_user_by_trip.values():
+            previous_users |= previous_user
+
+        # Tracked assignment change for the whole batch in one write.
+        super(BusinessTrip, trips.with_context(
+            mail_notrack=False,
+            system_edit=True,
+        )).write({'organizer_id': new_user.id})
+
+        trips.message_subscribe(partner_ids=new_user.partner_id.ids)
+        all_tasks = trips.mapped('business_trip_task_id')
+        # project.task.message_subscribe() mutates the partner list once per
+        # matching project follower, so it crashes on recordsets spanning
+        # several projects followed by the same partner. Group per project.
+        for project in all_tasks.mapped('project_id'):
+            all_tasks.filtered(
+                lambda task: task.project_id == project
+            ).message_subscribe(partner_ids=new_user.partner_id.ids)
+        projectless_tasks = all_tasks.filtered(lambda task: not task.project_id)
+        if projectless_tasks:
+            projectless_tasks.message_subscribe(
+                partner_ids=new_user.partner_id.ids
+            )
+
         history_model = self.env['business.trip.assignment.history'].sudo()
         activity_model = self.env['mail.activity'].sudo()
+        history_vals = []
+        tasks_gaining_only = all_tasks
 
-        for trip in self:
-            previous_user = trip.organizer_id
-            if not previous_user or previous_user == new_user:
-                continue
-            if new_user not in trip.company_id.business_trip_organizer_ids:
-                raise ValidationError(
-                    "The replacement must be one of the organizers "
-                    "configured for the trip company."
+        for previous_user in previous_users:
+            previous_trips = trips.filtered(
+                lambda trip: previous_user_by_trip[trip.id] == previous_user
+            )
+            non_stakeholder_trips = previous_trips.filtered(
+                lambda trip: previous_user not in (
+                    trip.user_id | trip.manager_id | trip.expense_reviewer_id
+                )
+            )
+            if non_stakeholder_trips:
+                non_stakeholder_trips.message_unsubscribe(
+                    partner_ids=previous_user.partner_id.ids
                 )
 
-            super(BusinessTrip, trip.with_context(
-                mail_notrack=False,
-                system_edit=True,
-            )).write({'organizer_id': new_user.id})
+            removable_tasks = non_stakeholder_trips.mapped(
+                'business_trip_task_id'
+            ).filtered(lambda task: previous_user in task.user_ids)
+            if removable_tasks:
+                removable_tasks.message_unsubscribe(
+                    partner_ids=previous_user.partner_id.ids
+                )
+                removable_tasks.with_context(mail_notrack=True).write({
+                    'user_ids': [(3, previous_user.id), (4, new_user.id)],
+                })
+                tasks_gaining_only -= removable_tasks
 
-            trip.message_subscribe(partner_ids=new_user.partner_id.ids)
-            previous_user_is_still_stakeholder = previous_user in (
-                trip.user_id | trip.manager_id | trip.expense_reviewer_id
+            history_vals.extend(
+                {
+                    'trip_id': trip.id,
+                    'role': 'organizer',
+                    'previous_user_id': previous_user.id,
+                    'new_user_id': new_user.id,
+                    'changed_by_id': changed_by.id,
+                    'reason': reason,
+                }
+                for trip in previous_trips
             )
-            if not previous_user_is_still_stakeholder:
-                trip.message_unsubscribe(partner_ids=previous_user.partner_id.ids)
 
-            task = trip.business_trip_task_id
-            if task:
-                task.message_subscribe(partner_ids=new_user.partner_id.ids)
-                task_user_commands = [(4, new_user.id)]
-                if (
-                    previous_user in task.user_ids
-                    and not previous_user_is_still_stakeholder
-                ):
-                    task_user_commands.insert(0, (3, previous_user.id))
-                    task.message_unsubscribe(
-                        partner_ids=previous_user.partner_id.ids
-                    )
-                task.with_context(mail_notrack=True).write({
-                    'user_ids': task_user_commands,
-                })
-
-            activities = activity_model.search([
-                ('res_model', '=', 'business.trip'),
-                ('res_id', '=', trip.id),
-                ('user_id', '=', previous_user.id),
-            ])
-            if activities:
-                activities.with_context(mail_activity_quick_update=True).write({
-                    'user_id': new_user.id,
-                })
-
-            history_model.create({
-                'trip_id': trip.id,
-                'role': 'organizer',
-                'previous_user_id': previous_user.id,
-                'new_user_id': new_user.id,
-                'changed_by_id': changed_by.id,
-                'reason': reason,
+        if tasks_gaining_only:
+            tasks_gaining_only.with_context(mail_notrack=True).write({
+                'user_ids': [(4, new_user.id)],
             })
+
+        activities = activity_model.search([
+            ('res_model', '=', 'business.trip'),
+            ('res_id', 'in', trips.ids),
+            ('user_id', 'in', previous_users.ids),
+        ])
+        if activities:
+            activities.with_context(mail_activity_quick_update=True).write({
+                'user_id': new_user.id,
+            })
+
+        if history_vals:
+            history_model.create(history_vals)
 
         return True
 
