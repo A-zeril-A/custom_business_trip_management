@@ -74,7 +74,7 @@
         groups="custom_business_trip_management.group_business_trip_organizer"/>
 
     <menuitem id="menu_business_trip_auditor_all"
-        name="All Trips (Read Only)"
+        name="All Business Trips"
         parent="custom_business_trip_management.menu_business_trip_root"
         action="custom_business_trip_management.action_business_trip_auditor_all"
         sequence="5"
