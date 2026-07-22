@@ -187,6 +187,7 @@
             <form string="Assign Organizer and Budget">
                 <group>
                     <field name="trip_id" invisible="1"/>
+                    <field name="allowed_organizer_ids" invisible="1"/>
                     <field name="manager_id" readonly="1" options="{'no_open': True}"/>
                     <field name="manager_max_budget" placeholder="Leave empty to assign organizer without setting budget"/>
                     <field name="organizer_id" options="{'no_create': True, 'no_open': True}" context="{'active_test': False}"/>

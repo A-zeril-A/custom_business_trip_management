@@ -61,12 +61,10 @@ class TestExpenseFollowupTiming(TransactionCase):
             }
         )
         cls.company.with_context(skip_business_trip_role_sync=True).write(
-            {"business_trip_organizer_id": cls.organizer.id}
+            {"business_trip_organizer_ids": [(6, 0, [cls.organizer.id])]}
         )
-        cls.company._sync_business_trip_role_group(
-            "business_trip_organizer_id",
-            "custom_business_trip_management.group_business_trip_organizer",
-            previous_user=cls.env["res.users"],
+        cls.company._sync_business_trip_organizer_pool_group(
+            cls.env["res.users"]
         )
 
     def _create_trip(self, **vals):

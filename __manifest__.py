@@ -1,7 +1,7 @@
 # pyright: reportUnusedExpression=false
 {
     'name': 'Business Trip Management',
-    'version': '18.0.1.1.0',
+    'version': '18.0.1.2.0',
     'license': 'LGPL-3',
     'summary': 'Secure business trip workflow, organizer handover, and post-travel expense follow-up',
     'description': """

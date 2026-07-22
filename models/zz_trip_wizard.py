@@ -551,13 +551,33 @@ class BusinessTripAssignOrganizerWizard(models.TransientModel):
     currency_id = fields.Many2one('res.currency', string='Currency', readonly=True)
     manager_max_budget = fields.Monetary(string='Maximum Budget', required=False, help="Set the maximum budget for the organizer.", currency_field='currency_id')
     organizer_id = fields.Many2one(
-        'res.users', 
-        string='Trip Organizer', 
+        'res.users',
+        string='Trip Organizer',
         required=True,
-        domain=lambda self: [('groups_id', 'in', [self.env.ref('custom_business_trip_management.group_business_trip_organizer').id])],
+        domain="[('id', 'in', allowed_organizer_ids)]",
         help="Select the user who will organize this trip."
     )
+    allowed_organizer_ids = fields.Many2many(
+        'res.users',
+        compute='_compute_allowed_organizer_ids',
+        help="Organizers configured for the trip company in Business Trip Settings.",
+    )
     assignment_comments = fields.Text(string='Comments for Organizer (Optional)', help="Initial instructions or comments for the trip organizer.")
+
+    @api.depends('trip_id', 'trip_id.company_id')
+    def _compute_allowed_organizer_ids(self):
+        organizer_group = self.env.ref(
+            'custom_business_trip_management.group_business_trip_organizer',
+            raise_if_not_found=False,
+        )
+        for wizard in self:
+            pool = wizard.trip_id.company_id.business_trip_organizer_ids
+            if pool:
+                wizard.allowed_organizer_ids = pool
+            elif organizer_group:
+                wizard.allowed_organizer_ids = organizer_group.users
+            else:
+                wizard.allowed_organizer_ids = False
 
     @api.model
     def default_get(self, fields_list):
@@ -573,11 +593,11 @@ class BusinessTripAssignOrganizerWizard(models.TransientModel):
                 if trip.currency_id:
                     res['currency_id'] = trip.currency_id.id
                 
-                active_organizer = trip.company_id.business_trip_organizer_id
+                organizer_pool = trip.company_id.business_trip_organizer_ids
                 if trip.organizer_id:
                     res['organizer_id'] = trip.organizer_id.id
-                elif active_organizer:
-                    res['organizer_id'] = active_organizer.id
+                elif len(organizer_pool) == 1:
+                    res['organizer_id'] = organizer_pool.id
                     
                 # Logic for pre-filling budget in the wizard:
                 # 1. Prioritize the unconfirmed temporary budget saved on the form.
@@ -644,10 +664,11 @@ class BusinessTripAssignOrganizerWizard(models.TransientModel):
             )
         if (
             self.organizer_id
-            != self.trip_id.company_id.business_trip_organizer_id
+            not in self.trip_id.company_id.business_trip_organizer_ids
         ):
             raise UserError(
-                "Select the active organizer configured for this trip's company."
+                "Select one of the organizers configured for this trip's "
+                "company in Business Trip Settings."
             )
             
         organizer_changed = self.trip_id.organizer_id.id != self.organizer_id.id

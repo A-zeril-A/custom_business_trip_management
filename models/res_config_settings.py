@@ -20,13 +20,14 @@ class ResConfigSettings(models.TransientModel):
         help="Default approver for standalone business trips.",
     )
 
-    business_trip_organizer_id = fields.Many2one(
-        related="company_id.business_trip_organizer_id",
+    business_trip_organizer_ids = fields.Many2many(
+        related="company_id.business_trip_organizer_ids",
         readonly=False,
-        string="Active Business Trip Organizer",
+        string="Business Trip Organizers",
         help=(
-            "Changing the active organizer transfers every non-final trip "
-            "assigned to the previous organizer."
+            "Users the Travel Approver can pick as trip organizer. Removing "
+            "a user with open trips hands them over to the single remaining "
+            "organizer, or requires explicit reassignment first."
         ),
     )
 

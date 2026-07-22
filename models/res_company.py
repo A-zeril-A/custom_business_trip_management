@@ -21,13 +21,18 @@ class ResCompany(models.Model):
         domain="[('active', '=', True), ('share', '=', False), ('company_ids', 'in', id)]",
         help="Default approver for standalone business trips.",
     )
-    business_trip_organizer_id = fields.Many2one(
+    business_trip_organizer_ids = fields.Many2many(
         "res.users",
-        string="Active Business Trip Organizer",
+        "res_company_business_trip_organizer_rel",
+        "company_id",
+        "user_id",
+        string="Business Trip Organizers",
         domain="[('active', '=', True), ('share', '=', False), ('company_ids', 'in', id)]",
         help=(
-            "The active organizer for this company. Changing this user safely "
-            "hands over all non-final trips."
+            "Users the Travel Approver can pick as trip organizer for this "
+            "company. Removing a user who still has open trips hands them "
+            "over to the single remaining organizer, or requires explicit "
+            "reassignment first."
         ),
     )
     business_trip_sale_order_expense_reviewer_id = fields.Many2one(
@@ -154,7 +159,7 @@ class ResCompany(models.Model):
     @api.constrains(
         "business_trip_sale_order_approver_id",
         "business_trip_standalone_approver_id",
-        "business_trip_organizer_id",
+        "business_trip_organizer_ids",
         "business_trip_sale_order_expense_reviewer_id",
         "business_trip_standalone_expense_reviewer_id",
     )
@@ -162,23 +167,21 @@ class ResCompany(models.Model):
         role_fields = (
             "business_trip_sale_order_approver_id",
             "business_trip_standalone_approver_id",
-            "business_trip_organizer_id",
+            "business_trip_organizer_ids",
             "business_trip_sale_order_expense_reviewer_id",
             "business_trip_standalone_expense_reviewer_id",
         )
         for company in self:
             for field_name in role_fields:
-                user = company[field_name]
-                if not user:
-                    continue
-                if not user.active or user.share:
-                    raise ValidationError(
-                        f"{user.name} must be an active internal user."
-                    )
-                if company not in user.company_ids:
-                    raise ValidationError(
-                        f"{user.name} is not allowed to access {company.name}."
-                    )
+                for user in company[field_name]:
+                    if not user.active or user.share:
+                        raise ValidationError(
+                            f"{user.name} must be an active internal user."
+                        )
+                    if company not in user.company_ids:
+                        raise ValidationError(
+                            f"{user.name} is not allowed to access {company.name}."
+                        )
 
     def _sync_business_trip_role_group(
         self,
@@ -229,33 +232,58 @@ class ResCompany(models.Model):
         if not still_configured and group in previous_user.groups_id:
             previous_user.sudo().write({"groups_id": [(3, group.id)]})
 
-    def _handover_business_trip_organizer(self, previous_user):
+    def _handle_business_trip_organizer_pool_change(self, previous_pool):
+        """Hand over or block when organizers with open trips leave the pool."""
         self.ensure_one()
-        current_user = self.business_trip_organizer_id
-        if not previous_user or previous_user == current_user:
-            return
+        current_pool = self.business_trip_organizer_ids
+        removed_users = previous_pool - current_pool
 
         final_statuses = ("completed", "rejected", "cancelled")
-        trips = self.env["business.trip"].sudo().with_context(
-            active_test=False,
-        ).search([
-            ("company_id", "=", self.id),
-            ("organizer_id", "=", previous_user.id),
-            ("trip_status", "not in", final_statuses),
-        ])
+        Trip = self.env["business.trip"].sudo().with_context(active_test=False)
+        for user in removed_users:
+            open_trips = Trip.search([
+                ("company_id", "=", self.id),
+                ("organizer_id", "=", user.id),
+                ("trip_status", "not in", final_statuses),
+            ])
+            if not open_trips:
+                continue
+            if len(current_pool) == 1:
+                open_trips._handover_organizer(
+                    current_pool,
+                    reason=f"Organizer pool changed for {self.name}.",
+                    changed_by=self.env.user,
+                )
+            else:
+                raise ValidationError(
+                    f"{user.name} still organizes {len(open_trips)} open "
+                    f"trip(s) in {self.name}. Reassign those trips to another "
+                    "organizer before removing this user, or leave exactly "
+                    "one organizer in the list to hand them over "
+                    "automatically."
+                )
 
-        if not current_user and trips:
-            raise ValidationError(
-                "Select a replacement organizer before removing the active "
-                "organizer while non-final trips are still assigned."
-            )
+    def _sync_business_trip_organizer_pool_group(self, previous_pool):
+        """Keep organizer group membership aligned with all company pools."""
+        self.ensure_one()
+        group = self.env.ref(
+            "custom_business_trip_management.group_business_trip_organizer",
+            raise_if_not_found=False,
+        )
+        if not group:
+            return
 
-        if trips:
-            trips._handover_organizer(
-                current_user,
-                reason=f"Active organizer changed for {self.name}.",
-                changed_by=self.env.user,
-            )
+        current_pool = self.business_trip_organizer_ids
+        for user in current_pool:
+            if group not in user.groups_id:
+                user.sudo().write({"groups_id": [(4, group.id)]})
+
+        for user in previous_pool - current_pool:
+            still_in_a_pool = self.sudo().search_count([
+                ("business_trip_organizer_ids", "in", user.id),
+            ])
+            if not still_in_a_pool and group in user.groups_id:
+                user.sudo().write({"groups_id": [(3, group.id)]})
 
     def write(self, vals):
         role_groups = {
@@ -265,9 +293,6 @@ class ResCompany(models.Model):
             "business_trip_standalone_approver_id": (
                 "custom_business_trip_management.group_business_trip_manager_standalone"
             ),
-            "business_trip_organizer_id": (
-                "custom_business_trip_management.group_business_trip_organizer"
-            ),
             "business_trip_sale_order_expense_reviewer_id": (
                 "custom_business_trip_management.group_business_trip_expense_reviewer"
             ),
@@ -276,30 +301,31 @@ class ResCompany(models.Model):
             ),
         }
         changed_fields = tuple(field for field in role_groups if field in vals)
+        organizer_pool_changed = "business_trip_organizer_ids" in vals
         previous_users = {
             (company.id, field): company[field]
             for company in self
             for field in changed_fields
         }
+        previous_pools = {
+            company.id: company.business_trip_organizer_ids
+            for company in self
+        } if organizer_pool_changed else {}
 
         result = super().write(vals)
         if self.env.context.get("skip_business_trip_role_sync"):
             return result
 
         for company in self:
-            if "business_trip_organizer_id" in changed_fields:
-                company._handover_business_trip_organizer(
-                    previous_users[(company.id, "business_trip_organizer_id")]
+            if organizer_pool_changed:
+                company._handle_business_trip_organizer_pool_change(
+                    previous_pools[company.id]
                 )
-                company._sync_business_trip_role_group(
-                    "business_trip_organizer_id",
-                    role_groups["business_trip_organizer_id"],
-                    previous_users[(company.id, "business_trip_organizer_id")],
+                company._sync_business_trip_organizer_pool_group(
+                    previous_pools[company.id]
                 )
 
             for field_name in changed_fields:
-                if field_name == "business_trip_organizer_id":
-                    continue
                 company._sync_business_trip_role_group(
                     field_name,
                     role_groups[field_name],

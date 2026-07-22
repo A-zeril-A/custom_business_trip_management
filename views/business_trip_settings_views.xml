@@ -28,10 +28,11 @@
                                    options="{'no_create': True, 'no_open': True}"/>
                         </setting>
                         <setting id="business_trip_active_organizer"
-                                 string="Active Business Trip Organizer"
+                                 string="Business Trip Organizers"
                                  company_dependent="1"
-                                 help="Changing this user safely transfers every non-final trip from the previous organizer.">
-                            <field name="business_trip_organizer_id"
+                                 help="Users the Travel Approver can pick as trip organizer. Removing a user with open trips hands them over to the single remaining organizer, or requires reassigning those trips first.">
+                            <field name="business_trip_organizer_ids"
+                                   widget="many2many_tags"
                                    options="{'no_create': True, 'no_open': True}"/>
                         </setting>
                         <setting id="business_trip_sale_order_expense_reviewer"

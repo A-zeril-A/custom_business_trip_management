@@ -33,21 +33,23 @@ Technical default-approver and active-organizer groups are managed from
 company settings and are not meant for direct day-to-day editing on the Users
 access-rights form.
 
-### Organizer Handover
+### Organizer Pool and Handover
 
-- `res.company.business_trip_organizer_id` is the single active organizer per
-  company.
-- Changing the setting grants the successor role first.
-- All non-final trips assigned to the predecessor are reassigned in the same
-  transaction.
+- `res.company.business_trip_organizer_ids` is the pool of organizers per
+  company; the Travel Approver picks any pool member when assigning a trip.
+- Pool members automatically receive the technical organizer group; users in
+  no company pool automatically lose it (and the management menus).
+- Removing a pool member who still has non-final trips:
+  - hands those trips over automatically when exactly one organizer remains;
+  - is blocked with a validation error otherwise, until the trips are
+    reassigned explicitly.
 - Trip followers, task assignees, task followers, and pending activities are
-  synchronized.
+  synchronized on handover.
 - Final trips retain their historical `organizer_id`.
-- The successor reads final trips through the Organizer Workspace.
-- The predecessor loses the organizer group when no company still uses that
-  user as its active organizer.
 - Every reassignment creates a structured history entry and tracked chatter
   change.
+- Migration `18.0.1.2.0` seeds the pool from the legacy single-organizer
+  column and removes stale organizer group memberships.
 
 ### Expense Follow-up
 

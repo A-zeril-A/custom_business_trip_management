@@ -1283,16 +1283,16 @@ class BusinessTrip(models.Model):
     def _check_active_company_organizer(self):
         final_statuses = ('completed', 'rejected', 'cancelled')
         for trip in self:
-            active_organizer = trip.company_id.business_trip_organizer_id
+            organizer_pool = trip.company_id.business_trip_organizer_ids
             if (
                 trip.organizer_id
-                and active_organizer
+                and organizer_pool
                 and trip.trip_status not in final_statuses
-                and trip.organizer_id != active_organizer
+                and trip.organizer_id not in organizer_pool
             ):
                 raise ValidationError(
-                    "Non-final trips must be assigned to the active organizer "
-                    "configured for their company."
+                    "Non-final trips must be assigned to one of the "
+                    "organizers configured for their company."
                 )
 
     @api.model_create_multi
@@ -1971,9 +1971,10 @@ class BusinessTrip(models.Model):
             raise UserError("Maximum budget must be a positive value.")
 
         organizer = self.env['res.users'].browse(organizer_id)
-        if organizer != self.company_id.business_trip_organizer_id:
+        if organizer not in self.company_id.business_trip_organizer_ids:
             raise UserError(
-                "Select the active organizer configured for this trip's company."
+                "Select one of the organizers configured for this trip's "
+                "company in Business Trip Settings."
             )
 
         stakeholder_users = self.user_id | self.manager_id | organizer
@@ -2241,10 +2242,10 @@ class BusinessTrip(models.Model):
             previous_user = trip.organizer_id
             if not previous_user or previous_user == new_user:
                 continue
-            if new_user != trip.company_id.business_trip_organizer_id:
+            if new_user not in trip.company_id.business_trip_organizer_ids:
                 raise ValidationError(
-                    "The replacement must be the active organizer for the "
-                    "trip company."
+                    "The replacement must be one of the organizers "
+                    "configured for the trip company."
                 )
 
             super(BusinessTrip, trip.with_context(

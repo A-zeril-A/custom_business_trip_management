@@ -93,7 +93,7 @@ def _configure_company_roles(env):
             if standalone_user:
                 vals["business_trip_standalone_approver_id"] = standalone_user.id
 
-        if not company.business_trip_organizer_id:
+        if not company.business_trip_organizer_ids:
             organizer_group = env.ref(
                 "custom_business_trip_management.group_business_trip_organizer",
                 raise_if_not_found=False,
@@ -106,26 +106,8 @@ def _configure_company_roles(env):
                     ("share", "=", False),
                 ]
             ) if organizer_group else Users
-            if len(organizers) == 1:
-                vals["business_trip_organizer_id"] = organizers.id
-            elif organizers:
-                # Prefer the organizer currently assigned to the most open trips.
-                Trip = env["business.trip"].sudo()
-                best = False
-                best_count = -1
-                for organizer in organizers:
-                    count = Trip.search_count(
-                        [
-                            ("company_id", "=", company.id),
-                            ("organizer_id", "=", organizer.id),
-                            ("trip_status", "not in", list(FINAL_STATUSES)),
-                        ]
-                    )
-                    if count > best_count:
-                        best = organizer
-                        best_count = count
-                if best:
-                    vals["business_trip_organizer_id"] = best.id
+            if organizers:
+                vals["business_trip_organizer_ids"] = [(6, 0, organizers.ids)]
 
         if vals:
             company.with_context(skip_business_trip_role_sync=True).write(vals)
@@ -138,10 +120,6 @@ def _configure_company_roles(env):
                     "business_trip_standalone_approver_id",
                     "custom_business_trip_management.group_business_trip_manager_standalone",
                 ),
-                (
-                    "business_trip_organizer_id",
-                    "custom_business_trip_management.group_business_trip_organizer",
-                ),
             ):
                 if field_name in vals:
                     company._sync_business_trip_role_group(
@@ -149,27 +127,9 @@ def _configure_company_roles(env):
                         group_xmlid,
                         previous_user=env["res.users"],
                     )
-
-        active_organizer = company.business_trip_organizer_id
-        if active_organizer:
-            mismatched = env["business.trip"].sudo().with_context(
-                active_test=False,
-            ).search(
-                [
-                    ("company_id", "=", company.id),
-                    ("organizer_id", "!=", False),
-                    ("organizer_id", "!=", active_organizer.id),
-                    ("trip_status", "not in", list(FINAL_STATUSES)),
-                ]
-            )
-            if mismatched:
-                mismatched._handover_organizer(
-                    active_organizer,
-                    reason=(
-                        f"Migration aligned open trips to the active "
-                        f"organizer for {company.name}."
-                    ),
-                    changed_by=env.user,
+            if "business_trip_organizer_ids" in vals:
+                company._sync_business_trip_organizer_pool_group(
+                    env["res.users"]
                 )
 
 

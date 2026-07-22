@@ -95,7 +95,7 @@
     <record id="business_trip_organizer_read_rule" model="ir.rule">
         <field name="name">Business Trip: active organizer company workspace</field>
         <field name="model_id" ref="model_business_trip"/>
-        <field name="domain_force">[('company_id', 'in', company_ids), ('company_id.business_trip_organizer_id', '=', user.id)]</field>
+        <field name="domain_force">[('company_id', 'in', company_ids), ('company_id.business_trip_organizer_ids', 'in', [user.id])]</field>
         <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
         <field name="perm_read" eval="1"/>
         <field name="perm_write" eval="0"/>
@@ -106,7 +106,7 @@
     <record id="business_trip_organizer_write_rule" model="ir.rule">
         <field name="name">Business Trip: organizer modifies assigned record</field>
         <field name="model_id" ref="model_business_trip"/>
-        <field name="domain_force">[('company_id', 'in', company_ids), ('company_id.business_trip_organizer_id', '=', user.id), ('organizer_id', '=', user.id)]</field>
+        <field name="domain_force">[('company_id', 'in', company_ids), ('company_id.business_trip_organizer_ids', 'in', [user.id]), ('organizer_id', '=', user.id)]</field>
         <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
         <field name="perm_read" eval="0"/>
         <field name="perm_write" eval="1"/>
@@ -275,7 +275,7 @@
     <record id="business_trip_data_organizer_read_rule" model="ir.rule">
         <field name="name">Business Trip Data: active organizer workspace</field>
         <field name="model_id" ref="model_business_trip_data"/>
-        <field name="domain_force">[('form_id.company_id', 'in', company_ids), ('form_id.company_id.business_trip_organizer_id', '=', user.id)]</field>
+        <field name="domain_force">[('form_id.company_id', 'in', company_ids), ('form_id.company_id.business_trip_organizer_ids', 'in', [user.id])]</field>
         <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
         <field name="perm_read" eval="1"/>
         <field name="perm_write" eval="0"/>
@@ -286,7 +286,7 @@
     <record id="business_trip_data_organizer_write_rule" model="ir.rule">
         <field name="name">Business Trip Data: organizer assigned trip</field>
         <field name="model_id" ref="model_business_trip_data"/>
-        <field name="domain_force">[('form_id.company_id', 'in', company_ids), ('form_id.company_id.business_trip_organizer_id', '=', user.id), ('form_id.organizer_id', '=', user.id)]</field>
+        <field name="domain_force">[('form_id.company_id', 'in', company_ids), ('form_id.company_id.business_trip_organizer_ids', 'in', [user.id]), ('form_id.organizer_id', '=', user.id)]</field>
         <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
         <field name="perm_read" eval="0"/>
         <field name="perm_write" eval="1"/>
@@ -353,7 +353,7 @@
     <record id="business_trip_plan_line_organizer_read_rule" model="ir.rule">
         <field name="name">Business Trip Plan Line: active organizer workspace</field>
         <field name="model_id" ref="model_business_trip_plan_line"/>
-        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_id', '=', user.id)]</field>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_ids', 'in', [user.id])]</field>
         <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
         <field name="perm_read" eval="1"/>
         <field name="perm_write" eval="0"/>
@@ -364,7 +364,7 @@
     <record id="business_trip_plan_line_organizer_write_rule" model="ir.rule">
         <field name="name">Business Trip Plan Line: organizer assigned trip</field>
         <field name="model_id" ref="model_business_trip_plan_line"/>
-        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_id', '=', user.id), ('trip_id.organizer_id', '=', user.id)]</field>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_ids', 'in', [user.id]), ('trip_id.organizer_id', '=', user.id)]</field>
         <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
         <field name="perm_read" eval="0"/>
         <field name="perm_write" eval="1"/>
@@ -420,7 +420,7 @@
     <record id="business_trip_expense_line_organizer_rule" model="ir.rule">
         <field name="name">Business Trip Expense Line: active organizer workspace</field>
         <field name="model_id" ref="model_business_trip_expense_line"/>
-        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_id', '=', user.id)]</field>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_ids', 'in', [user.id])]</field>
         <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
         <field name="perm_read" eval="1"/>
         <field name="perm_write" eval="0"/>
@@ -482,7 +482,7 @@
     <record id="accompanying_person_organizer_rule" model="ir.rule">
         <field name="name">Accompanying Person: active organizer workspace</field>
         <field name="model_id" ref="model_accompanying_person"/>
-        <field name="domain_force">[('business_trip_id.form_id.company_id', 'in', company_ids), ('business_trip_id.form_id.company_id.business_trip_organizer_id', '=', user.id)]</field>
+        <field name="domain_force">[('business_trip_id.form_id.company_id', 'in', company_ids), ('business_trip_id.form_id.company_id.business_trip_organizer_ids', 'in', [user.id])]</field>
         <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
         <field name="perm_write" eval="0"/>
         <field name="perm_create" eval="0"/>
@@ -540,7 +540,7 @@
     <record id="planned_accommodation_organizer_read_rule" model="ir.rule">
         <field name="name">Planned Accommodation: active organizer workspace</field>
         <field name="model_id" ref="model_planned_trip_accommodation_line"/>
-        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_id', '=', user.id)]</field>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_ids', 'in', [user.id])]</field>
         <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
         <field name="perm_write" eval="0"/>
         <field name="perm_create" eval="0"/>
@@ -550,7 +550,7 @@
     <record id="planned_accommodation_organizer_write_rule" model="ir.rule">
         <field name="name">Planned Accommodation: organizer assigned trip</field>
         <field name="model_id" ref="model_planned_trip_accommodation_line"/>
-        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_id', '=', user.id), ('trip_id.organizer_id', '=', user.id)]</field>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_ids', 'in', [user.id]), ('trip_id.organizer_id', '=', user.id)]</field>
         <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
         <field name="perm_read" eval="0"/>
     </record>
@@ -605,7 +605,7 @@
     <record id="planned_transport_organizer_read_rule" model="ir.rule">
         <field name="name">Planned Transport: active organizer workspace</field>
         <field name="model_id" ref="model_planned_trip_transport_line"/>
-        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_id', '=', user.id)]</field>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_ids', 'in', [user.id])]</field>
         <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
         <field name="perm_write" eval="0"/>
         <field name="perm_create" eval="0"/>
@@ -615,7 +615,7 @@
     <record id="planned_transport_organizer_write_rule" model="ir.rule">
         <field name="name">Planned Transport: organizer assigned trip</field>
         <field name="model_id" ref="model_planned_trip_transport_line"/>
-        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_id', '=', user.id), ('trip_id.organizer_id', '=', user.id)]</field>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_ids', 'in', [user.id]), ('trip_id.organizer_id', '=', user.id)]</field>
         <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
         <field name="perm_read" eval="0"/>
     </record>
@@ -671,7 +671,7 @@
     <record id="assignment_history_organizer_rule" model="ir.rule">
         <field name="name">Assignment History: active organizer workspace</field>
         <field name="model_id" ref="model_business_trip_assignment_history"/>
-        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_id', '=', user.id)]</field>
+        <field name="domain_force">[('trip_id.company_id', 'in', company_ids), ('trip_id.company_id.business_trip_organizer_ids', 'in', [user.id])]</field>
         <field name="groups" eval="[(4, ref('group_business_trip_organizer'))]"/>
         <field name="perm_write" eval="0"/>
         <field name="perm_create" eval="0"/>
