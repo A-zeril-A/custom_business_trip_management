@@ -326,10 +326,13 @@ class ResCompany(models.Model):
                 )
 
             for field_name in changed_fields:
+                previous_user = previous_users[(company.id, field_name)]
                 company._sync_business_trip_role_group(
                     field_name,
                     role_groups[field_name],
-                    previous_users[(company.id, field_name)],
+                    previous_user,
                 )
+                if previous_user and previous_user != company[field_name]:
+                    previous_user.sudo().cleanup_business_trip_capability_groups()
 
         return result

@@ -4717,6 +4717,12 @@ class BusinessTrip(models.Model):
                     trip.last_expense_reminder_date = False
                 trip._sync_employee_expense_followup_activity()
 
+        if vals.get('trip_status') in ('completed', 'rejected', 'cancelled'):
+            # Closing a trip may make its approver/reviewer capability stale.
+            stakeholders = self.mapped('manager_id') | self.mapped('expense_reviewer_id')
+            if stakeholders:
+                stakeholders.sudo().cleanup_business_trip_capability_groups()
+
         return res
 
     @api.depends('effective_trip_status')

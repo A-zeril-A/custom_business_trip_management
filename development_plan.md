@@ -52,6 +52,13 @@ access-rights form.
   and organizers; auditors reuse the "Business Trip Forms" menu read-only
   (ACL/record rules enforce it). The trip form shows an "Awaiting Trip End"
   stage between plan confirmation and expense follow-up.
+- Approver/reviewer capability revocation is event-driven: changing the
+  Settings default and finalizing a trip both re-evaluate the previous
+  holder; the capability groups (and the management menus) are revoked as
+  soon as the user is neither configured in Settings nor assigned to any
+  non-final trip. Open trips deliberately stay with their assigned
+  approver/reviewer; only new trips route to the new default.
+- Migration `18.0.1.2.1` sweeps historically stale capability memberships.
 - Migration `18.0.1.2.0` seeds the pool from the legacy single-organizer
   column and removes stale organizer group memberships.
 

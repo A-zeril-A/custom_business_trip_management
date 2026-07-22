@@ -49,6 +49,96 @@ class ResUsers(models.Model):
             if group not in user.groups_id:
                 user.sudo().write({"groups_id": [(4, group.id)]})
 
+    def ensure_business_trip_expense_reviewer_capability(self):
+        group = self.env.ref(
+            "custom_business_trip_management.group_business_trip_expense_reviewer",
+            raise_if_not_found=False,
+        )
+        if not group:
+            return
+        for user in self.filtered(lambda record: record.active and not record.share):
+            if group not in user.groups_id:
+                user.sudo().write({"groups_id": [(4, group.id)]})
+
+    def cleanup_business_trip_capability_groups(self):
+        """Revoke approver/reviewer capability that is no longer justified.
+
+        A user keeps the capability group only while they are configured in
+        any company's Business Trip Settings or still hold the matching role
+        on a non-final trip. Called when trips reach a final status and when
+        company role settings change, so ex-role-holders lose the management
+        menus instead of keeping them forever.
+        """
+        final_statuses = ("completed", "rejected", "cancelled")
+        approver_group = self.env.ref(
+            "custom_business_trip_management.group_business_trip_approver",
+            raise_if_not_found=False,
+        )
+        sale_group = self.env.ref(
+            "custom_business_trip_management.group_business_trip_manager_sale_order",
+            raise_if_not_found=False,
+        )
+        standalone_group = self.env.ref(
+            "custom_business_trip_management.group_business_trip_manager_standalone",
+            raise_if_not_found=False,
+        )
+        reviewer_group = self.env.ref(
+            "custom_business_trip_management.group_business_trip_expense_reviewer",
+            raise_if_not_found=False,
+        )
+        Trip = self.env["business.trip"].sudo()
+        Company = self.env["res.company"].sudo()
+
+        for user in self:
+            commands = []
+
+            if approver_group and approver_group in user.groups_id:
+                approver_needed = Company.search_count([
+                    "|",
+                    ("business_trip_sale_order_approver_id", "=", user.id),
+                    ("business_trip_standalone_approver_id", "=", user.id),
+                ]) or Trip.search_count([
+                    ("manager_id", "=", user.id),
+                    ("trip_status", "not in", final_statuses),
+                ])
+                if not approver_needed:
+                    commands.append((3, approver_group.id))
+                    if (
+                        sale_group
+                        and sale_group in user.groups_id
+                        and not Company.search_count([
+                            ("business_trip_sale_order_approver_id", "=", user.id),
+                        ])
+                    ):
+                        commands.append((3, sale_group.id))
+                    if (
+                        standalone_group
+                        and standalone_group in user.groups_id
+                        and not Company.search_count([
+                            ("business_trip_standalone_approver_id", "=", user.id),
+                        ])
+                    ):
+                        commands.append((3, standalone_group.id))
+
+            if reviewer_group and reviewer_group in user.groups_id:
+                reviewer_needed = Company.search_count([
+                    "|",
+                    ("business_trip_sale_order_expense_reviewer_id", "=", user.id),
+                    ("business_trip_standalone_expense_reviewer_id", "=", user.id),
+                ]) or Trip.search_count([
+                    ("expense_reviewer_id", "=", user.id),
+                    ("trip_status", "not in", final_statuses),
+                ])
+                if not reviewer_needed:
+                    commands.append((3, reviewer_group.id))
+
+            if commands:
+                _logger.info(
+                    "Revoking stale business trip capability groups from %s",
+                    user.login,
+                )
+                user.sudo().write({"groups_id": commands})
+
     # ------------------------------------------------------------------
     # Approver look-up helpers
     # ------------------------------------------------------------------
