@@ -4,3 +4,4 @@ from . import test_business_trip_security
 from . import test_organizer_handover
 from . import test_role_revocation
 from . import test_mail_message_confidential
+from . import test_travel_approver_lookup

@@ -145,7 +145,7 @@ class ResUsers(models.Model):
 
     @api.model
     def get_default_travel_approver_sale_order(self):
-        """Return the current company's fallback sale-order approver."""
+        """Return the current company's configured sale-order approver."""
         return self.env.company.sudo().business_trip_sale_order_approver_id
 
     @api.model
@@ -153,35 +153,50 @@ class ResUsers(models.Model):
         """Return the current company's standalone approver."""
         return self.env.company.sudo().business_trip_standalone_approver_id
 
+    def _get_usable_travel_approver(self, user, requester_id):
+        """Return user if they can approve someone else's trip in this company."""
+        if (
+            user
+            and user.active
+            and not user.share
+            and user.id != requester_id
+            and self.env.company in user.company_ids
+        ):
+            return user
+        return self.env["res.users"]
+
+    def _get_employee_manager_user(self, user_id):
+        """Return the requester's direct manager user when it is usable."""
+        employee = self.env["hr.employee"].sudo().search([
+            ("user_id", "=", user_id),
+            ("company_id", "=", self.env.company.id),
+            ("active", "=", True),
+        ], limit=1)
+        manager_user = employee.parent_id.user_id if employee else self.env["res.users"]
+        return self._get_usable_travel_approver(manager_user, user_id)
+
     @api.model
     def get_travel_approver_for_sale_order(self, user_id=None):
-        """
-        Get Travel Approver for Sale Order related trips.
-        Priority: 1) Direct manager  2) Travel Approver (Sale Order)  3) Admin
+        """Return the sale-order travel approver for a requester.
+
+        Settings are the source of truth when a company approver is set.
+        The employee's direct manager is used only when Settings is empty,
+        or when using Settings would assign the requester as their own
+        approver.
         """
         if not user_id:
             user_id = self.env.user.id
 
-        employee = self.env['hr.employee'].sudo().search([
-            ('user_id', '=', user_id),
-            ('company_id', '=', self.env.company.id),
-            ('active', '=', True),
-        ], limit=1)
+        configured = self._get_usable_travel_approver(
+            self.get_default_travel_approver_sale_order(),
+            user_id,
+        )
+        if configured:
+            return configured.id
 
-        # First priority: employee's direct manager
-        if (
-            employee
-            and employee.parent_id
-            and employee.parent_id.user_id
-            and employee.parent_id.user_id.active
-            and self.env.company in employee.parent_id.user_id.company_ids
-        ):
-            return employee.parent_id.user_id.id
-
-        # Second priority: designated Travel Approver (Sale Order)
-        default_approver = self.get_default_travel_approver_sale_order()
-        if default_approver:
-            return default_approver.id
+        manager_user = self._get_employee_manager_user(user_id)
+        if manager_user:
+            return manager_user.id
 
         return None
 

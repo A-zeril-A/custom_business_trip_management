@@ -14,9 +14,9 @@
                      groups="base.group_system,custom_business_trip_management.group_business_trip_manager">
                     <block title="Approval Process" id="business_trip_approval_process">
                         <setting id="business_trip_sale_order_travel_approver"
-                                 string="Fallback Travel Approver (Sale Order)"
+                                 string="Travel Approver (Sale Order)"
                                  company_dependent="1"
-                                 help="Used for sale-order trips only when the employee has no direct manager.">
+                                 help="If set, sale-order travel requests go to this user. Leave empty to use each employee's direct manager.">
                             <field name="travel_approver_sale_order_user_id"
                                    options="{'no_create': True, 'no_open': True}"/>
                         </setting>

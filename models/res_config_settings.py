@@ -8,8 +8,9 @@ class ResConfigSettings(models.TransientModel):
         readonly=False,
         string="Travel Approver (Sale Order)",
         help=(
-            "Fallback approver for sale-order trips when the employee has no "
-            "direct manager."
+            "If set, sale-order travel requests go to this user. Leave empty "
+            "to use each employee's direct manager. A requester is never "
+            "assigned as their own approver."
         ),
     )
 
