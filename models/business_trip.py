@@ -935,8 +935,20 @@ class BusinessTrip(models.Model):
         if is_assigned_manager and from_assigned_to_me:
             # Owner is the assigned manager and accessing from correct menu
             return
-        
-        # Owner trying to manage from "My Business Trip" or not assigned as manager
+
+        if is_assigned_manager:
+            # Legitimate self-approval (nobody sits above this requester), but
+            # opened from the wrong menu. Tell them how to proceed instead of
+            # implying they did something forbidden.
+            raise ValidationError(
+                f"You are the assigned Travel Approver for this request, so "
+                f"you may perform '{action_name}' on it. Management actions "
+                f"are only available from the \"Assigned to Me\" menu, not "
+                f"from \"My Business Trip\". Please open this request from "
+                f"\"Assigned to Me\" and try again."
+            )
+
+        # Owner trying to manage a trip they are not the assigned approver of
         raise ValidationError(
             f"SECURITY VIOLATION: You cannot perform the '{action_name}' action on your own trip request. "
             f"Management actions can only be performed by other authorized users, never by the trip requester. "

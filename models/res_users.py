@@ -1,7 +1,6 @@
 import logging
 
 from odoo import models, api, fields
-from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -175,20 +174,101 @@ class ResUsers(models.Model):
         manager_user = employee.parent_id.user_id if employee else self.env["res.users"]
         return self._get_usable_travel_approver(manager_user, user_id)
 
+    def _is_top_of_hierarchy(self, user_id):
+        """Return True when nobody in this company sits above the requester.
+
+        Requiring at least one subordinate is deliberate: an employee record
+        that simply never got a manager assigned must not silently gain the
+        right to approve their own trips.
+        """
+        Employee = self.env["hr.employee"].sudo()
+        employee = Employee.search([
+            ("user_id", "=", user_id),
+            ("company_id", "=", self.env.company.id),
+            ("active", "=", True),
+        ], limit=1)
+        if not employee or employee.parent_id:
+            return False
+        return bool(Employee.search_count([
+            ("parent_id", "=", employee.id),
+            ("active", "=", True),
+        ]))
+
+    def _get_top_of_hierarchy_approver(self, user_id):
+        """Return the requester themselves when there is nobody above them.
+
+        Routing the request to anyone else would hand it to one of their own
+        subordinates, so the top of the hierarchy approves their own trips.
+        """
+        if not self._is_top_of_hierarchy(user_id):
+            return self.env["res.users"]
+        user = self.browse(user_id)
+        if (
+            user.active
+            and not user.share
+            and self.env.company in user.company_ids
+        ):
+            return user
+        return self.env["res.users"]
+
     @api.model
     def get_travel_approver_for_sale_order(self, user_id=None):
         """Return the sale-order travel approver for a requester.
 
-        Settings are the source of truth when a company approver is set.
-        The employee's direct manager is used only when Settings is empty,
-        or when using Settings would assign the requester as their own
-        approver.
+        Sale-order trips are approved by the employee's own direct manager.
+        A requester at the top of the hierarchy approves their own trip, since
+        every other candidate reports to them. The approver configured in
+        Settings is only a fallback, used when the requester has no usable
+        direct manager and is not at the top of the hierarchy.
+
+        Returns None when nobody can be resolved; every caller turns that
+        into a user-facing message, so an unconfigured role never breaks the
+        request form itself.
         """
         if not user_id:
             user_id = self.env.user.id
 
+        manager_user = self._get_employee_manager_user(user_id)
+        if manager_user:
+            return manager_user.id
+
+        top_user = self._get_top_of_hierarchy_approver(user_id)
+        if top_user:
+            return top_user.id
+
         configured = self._get_usable_travel_approver(
             self.get_default_travel_approver_sale_order(),
+            user_id,
+        )
+        if configured:
+            return configured.id
+
+        return None
+
+    @api.model
+    def get_travel_approver_for_standalone(self, user_id=None):
+        """Return the standalone travel approver for a requester.
+
+        A requester at the top of the hierarchy approves their own trip, since
+        the configured approver reports to them. For everyone else Settings
+        are the source of truth when a company approver is set, and the
+        employee's direct manager is used only when Settings is empty, when
+        the configured approver can no longer approve in this company, or
+        when using Settings would assign the requester as their own approver.
+
+        Returns None when nobody can be resolved; every caller turns that
+        into a user-facing message, so an unconfigured role never breaks the
+        request form itself.
+        """
+        if not user_id:
+            user_id = self.env.user.id
+
+        top_user = self._get_top_of_hierarchy_approver(user_id)
+        if top_user:
+            return top_user.id
+
+        configured = self._get_usable_travel_approver(
+            self.get_default_travel_approver_standalone(),
             user_id,
         )
         if configured:
@@ -199,20 +279,3 @@ class ResUsers(models.Model):
             return manager_user.id
 
         return None
-
-    @api.model
-    def get_travel_approver_for_standalone(self, user_id=None):
-        """
-        Get Travel Approver for Standalone trips.
-        Only the user with is_travel_approver_standalone=True (or group member
-        as fallback) is allowed.  Raises if nobody is configured.
-        """
-        default_approver = self.get_default_travel_approver_standalone()
-        if default_approver:
-            return default_approver.id
-
-        raise ValidationError(
-            "No Travel Approver (Standalone) is configured. "
-            "Please assign at least one user to the "
-            "'Travel Approver (Standalone)' role."
-        )

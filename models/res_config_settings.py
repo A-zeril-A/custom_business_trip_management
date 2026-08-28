@@ -6,11 +6,11 @@ class ResConfigSettings(models.TransientModel):
     travel_approver_sale_order_user_id = fields.Many2one(
         related="company_id.business_trip_sale_order_approver_id",
         readonly=False,
-        string="Travel Approver (Sale Order)",
+        string="Fallback Travel Approver (Sale Order)",
         help=(
-            "If set, sale-order travel requests go to this user. Leave empty "
-            "to use each employee's direct manager. A requester is never "
-            "assigned as their own approver."
+            "Sale-order travel requests go to the employee's direct manager. "
+            "This user is used only when the employee has no usable direct "
+            "manager. A requester is never assigned as their own approver."
         ),
     )
 
@@ -18,7 +18,11 @@ class ResConfigSettings(models.TransientModel):
         related="company_id.business_trip_standalone_approver_id",
         readonly=False,
         string="Travel Approver (Standalone)",
-        help="Default approver for standalone business trips.",
+        help=(
+            "If set, standalone travel requests go to this user. Leave empty "
+            "to use each employee's direct manager. A requester is never "
+            "assigned as their own approver."
+        ),
     )
 
     business_trip_organizer_ids = fields.Many2many(

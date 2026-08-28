@@ -8,19 +8,23 @@ class ResCompany(models.Model):
 
     business_trip_sale_order_approver_id = fields.Many2one(
         "res.users",
-        string="Travel Approver (Sale Order)",
+        string="Fallback Travel Approver (Sale Order)",
         domain="[('active', '=', True), ('share', '=', False), ('company_ids', 'in', id)]",
         help=(
-            "If set, sale-order travel requests go to this user. Leave empty "
-            "to use each employee's direct manager. A requester is never "
-            "assigned as their own approver."
+            "Sale-order travel requests go to the employee's direct manager. "
+            "This user is used only when the employee has no usable direct "
+            "manager. A requester is never assigned as their own approver."
         ),
     )
     business_trip_standalone_approver_id = fields.Many2one(
         "res.users",
         string="Travel Approver (Standalone)",
         domain="[('active', '=', True), ('share', '=', False), ('company_ids', 'in', id)]",
-        help="Default approver for standalone business trips.",
+        help=(
+            "If set, standalone travel requests go to this user. Leave empty "
+            "to use each employee's direct manager. A requester is never "
+            "assigned as their own approver."
+        ),
     )
     business_trip_organizer_ids = fields.Many2many(
         "res.users",

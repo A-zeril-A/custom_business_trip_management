@@ -3,7 +3,7 @@ from odoo.tests.common import TransactionCase, tagged
 
 @tagged("post_install", "-at_install")
 class TestTravelApproverLookup(TransactionCase):
-    """Sale-order approval follows Settings, then the employee manager."""
+    """Both trip types follow Settings first, then the employee manager."""
 
     @classmethod
     def setUpClass(cls):
@@ -54,31 +54,160 @@ class TestTravelApproverLookup(TransactionCase):
                 "parent_id": cls.manager_employee.id,
             }
         )
+        # Neither a manager above nor anybody below: the shape an employee
+        # record has when nobody ever assigned it a manager.
+        cls.orphan = create_user("Orphan Employee", "bt_lookup_orphan")
+        cls.env["hr.employee"].create(
+            {
+                "name": "Orphan Employee",
+                "user_id": cls.orphan.id,
+                "company_id": cls.company.id,
+            }
+        )
         cls.Users = cls.env["res.users"].with_company(cls.company)
 
-    def test_settings_approver_wins_over_direct_manager(self):
+    # ------------------------------------------------------------------
+    # Sale-order trips: direct manager first, Settings only as fallback
+    # ------------------------------------------------------------------
+
+    def _set_sale_order_approver(self, approver):
         self.company.with_context(skip_business_trip_role_sync=True).write(
-            {"business_trip_sale_order_approver_id": self.settings_approver.id}
+            {
+                "business_trip_sale_order_approver_id": (
+                    approver.id if approver else False
+                )
+            }
         )
+
+    def test_direct_manager_wins_over_settings_approver(self):
+        self._set_sale_order_approver(self.settings_approver)
+        self.assertEqual(
+            self.Users.get_travel_approver_for_sale_order(self.employee.id),
+            self.line_manager.id,
+        )
+
+    def test_empty_settings_uses_direct_manager(self):
+        self._set_sale_order_approver(None)
+        self.assertEqual(
+            self.Users.get_travel_approver_for_sale_order(self.employee.id),
+            self.line_manager.id,
+        )
+
+    def test_requester_without_manager_falls_back_to_settings(self):
+        """No manager and no subordinates, so Settings is the only option."""
+        self._set_sale_order_approver(self.settings_approver)
+        self.assertEqual(
+            self.Users.get_travel_approver_for_sale_order(self.orphan.id),
+            self.settings_approver.id,
+        )
+
+    def test_archived_manager_falls_back_to_settings(self):
+        self._set_sale_order_approver(self.settings_approver)
+        self.line_manager.action_archive()
         self.assertEqual(
             self.Users.get_travel_approver_for_sale_order(self.employee.id),
             self.settings_approver.id,
         )
 
-    def test_empty_settings_uses_direct_manager(self):
-        self.company.with_context(skip_business_trip_role_sync=True).write(
-            {"business_trip_sale_order_approver_id": False}
+    def test_requester_is_not_assigned_as_own_approver(self):
+        """Segregation of duties: the fallback approver cannot self-approve."""
+        self._set_sale_order_approver(self.orphan)
+        self.assertIsNone(
+            self.Users.get_travel_approver_for_sale_order(self.orphan.id)
         )
+
+    # ------------------------------------------------------------------
+    # Standalone trips: Settings first, direct manager only as fallback
+    # ------------------------------------------------------------------
+
+    def _set_standalone_approver(self, approver):
+        self.company.with_context(skip_business_trip_role_sync=True).write(
+            {
+                "business_trip_standalone_approver_id": (
+                    approver.id if approver else False
+                )
+            }
+        )
+
+    def test_standalone_settings_approver_wins_over_direct_manager(self):
+        self._set_standalone_approver(self.settings_approver)
+        self.assertEqual(
+            self.Users.get_travel_approver_for_standalone(self.employee.id),
+            self.settings_approver.id,
+        )
+
+    def test_standalone_empty_settings_uses_direct_manager(self):
+        self._set_standalone_approver(None)
+        self.assertEqual(
+            self.Users.get_travel_approver_for_standalone(self.employee.id),
+            self.line_manager.id,
+        )
+
+    def test_standalone_requester_is_not_assigned_as_own_approver(self):
+        """Segregation of duties: the approver cannot approve their own trip."""
+        self._set_standalone_approver(self.settings_approver)
+        self.assertEqual(
+            self.Users.get_travel_approver_for_standalone(self.settings_approver.id),
+            self.line_manager.id,
+        )
+
+    def test_standalone_archived_approver_falls_back_to_manager(self):
+        """An unusable approver must not silently swallow the notification."""
+        self._set_standalone_approver(self.settings_approver)
+        self.settings_approver.action_archive()
+        self.assertEqual(
+            self.Users.get_travel_approver_for_standalone(self.employee.id),
+            self.line_manager.id,
+        )
+
+    def test_standalone_returns_none_when_nothing_resolvable(self):
+        """Callers turn None into a message instead of crashing the form."""
+        self._set_standalone_approver(None)
+        self.assertIsNone(
+            self.Users.get_travel_approver_for_standalone(self.orphan.id)
+        )
+
+    # ------------------------------------------------------------------
+    # Top of the hierarchy approves their own trips
+    # ------------------------------------------------------------------
+
+    def test_top_of_hierarchy_approves_own_sale_order_trip(self):
+        """Every other candidate reports to them, so they self-approve."""
+        self._set_sale_order_approver(self.settings_approver)
+        self.assertEqual(
+            self.Users.get_travel_approver_for_sale_order(self.line_manager.id),
+            self.line_manager.id,
+        )
+
+    def test_top_of_hierarchy_approves_own_standalone_trip(self):
+        self._set_standalone_approver(self.settings_approver)
+        self.assertEqual(
+            self.Users.get_travel_approver_for_standalone(self.line_manager.id),
+            self.line_manager.id,
+        )
+
+    def test_top_of_hierarchy_does_not_affect_other_requesters(self):
+        self._set_sale_order_approver(self.settings_approver)
+        self._set_standalone_approver(self.settings_approver)
         self.assertEqual(
             self.Users.get_travel_approver_for_sale_order(self.employee.id),
             self.line_manager.id,
         )
+        self.assertEqual(
+            self.Users.get_travel_approver_for_standalone(self.employee.id),
+            self.settings_approver.id,
+        )
 
-    def test_requester_is_not_assigned_as_own_approver(self):
-        self.company.with_context(skip_business_trip_role_sync=True).write(
-            {"business_trip_sale_order_approver_id": self.settings_approver.id}
+    def test_employee_without_manager_or_subordinates_never_self_approves(self):
+        """A record that just never got a manager is not the top of anything."""
+        self._set_sale_order_approver(self.settings_approver)
+        self._set_standalone_approver(self.settings_approver)
+        self.assertFalse(self.Users._is_top_of_hierarchy(self.orphan.id))
+        self.assertEqual(
+            self.Users.get_travel_approver_for_sale_order(self.orphan.id),
+            self.settings_approver.id,
         )
         self.assertEqual(
-            self.Users.get_travel_approver_for_sale_order(self.settings_approver.id),
-            self.line_manager.id,
+            self.Users.get_travel_approver_for_standalone(self.orphan.id),
+            self.settings_approver.id,
         )
