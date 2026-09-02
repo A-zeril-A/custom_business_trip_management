@@ -810,14 +810,50 @@ class BusinessTripProjectSelectionWizard(models.TransientModel):
         res['ui_flow'] = flow or 'employee'
         return res
     
+    def _get_project_sale_order(self, requester):
+        """Return the sales order behind the selected project, when usable.
+
+        A project created from a quotation keeps its order line, so a request
+        raised against such a project belongs to that order even when the
+        employee started from the standalone path. Cancelled orders are
+        ignored, as are orders from a company the requester does not work
+        for, since a trip and its order must share a company.
+
+        The trip form reads its order as the employee who opens it, so a
+        requester without access to sales orders keeps the standalone route
+        rather than a request they could not open afterwards.
+        """
+        self.ensure_one()
+        sale_order = self.project_id.sudo().sale_order_id
+        if not sale_order or sale_order.state == 'cancel':
+            return self.env['sale.order']
+        if sale_order.company_id not in requester.company_ids:
+            return self.env['sale.order']
+        if not sale_order.with_user(requester).has_access('read'):
+            return self.env['sale.order']
+        return sale_order
+
     def action_create_trip_with_project(self):
-        """Create or update a standalone business trip with the selected project."""
+        """Create or update a business trip with the selected project.
+
+        When the selected project comes from a sales order the trip is linked
+        to that order and follows the sale-order approval route, the same way
+        a request started from the quotation list does. Two projects covering
+        the same physical work under different orders are easy to mix up, so
+        the order the project belongs to decides the route rather than the
+        path the employee happened to take. Projects without an order keep the
+        standalone behaviour, including the placeholder task the approval step
+        relies on.
+        """
         self.ensure_one()
         if not self.project_id:
             raise UserError("Please select a project.")
         
         current_user = self.env.user
         business_trip = self.trip_id
+        project_sale_order = self._get_project_sale_order(
+            business_trip.user_id or current_user
+        )
         if business_trip:
             if not (
                 business_trip.user_id == current_user
@@ -830,34 +866,53 @@ class BusinessTripProjectSelectionWizard(models.TransientModel):
                 raise UserError(
                     "You cannot link a project to this business trip."
                 )
+            # An approver may relink a project while reviewing a request, so
+            # the order is adopted only while nobody has reviewed it yet and a
+            # trip and its order must share a company.
+            if (
+                project_sale_order
+                and not business_trip.sale_order_id
+                and business_trip.trip_status in ('draft', 'returned')
+                and project_sale_order.company_id == business_trip.company_id
+            ):
+                business_trip.write({'sale_order_id': project_sale_order.id})
         else:
-            # Create a new standalone trip when called from the main menu.
+            # Called from the main menu: the order, when the project has one,
+            # lets business.trip.create() resolve the company and the
+            # sale-order approver right away.
             business_trip = self.env['business.trip'].create({
                 'user_id': current_user.id,
+                'sale_order_id': project_sale_order.id,
             })
 
         self.project_id.check_access_rights('read')
         self.project_id.check_access_rule('read')
-        
-        # Create a task in the selected project with a unique name
-        task_name = f"Business Trip: {business_trip.name} - {current_user.name}"
-        # Create a zero-budget task container; planned hours can be assigned later.
-        # This avoids blocking automated flows and remains compatible with custom planned-hours enforcement.
-        task = self.env['project.task'].sudo().with_context(allow_missing_allocated_hours=True).create({
-            'name': task_name,
-            'project_id': self.project_id.id,
-            'user_ids': [(6, 0, [current_user.id])],
-            'description': f"Task created for business trip request: {business_trip.name}"
-        })
-        
-        # Store the selected project and task on the business trip
-        business_trip.write({
-            'selected_project_id': self.project_id.id,
-            'selected_project_task_id': task.id,
-            # Also store the generic project/task fields to make downstream flows resilient.
-            'business_trip_project_id': self.project_id.id,
-            'business_trip_task_id': task.id,
-        })
+
+        if business_trip.sale_order_id:
+            # Sale-order trips receive their project and task when the approver
+            # assigns the organizer, so no placeholder task is created here.
+            trip_basis = f"sales order: {business_trip.sale_order_id.name}"
+        else:
+            # Create a task in the selected project with a unique name
+            task_name = f"Business Trip: {business_trip.name} - {current_user.name}"
+            # Create a zero-budget task container; planned hours can be assigned later.
+            # This avoids blocking automated flows and remains compatible with custom planned-hours enforcement.
+            task = self.env['project.task'].sudo().with_context(allow_missing_allocated_hours=True).create({
+                'name': task_name,
+                'project_id': self.project_id.id,
+                'user_ids': [(6, 0, [current_user.id])],
+                'description': f"Task created for business trip request: {business_trip.name}"
+            })
+
+            # Store the selected project and task on the business trip
+            business_trip.write({
+                'selected_project_id': self.project_id.id,
+                'selected_project_task_id': task.id,
+                # Also store the generic project/task fields to make downstream flows resilient.
+                'business_trip_project_id': self.project_id.id,
+                'business_trip_task_id': task.id,
+            })
+            trip_basis = f"project: {self.project_id.name}"
         
         # Modified by A_zeril_A, 2025-10-20: Removed formio dependency
         # Get the automatically created form
@@ -872,41 +927,36 @@ class BusinessTripProjectSelectionWizard(models.TransientModel):
             name_parts = partner.name.split(' ', 1) if partner.name else ['', '']
             last_name_val = name_parts[0]
             first_name_val = name_parts[1] if len(name_parts) > 1 else ''
-            
-            # Determine the Travel Approver for Standalone trips
-            travel_approver_id = self.env['res.users'].sudo().with_company(
-                business_trip.company_id
-            ).get_travel_approver_for_standalone(current_user.id)
-            travel_approver_name = ""
-            if travel_approver_id:
-                travel_approver_user = self.env['res.users'].sudo().browse(travel_approver_id)
-                if travel_approver_user:
-                    travel_approver_name = travel_approver_user.name
 
-                    travel_approver_user.ensure_business_trip_approver_capability()
-            
-            initial_data = {
-                "first_name": first_name_val,
-                "last_name": last_name_val,
-                "trip_basis_text": f"Standalone business trip request for project: {self.project_id.name}",
-                "approving_colleague_name": travel_approver_name,
-                "data": {}
-            }
-            
             # Modified by A_zeril_A, 2025-10-20: Removed formio dependency - form data is now handled directly in business_trip_data
             # Update business_trip_data with initial submission data
             if business_trip.business_trip_data_id:
                 business_trip.business_trip_data_id.write({
                     'first_name': first_name_val,
                     'last_name': last_name_val,
-                    'purpose': f"Standalone business trip request for project: {self.project_id.name}",
+                    'purpose': f"Business trip request for {trip_basis}",
                 })
-            
-            # Process the initial data (no longer needed as formio is removed)
-            # form.sudo().after_submit()
-            
-            # Set the Travel Approver on the business trip record
+
+        # The approver is resolved for the requester rather than for whoever
+        # runs the wizard, and only while the request has not been reviewed
+        # yet, so an approver relinking a project never hands the trip over in
+        # the middle of their own review.
+        if business_trip.trip_status in ('draft', 'returned'):
+            approver_model = self.env['res.users'].sudo().with_company(
+                business_trip.company_id
+            )
+            if business_trip.sale_order_id:
+                travel_approver_id = approver_model.get_travel_approver_for_sale_order(
+                    business_trip.user_id.id
+                )
+            else:
+                travel_approver_id = approver_model.get_travel_approver_for_standalone(
+                    business_trip.user_id.id
+                )
             if travel_approver_id:
+                approver_model.browse(
+                    travel_approver_id
+                ).ensure_business_trip_approver_capability()
                 business_trip.with_context(
                     authorized_business_trip_assignment=True,
                 ).write({'manager_id': travel_approver_id})

@@ -5,3 +5,4 @@ from . import test_organizer_handover
 from . import test_role_revocation
 from . import test_mail_message_confidential
 from . import test_travel_approver_lookup
+from . import test_project_selection_sale_order_link
