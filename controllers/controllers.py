@@ -170,8 +170,7 @@ class BusinessTripController(http.Controller):
         sale_order = request.env['sale.order'].browse(sale_order_id)
         if not sale_order.exists():
             return request.not_found()
-        sale_order.check_access_rights('read')
-        sale_order.check_access_rule('read')
+        sale_order.check_access('read')
 
         try:
             current_user = request.env.user

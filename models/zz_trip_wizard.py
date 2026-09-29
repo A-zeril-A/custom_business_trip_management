@@ -885,8 +885,7 @@ class BusinessTripProjectSelectionWizard(models.TransientModel):
                 'sale_order_id': project_sale_order.id,
             })
 
-        self.project_id.check_access_rights('read')
-        self.project_id.check_access_rule('read')
+        self.project_id.check_access('read')
 
         if business_trip.sale_order_id:
             # Sale-order trips receive their project and task when the approver
@@ -1074,7 +1073,7 @@ class BusinessTripOrganizerPlanWizard(models.TransientModel):
             # Ensure organizer_planned_cost is properly updated
             self._update_organizer_planned_cost()
     
-    @api.onchange('plan_item_ids', 'plan_item_ids.cost')
+    @api.onchange('plan_item_ids')
     def _onchange_plan_items(self):
         """Update organizer_planned_cost when plan items change (only in auto mode)"""
         if not self.manual_cost_entry:

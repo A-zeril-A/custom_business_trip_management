@@ -126,7 +126,7 @@
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Residence City:'"/><t t-set="value" t-value="record.accommodation_residence_city"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Check-in Date:'"/><t t-set="value" t-value="record.accommodation_check_in_date"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Check-out Date:'"/><t t-set="value" t-value="record.accommodation_check_out_date"/></t>
-                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'24h Reception Needed:'"/><t t-set="value" t-value="record.accommodation_need_24h_reception == 'yes'" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'24h Reception Needed:'"/><t t-set="value" t-value="record.accommodation_need_24h_reception == 'yes'"/><t t-set="is_boolean" t-value="True"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Points of Interest:'"/><t t-set="value" t-value="record.accommodation_points_of_interest"/></t>
                 </ul>
             </t>
@@ -143,21 +143,21 @@
             <!-- OUTBOUND -->
             <h4 style="border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-top: 15px; font-weight: bold;">Outbound Journey Details</h4>
             <ul style="list-style-type: none; padding-left: 10px;">
-                <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Using Personal Car:'"/><t t-set="value" t-value="record.use_personal_car" t-set-is_boolean="True"/></t>
-                <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Using Company Car:'"/><t t-set="value" t-value="record.use_company_car" t-set-is_boolean="True"/></t>
+                <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Using Personal Car:'"/><t t-set="value" t-value="record.use_personal_car"/><t t-set="is_boolean" t-value="True"/></t>
+                <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Using Company Car:'"/><t t-set="value" t-value="record.use_company_car"/><t t-set="is_boolean" t-value="True"/></t>
             </ul>
             <t t-if="record.use_rental_car">
                 <h5 style="font-weight: bold; margin-top: 10px; padding-left: 10px;">Rental Car</h5>
                 <ul style="list-style-type: none; padding-left: 20px;">
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Pickup Point:'"/><t t-set="value" t-value="record.rental_car_pickup_point"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Pickup Date:'"/><t t-set="value" t-value="record.rental_car_pickup_date"/></t>
-                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Pickup Date Flexible:'"/><t t-set="value" t-value="record.rental_car_pickup_flexible" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Pickup Date Flexible:'"/><t t-set="value" t-value="record.rental_car_pickup_flexible"/><t t-set="is_boolean" t-value="True"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Drop-off Point:'"/><t t-set="value" t-value="record.rental_car_dropoff_point"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Drop-off Date:'"/><t t-set="value" t-value="record.rental_car_dropoff_date"/></t>
-                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Drop-off Date Flexible:'"/><t t-set="value" t-value="record.rental_car_dropoff_flexible" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Drop-off Date Flexible:'"/><t t-set="value" t-value="record.rental_car_dropoff_flexible"/><t t-set="is_boolean" t-value="True"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Rental Type:'"/><t t-set="value" t-value="dict(record._fields['rental_car_type'].selection).get(record.rental_car_type)"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Credit Card Available:'"/><t t-set="value" t-value="dict(record._fields['rental_car_credit_card'].selection).get(record.rental_car_credit_card)"/></t>
-                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Unlimited Kilometers:'"/><t t-set="value" t-value="record.rental_car_unlimited_km" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Unlimited Kilometers:'"/><t t-set="value" t-value="record.rental_car_unlimited_km"/><t t-set="is_boolean" t-value="True"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item" condition="not record.rental_car_unlimited_km"><t t-set="label" t-value="'Kilometer Limit:'"/><t t-set="value" t-value="record.rental_car_kilometer_limit"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Preferences:'"/><t t-set="value" t-value="record.rental_car_preferences"/></t>
                 </ul>
@@ -167,10 +167,10 @@
                 <ul style="list-style-type: none; padding-left: 20px;">
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Airport:'"/><t t-set="value" t-value="record.airplane_departure_airport"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date:'"/><t t-set="value" t-value="record.airplane_departure_date"/></t>
-                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date Flexible:'"/><t t-set="value" t-value="record.airplane_departure_flexible" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date Flexible:'"/><t t-set="value" t-value="record.airplane_departure_flexible"/><t t-set="is_boolean" t-value="True"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Airport:'"/><t t-set="value" t-value="record.airplane_arrival_airport"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date:'"/><t t-set="value" t-value="record.airplane_arrival_date"/></t>
-                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date Flexible:'"/><t t-set="value" t-value="record.airplane_arrival_flexible" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date Flexible:'"/><t t-set="value" t-value="record.airplane_arrival_flexible"/><t t-set="is_boolean" t-value="True"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Baggage:'"/><t t-set="value" t-value="dict(record._fields['airplane_baggage_type'].selection).get(record.airplane_baggage_type)"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Preferences:'"/><t t-set="value" t-value="record.airplane_preferences"/></t>
                 </ul>
@@ -181,10 +181,10 @@
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure City:'"/><t t-set="value" t-value="record.train_departure_city"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Station:'"/><t t-set="value" t-value="record.train_departure_station"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date:'"/><t t-set="value" t-value="record.train_departure_date"/></t>
-                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date Flexible:'"/><t t-set="value" t-value="record.train_departure_flexible" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date Flexible:'"/><t t-set="value" t-value="record.train_departure_flexible"/><t t-set="is_boolean" t-value="True"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Station:'"/><t t-set="value" t-value="record.train_arrival_station"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date:'"/><t t-set="value" t-value="record.train_arrival_date"/></t>
-                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date Flexible:'"/><t t-set="value" t-value="record.train_arrival_flexible" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date Flexible:'"/><t t-set="value" t-value="record.train_arrival_flexible"/><t t-set="is_boolean" t-value="True"/></t>
                 </ul>
             </t>
             <t t-if="record.use_bus">
@@ -193,10 +193,10 @@
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure City:'"/><t t-set="value" t-value="record.bus_departure_city"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Terminal:'"/><t t-set="value" t-value="record.bus_departure_terminal"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date:'"/><t t-set="value" t-value="record.bus_departure_date"/></t>
-                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date Flexible:'"/><t t-set="value" t-value="record.bus_departure_flexible" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date Flexible:'"/><t t-set="value" t-value="record.bus_departure_flexible"/><t t-set="is_boolean" t-value="True"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Terminal:'"/><t t-set="value" t-value="record.bus_arrival_terminal"/></t>
                     <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date:'"/><t t-set="value" t-value="record.bus_arrival_date"/></t>
-                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date Flexible:'"/><t t-set="value" t-value="record.bus_arrival_flexible" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date Flexible:'"/><t t-set="value" t-value="record.bus_arrival_flexible"/><t t-set="is_boolean" t-value="True"/></t>
                 </ul>
             </t>
 
@@ -204,21 +204,21 @@
             <t t-if="record.trip_type == 'twoWay'">
                 <h4 style="border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-top: 15px; font-weight: bold;">Return Journey Details</h4>
                 <ul style="list-style-type: none; padding-left: 10px;">
-                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Using Personal Car:'"/><t t-set="value" t-value="record.use_return_personal_car" t-set-is_boolean="True"/></t>
-                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Using Company Car:'"/><t t-set="value" t-value="record.use_return_company_car" t-set-is_boolean="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Using Personal Car:'"/><t t-set="value" t-value="record.use_return_personal_car"/><t t-set="is_boolean" t-value="True"/></t>
+                    <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Using Company Car:'"/><t t-set="value" t-value="record.use_return_company_car"/><t t-set="is_boolean" t-value="True"/></t>
                 </ul>
                 <t t-if="record.use_return_rental_car">
                     <h5 style="font-weight: bold; margin-top: 10px; padding-left: 10px;">Rental Car (Return)</h5>
                     <ul style="list-style-type: none; padding-left: 20px;">
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Pickup Point:'"/><t t-set="value" t-value="record.return_rental_car_pickup_point"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Pickup Date:'"/><t t-set="value" t-value="record.return_rental_car_pickup_date"/></t>
-                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Pickup Date Flexible:'"/><t t-set="value" t-value="record.return_rental_car_pickup_flexible" t-set-is_boolean="True"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Pickup Date Flexible:'"/><t t-set="value" t-value="record.return_rental_car_pickup_flexible"/><t t-set="is_boolean" t-value="True"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Drop-off Point:'"/><t t-set="value" t-value="record.return_rental_car_dropoff_point"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Drop-off Date:'"/><t t-set="value" t-value="record.return_rental_car_dropoff_date"/></t>
-                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Drop-off Date Flexible:'"/><t t-set="value" t-value="record.return_rental_car_dropoff_flexible" t-set-is_boolean="True"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Drop-off Date Flexible:'"/><t t-set="value" t-value="record.return_rental_car_dropoff_flexible"/><t t-set="is_boolean" t-value="True"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Rental Type:'"/><t t-set="value" t-value="dict(record._fields['return_rental_car_type'].selection).get(record.return_rental_car_type)"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Credit Card Available:'"/><t t-set="value" t-value="dict(record._fields['return_rental_car_credit_card'].selection).get(record.return_rental_car_credit_card)"/></t>
-                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Unlimited Kilometers:'"/><t t-set="value" t-value="record.return_rental_car_unlimited_km" t-set-is_boolean="True"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Unlimited Kilometers:'"/><t t-set="value" t-value="record.return_rental_car_unlimited_km"/><t t-set="is_boolean" t-value="True"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item" condition="not record.return_rental_car_unlimited_km"><t t-set="label" t-value="'Kilometer Limit:'"/><t t-set="value" t-value="record.return_rental_car_kilometer_limit"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Preferences:'"/><t t-set="value" t-value="record.return_rental_car_preferences"/></t>
                     </ul>
@@ -228,10 +228,10 @@
                     <ul style="list-style-type: none; padding-left: 20px;">
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Airport:'"/><t t-set="value" t-value="record.return_airplane_departure_airport"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date:'"/><t t-set="value" t-value="record.return_airplane_departure_date"/></t>
-                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date Flexible:'"/><t t-set="value" t-value="record.return_airplane_departure_flexible" t-set-is_boolean="True"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date Flexible:'"/><t t-set="value" t-value="record.return_airplane_departure_flexible"/><t t-set="is_boolean" t-value="True"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Destination Airport:'"/><t t-set="value" t-value="record.return_airplane_destination_airport"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Destination Date:'"/><t t-set="value" t-value="record.return_airplane_destination_date"/></t>
-                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Destination Date Flexible:'"/><t t-set="value" t-value="record.return_airplane_destination_flexible" t-set-is_boolean="True"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Destination Date Flexible:'"/><t t-set="value" t-value="record.return_airplane_destination_flexible"/><t t-set="is_boolean" t-value="True"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Baggage:'"/><t t-set="value" t-value="dict(record._fields['return_airplane_baggage_type'].selection).get(record.return_airplane_baggage_type)"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Preferences:'"/><t t-set="value" t-value="record.return_airplane_preferences"/></t>
                     </ul>
@@ -242,10 +242,10 @@
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure City:'"/><t t-set="value" t-value="record.return_train_departure_city"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Station:'"/><t t-set="value" t-value="record.return_train_departure_station"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date:'"/><t t-set="value" t-value="record.return_train_departure_date"/></t>
-                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date Flexible:'"/><t t-set="value" t-value="record.return_train_departure_flexible" t-set-is_boolean="True"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date Flexible:'"/><t t-set="value" t-value="record.return_train_departure_flexible"/><t t-set="is_boolean" t-value="True"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Station:'"/><t t-set="value" t-value="record.return_train_arrival_station"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date:'"/><t t-set="value" t-value="record.return_train_arrival_date"/></t>
-                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date Flexible:'"/><t t-set="value" t-value="record.return_train_arrival_flexible" t-set-is_boolean="True"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date Flexible:'"/><t t-set="value" t-value="record.return_train_arrival_flexible"/><t t-set="is_boolean" t-value="True"/></t>
                     </ul>
                 </t>
                  <t t-if="record.use_return_bus">
@@ -254,10 +254,10 @@
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure City:'"/><t t-set="value" t-value="record.return_bus_departure_city"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Station:'"/><t t-set="value" t-value="record.return_bus_departure_station"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date:'"/><t t-set="value" t-value="record.return_bus_departure_date"/></t>
-                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date Flexible:'"/><t t-set="value" t-value="record.return_bus_departure_flexible" t-set-is_boolean="True"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Departure Date Flexible:'"/><t t-set="value" t-value="record.return_bus_departure_flexible"/><t t-set="is_boolean" t-value="True"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Station:'"/><t t-set="value" t-value="record.return_bus_arrival_station"/></t>
                         <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date:'"/><t t-set="value" t-value="record.return_bus_arrival_date"/></t>
-                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date Flexible:'"/><t t-set="value" t-value="record.return_bus_arrival_flexible" t-set-is_boolean="True"/></t>
+                        <t t-call="custom_business_trip_management.chatter_detail_item"><t t-set="label" t-value="'Arrival Date Flexible:'"/><t t-set="value" t-value="record.return_bus_arrival_flexible"/><t t-set="is_boolean" t-value="True"/></t>
                     </ul>
                 </t>
             </t>
